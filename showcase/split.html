@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Two agents, one PR — the coder / reviewer split</title>
+<style>
+  :root {
+    --bg: #0d1017;
+    --bg-elev: #151a23;
+    --bg-card: #1a2029;
+    --border: #262f3d;
+    --border-strong: #33405280;
+    --text: #e6edf3;
+    --text-dim: #9aa7b8;
+    --text-faint: #6b7688;
+    --orch: #fb923c;
+    --coder: #60a5fa;
+    --reviewer: #f472b6;
+    --shared: #22d3ee;
+    --found: #34d399;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background:
+      radial-gradient(1100px 560px at 8% -10%, #1a2740 0%, transparent 55%),
+      radial-gradient(1100px 560px at 100% -10%, #2a1a2e 0%, transparent 55%),
+      var(--bg);
+    color: var(--text); line-height: 1.5; -webkit-font-smoothing: antialiased; min-height: 100vh;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  a.back { display: inline-block; margin: 26px 8px 0 0; font-family: var(--mono); font-size: 13px;
+    color: var(--text-dim); text-decoration: none; padding: 5px 12px; border: 1px solid var(--border);
+    border-radius: 8px; transition: .15s; }
+  a.back:hover { color: var(--text); background: var(--bg-card); }
+
+  header { padding: 28px 0 24px; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 14px; }
+  h1 { font-size: clamp(28px, 5vw, 44px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.06;
+       background: linear-gradient(180deg, #fff 0%, #b9c6d8 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  h1 .c { -webkit-text-fill-color: var(--coder); color: var(--coder); }
+  h1 .r { -webkit-text-fill-color: var(--reviewer); color: var(--reviewer); }
+  .lede { margin-top: 18px; max-width: 780px; font-size: 16.5px; color: var(--text-dim); }
+  .lede b { color: var(--text); font-weight: 600; }
+
+  /* shared full-width bands */
+  .band { border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); position: relative; overflow: hidden; }
+  .band::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+  .band .inner { display: grid; grid-template-columns: 150px 1fr; align-items: center; }
+  .band .rail { padding: 15px 16px; border-right: 1px solid var(--border); background: #ffffff05; }
+  .band .rail .tier { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); font-weight: 600; display: block; }
+  .band .rail .note { font-size: 11.5px; color: var(--text-faint); line-height: 1.4; margin-top: 3px; }
+  .band .content { padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
+
+  .down { text-align: center; color: var(--text-faint); font-size: 13px; margin: 9px 0; font-family: var(--mono); }
+
+  /* chips */
+  .chip { display: inline-flex; flex-direction: column; gap: 3px; border: 1px solid var(--chip-b, var(--border-strong));
+    border-radius: 10px; padding: 8px 12px; background: var(--chip-bg, #ffffff06); }
+  .chip .cn { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--chip-c, #fff); }
+  .chip .cd { font-size: 11px; color: var(--text-faint); line-height: 1.35; max-width: 250px; }
+  .chip.orch { --chip-b: #fb923c55; --chip-bg: #fb923c14; --chip-c: #ffd7a0; }
+  .chip.coder { --chip-b: #60a5fa55; --chip-bg: #60a5fa14; --chip-c: #bcd7ff; }
+  .chip.reviewer { --chip-b: #f472b655; --chip-bg: #f472b614; --chip-c: #ffc3e0; }
+  .chip.shared { --chip-b: #22d3ee44; --chip-bg: #22d3ee10; --chip-c: #a5f3fc; }
+  .chip.found { --chip-b: #34d39955; --chip-bg: #34d39912; --chip-c: #a7f3d0; }
+  .chip.lens { --chip-b: var(--lensc); --chip-bg: #ffffff10; --chip-c: #fff; }
+
+  /* ==== the split ==== */
+  .split { display: grid; grid-template-columns: 1fr 132px 1fr; gap: 0; align-items: stretch; margin: 0; }
+  .col { border: 1px solid var(--cb); border-radius: 16px; background: var(--bg-card); overflow: hidden; }
+  .col.coder { --cb: #60a5fa40; --ca: var(--coder); }
+  .col.reviewer { --cb: #f472b640; --ca: var(--reviewer); }
+  .col-head { padding: 16px 18px; background: var(--ch); border-bottom: 1px solid var(--cb); }
+  .col.coder .col-head { --ch: linear-gradient(180deg,#60a5fa1c,transparent); }
+  .col.reviewer .col-head { --ch: linear-gradient(180deg,#f472b61c,transparent); }
+  .col-head .tag { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ca); }
+  .col-head .name { font-family: var(--mono); font-size: 18px; font-weight: 700; color: #fff; margin-top: 4px; }
+  .col-head .role { font-size: 12.5px; color: var(--text-dim); margin-top: 3px; }
+  .col-sec { padding: 13px 16px; border-top: 1px solid var(--border); }
+  .col-sec:first-of-type { border-top: none; }
+  .col-sec .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 9px; }
+  .col-sec .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .col-goal { padding: 13px 16px; border-top: 1px solid var(--cb); background: #ffffff05; font-size: 13px; color: var(--text-dim); }
+  .col-goal b { color: var(--ca); font-weight: 700; }
+
+  /* the "does" capability list */
+  .does { display: flex; flex-direction: column; gap: 8px; }
+  .do { display: flex; gap: 8px; align-items: baseline; }
+  .do .bul { color: var(--ca); font-size: 10px; line-height: 1.5; flex: 0 0 auto; }
+  .do .ab { font-family: var(--mono); font-size: 10px; font-weight: 800; color: #0d1017; border-radius: 5px;
+    padding: 1px 5px; flex: 0 0 auto; line-height: 1.5; }
+  .do .dt { font-family: var(--mono); font-size: 11.5px; color: var(--ca); font-weight: 600; }
+  .do .dd { font-size: 11.5px; color: var(--text-dim); line-height: 1.4; }
+
+  /* test-lane split callout */
+  .lanenote { grid-column: 1 / -1; margin: 14px 0 0; border: 1px solid #34d39933; background: #34d3990c;
+    border-radius: 12px; padding: 12px 16px; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  .lanenote b { color: #a7f3d0; font-weight: 650; }
+  .lanenote .cf { color: var(--coder); font-weight: 650; }
+  .lanenote .rf { color: var(--reviewer); font-weight: 650; }
+
+  /* center exchange */
+  .exchange { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 8px 6px; }
+  .ex-pipe { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; }
+  .ex-arrow { font-size: 20px; line-height: 1; }
+  .ex-arrow.r { color: var(--coder); }
+  .ex-arrow.l { color: var(--reviewer); }
+  .ex-node { font-family: var(--mono); font-size: 11px; text-align: center; padding: 7px 9px; border: 1px solid var(--border-strong);
+    border-radius: 9px; background: var(--bg-elev); color: var(--text-dim); width: 100%; }
+  .ex-node b { display: block; color: #fff; font-size: 12px; margin-bottom: 1px; }
+  .ex-cap { font-size: 10.5px; color: var(--text-faint); text-align: center; line-height: 1.4; }
+
+  /* meet arrows from orch into columns */
+  .fork { display: grid; grid-template-columns: 1fr 132px 1fr; margin: 8px 0; }
+  .fork .f { text-align: center; color: var(--text-faint); font-family: var(--mono); font-size: 12px; }
+  .fork .f.mid { color: transparent; }
+
+  /* converge */
+  .converge { display: grid; grid-template-columns: 1fr 132px 1fr; margin: 8px 0; }
+  .converge .f { text-align: center; color: var(--text-faint); font-family: var(--mono); font-size: 12px; }
+
+  h2.sec { font-size: 13px; font-family: var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--text-faint); margin: 52px 0 8px; }
+  .sec-sub { color: var(--text-dim); font-size: 15px; max-width: 780px; margin-bottom: 22px; }
+
+  .why { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .card { border: 1px solid var(--border); border-radius: 13px; padding: 16px 18px; background: var(--bg-card); position: relative; }
+  .card::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 3px; background: var(--kc); }
+  .card .k { font-size: 15px; font-weight: 650; margin-bottom: 6px; }
+  .card .v { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+
+  /* orchestrator responsibility pills */
+  .pills { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+  .pill { font-family: var(--mono); font-size: 11px; color: var(--text-dim); border: 1px solid #fb923c33;
+    border-radius: 999px; padding: 4px 11px; background: #fb923c0d; }
+  .pill b { color: #ffd7a0; font-weight: 600; }
+
+  /* verdict routing ladder */
+  .route { display: flex; flex-direction: column; gap: 9px; }
+  .rt { display: grid; grid-template-columns: 210px 20px 1fr; align-items: center; gap: 12px;
+    border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; background: var(--bg-card); position: relative; overflow: hidden; }
+  .rt::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--rc); }
+  .rt .cond { font-family: var(--mono); font-size: 12.5px; color: var(--text); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .rt .vb { font-size: 10.5px; font-weight: 800; color: #0d1017; padding: 2px 7px; border-radius: 6px; background: var(--rc); }
+  .rt .arr { color: var(--rc); font-size: 16px; text-align: center; }
+  .rt .act { font-size: 13px; color: var(--text-dim); line-height: 1.45; }
+  .rt .act b { color: var(--text); font-weight: 600; font-family: var(--mono); font-size: 12.5px; }
+  .rt .act i { color: var(--text-faint); }
+  @media (max-width: 620px) { .rt { grid-template-columns: 1fr; } .rt .arr { display: none; } }
+
+  .verdict { margin-top: 22px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-elev); padding: 18px 22px; font-size: 14.5px; color: var(--text-dim); line-height: 1.6; }
+  .verdict b { color: var(--text); font-weight: 650; }
+  .verdict .cf { color: var(--coder); font-weight: 650; }
+  .verdict .rf { color: var(--reviewer); font-weight: 650; }
+
+  footer { margin: 54px 0 46px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--text-faint); font-size: 13px; line-height: 1.7; }
+  footer code { font-family: var(--mono); color: var(--text-dim); }
+
+  @media (max-width: 820px) {
+    .split, .fork, .converge { grid-template-columns: 1fr; }
+    .exchange { flex-direction: row; padding: 16px 0; }
+    .ex-pipe { flex-direction: row; }
+    .fork .f.mid, .fork .f:last-child { display: none; }
+    .fork .f:first-child::after { content: " — both dispatched"; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← the full library</a>
+  <a class="back" href="stack.html">← the /ship-feature stack</a>
+</div>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow">Separation of concerns · why two agents</div>
+    <h1>Two agents, one PR: the <span class="c">coder</span> / <span class="r">reviewer</span> split</h1>
+    <p class="lede">
+      The orchestrator and the loop are shared — but the two agents inside it are <b>deliberately not the same</b>.
+      They run different skills, load different lenses, and chase different goals. They only ever meet at the <b>PR</b>.
+      That separation is what makes an autonomous review trustworthy: the thing grading the code isn't the thing that wrote it.
+    </p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- shared orchestrator -->
+  <div class="band" style="--accent: var(--orch)">
+    <div class="inner">
+      <div class="rail"><span class="tier" style="--accent:var(--orch)">Shared · orchestrator</span><span class="note">dispatches both</span></div>
+      <div class="content" style="flex-direction:column; align-items:flex-start; gap:0">
+        <div class="chip orch"><span class="cn">ship-feature</span><span class="cd">Owns the loop &amp; escalation policy. Spawns one coder and one reviewer per PR — then just routes their verdicts. It writes no code and grades nothing itself.</span></div>
+        <div class="pills">
+          <span class="pill"><b>loops</b> every child · Blocked-by order</span>
+          <span class="pill"><b>dispatches</b> coder + reviewer per PR</span>
+          <span class="pill"><b>routes</b> every verdict (see below)</span>
+          <span class="pill"><b>finalizes</b> PRD → master</span>
+          <span class="pill"><b>never halts</b> · logs residue</span>
+          <span class="pill"><b>isolates</b> in git worktrees</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fork">
+    <div class="f">↙ dispatch coder</div>
+    <div class="f mid">·</div>
+    <div class="f">dispatch reviewer ↘</div>
+  </div>
+
+  <!-- the split -->
+  <div class="split">
+
+    <!-- CODER -->
+    <div class="col coder">
+      <div class="col-head">
+        <div class="tag">agent · workhorse model</div>
+        <div class="name">afk-coder</div>
+        <div class="role">Persists across rounds on one PR — it remembers what it built.</div>
+      </div>
+      <div class="col-sec">
+        <div class="lbl">runs — two skills, by round</div>
+        <div class="chips">
+          <div class="chip coder"><span class="cn">afk-execute-issue</span><span class="cd">Round 1 — branch, build, open PR.</span></div>
+          <div class="chip coder"><span class="cn">afk-address-pr</span><span class="cd">Rounds 2–N — fix threads, push.</span></div>
+        </div>
+      </div>
+      <div class="col-sec">
+        <div class="lbl">does</div>
+        <div class="does">
+          <div class="do"><span class="bul">●</span><span><span class="dt">Implement</span> <span class="dd">— TDD red-green, then a pre-PR consolidation pass.</span></span></div>
+          <div class="do"><span class="bul">●</span><span><span class="dt">Classify threads</span> <span class="dd">— in-scope-fix / out-of-scope / contradiction / AC-conflict.</span></span></div>
+          <div class="do"><span class="bul">●</span><span><span class="dt">Push back</span> <span class="dd">— out-of-scope concerns get a reply, never a silent fix.</span></span></div>
+          <div class="do"><span class="bul">●</span><span><span class="dt">Localize regressions</span> <span class="dd">— never skips or disables a test.</span></span></div>
+          <div class="do"><span class="bul">●</span><span><span class="dt">Pre-push gate</span> <span class="dd">— the <b>fast local lane</b> must be green before it commits.</span></span></div>
+        </div>
+      </div>
+      <div class="col-sec">
+        <div class="lbl">lens — how to build</div>
+        <div class="chips">
+          <div class="chip lens" style="--lensc: var(--coder)"><span class="cn">vsa-tdd · coder lens</span><span class="cd">The generated build manifest.</span></div>
+          <div class="chip coder"><span class="cn">vsa</span><span class="cd">Where the slice goes.</span></div>
+          <div class="chip coder"><span class="cn">dotnet-backend</span><span class="cd">How to write it.</span></div>
+          <div class="chip coder"><span class="cn">codebase-design</span><span class="cd">Deep-module shape.</span></div>
+        </div>
+      </div>
+      <div class="col-goal">Goal — make <b>Axis A</b> (requirements) pass, in clean code, with honest tests.</div>
+    </div>
+
+    <!-- EXCHANGE -->
+    <div class="exchange">
+      <div class="ex-pipe">
+        <div class="ex-node"><b>the PR</b>code + tests</div>
+        <div class="ex-arrow r">▶</div>
+        <div class="ex-cap">coder opens it</div>
+      </div>
+      <div class="ex-pipe">
+        <div class="ex-cap">reviewer answers</div>
+        <div class="ex-arrow l">◀</div>
+        <div class="ex-node"><b>review threads</b>Axis A · B · C + verdict</div>
+      </div>
+    </div>
+
+    <!-- REVIEWER -->
+    <div class="col reviewer">
+      <div class="col-head">
+        <div class="tag">agent · workhorse model</div>
+        <div class="name">afk-reviewer</div>
+        <div class="role">Cold context, fresh per PR — it can't be argued into approving.</div>
+      </div>
+      <div class="col-sec">
+        <div class="lbl">runs — one skill, three axes</div>
+        <div class="chips">
+          <div class="chip reviewer"><span class="cn">afk-review-pr</span><span class="cd">Grades, arbitrates pushback, reads CI, emits the verdict.</span></div>
+        </div>
+      </div>
+      <div class="col-sec">
+        <div class="lbl">does</div>
+        <div class="does">
+          <div class="do"><span class="ab" style="background:#f472b6">A</span><span><span class="dt">Requirements</span> <span class="dd">— grade the diff against every Acceptance Criterion.</span></span></div>
+          <div class="do"><span class="ab" style="background:#fbbf24">B</span><span><span class="dt">Standards</span> <span class="dd">— rule files per touched area, + a module-root census.</span></span></div>
+          <div class="do"><span class="ab" style="background:#f87171">C</span><span><span class="dt">CI</span> <span class="dd">— read the slow lanes on the reviewed SHA. <b>Never conceded.</b></span></span></div>
+          <div class="do"><span class="bul">●</span><span><span class="dt">Arbitrate pushback</span> <span class="dd">— accept or reject the coder's out-of-scope replies.</span></span></div>
+          <div class="do"><span class="bul">●</span><span><span class="dt">Suppress conceded</span> <span class="dd">— skip Axis-B findings already conceded in cleanup.</span></span></div>
+          <div class="do"><span class="bul">●</span><span><span class="dt">Track rejects</span> <span class="dd">— 3 rounds on a thread ⇒ concession trigger.</span></span></div>
+        </div>
+      </div>
+      <div class="col-sec">
+        <div class="lbl">lens — how to judge</div>
+        <div class="chips">
+          <div class="chip lens" style="--lensc: var(--reviewer)"><span class="cn">code-reviewer-persona</span><span class="cd">The grading persona.</span></div>
+          <div class="chip reviewer"><span class="cn">fowler-smell-baseline</span><span class="cd">The standard behind Axis-B findings.</span></div>
+        </div>
+      </div>
+      <div class="col-goal">Goal — a <b>verdict</b> the orchestrator routes on: approve · request-changes · comment.</div>
+    </div>
+
+    <!-- test-lane split -->
+    <div class="lanenote">
+      🧪 <b>Tests split by lane speed.</b> The <span class="cf">coder</span> gates on the <b>fast local suite</b> before every push;
+      the <span class="rf">reviewer</span> owns the <b>slow CI lanes</b> (Axis C), which run <i>while</i> it reviews — so nothing waits on them.
+      A red suite is a fact, not an opinion: Axis C is never conceded.
+    </div>
+  </div>
+
+  <div class="converge">
+    <div class="f">↘ both read</div>
+    <div class="f"></div>
+    <div class="f">both read ↙</div>
+  </div>
+
+  <!-- shared doctrine -->
+  <div class="band" style="--accent: var(--shared)">
+    <div class="inner">
+      <div class="rail"><span class="tier" style="--accent:var(--shared)">Shared · doctrine</span><span class="note">the common ground both lenses include</span></div>
+      <div class="content">
+        <div class="chip shared"><span class="cn">tdd</span><span class="cd">Coder writes to it; reviewer checks against it.</span></div>
+        <div class="chip shared"><span class="cn">karpathy-guidelines</span><span class="cd">LLM-pitfall guardrails — for writing and for catching.</span></div>
+        <div class="chip shared"><span class="cn">doctrine index</span><span class="cd">The load-on-demand table both resolve rules through.</span></div>
+        <div class="chip shared"><span class="cn">documentation-first</span><span class="cd">Coder updates the canon; reviewer checks it stayed true.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="down">↓ all of it running on</div>
+
+  <!-- foundation -->
+  <div class="band" style="--accent: var(--found)">
+    <div class="inner">
+      <div class="rail"><span class="tier" style="--accent:var(--found)">Shared · foundation</span><span class="note">runtime substrate</span></div>
+      <div class="content">
+        <div class="chip found"><span class="cn">project-profile.md</span><span class="cd">The repo overlay — same scars steer both agents.</span></div>
+        <div class="chip found"><span class="cn">_afk-shared/resilience.md</span><span class="cd">The non-interactive, time-boxed shell. Wins over any skill.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- verdict routing -->
+  <h2 class="sec">Back to the orchestrator — routing the verdict</h2>
+  <p class="sec-sub">The reviewer's JSON verdict is the only thing the orchestrator reads back. Here is every path it takes — and not one of them stops for a human.</p>
+  <div class="route">
+    <div class="rt" style="--rc:#34d399">
+      <div class="cond"><span class="vb">approve</span> + CI green</div>
+      <div class="arr">→</div>
+      <div class="act"><b>afk-merge-pr</b> — squash-merge to the PRD base, close the issue, move to the next child.</div>
+    </div>
+    <div class="rt" style="--rc:#60a5fa">
+      <div class="cond"><span class="vb">request-changes</span></div>
+      <div class="arr">→</div>
+      <div class="act">re-dispatch <b>afk-coder ▸ afk-address-pr</b>, then re-review. The loop, one more round.</div>
+    </div>
+    <div class="rt" style="--rc:#fbbf24">
+      <div class="cond">3 rejects · one thread</div>
+      <div class="arr">→</div>
+      <div class="act"><b>afk-concede-thread</b> — <i>Axis-B only.</i> Logged to cleanup, thread resolved. Axis A is never conceded.</div>
+    </div>
+    <div class="rt" style="--rc:#f87171">
+      <div class="cond">7 rounds · still blocked</div>
+      <div class="arr">→</div>
+      <div class="act">force-merge with all-blocker concession. The child ships; the debt is logged, not dropped.</div>
+    </div>
+    <div class="rt" style="--rc:#facc15">
+      <div class="cond">any residue, ever</div>
+      <div class="arr">→</div>
+      <div class="act"><b>[ship-cleanup]</b> issue — the alternative to halting. Drained later by <b>drain-cleanup</b>.</div>
+    </div>
+  </div>
+
+  <!-- why the split -->
+  <h2 class="sec">Why split them at all</h2>
+  <p class="sec-sub">Three reasons the review is a separate agent rather than the coder grading its own work.</p>
+  <div class="why">
+    <div class="card" style="--kc: var(--reviewer)">
+      <div class="k">Independent context</div>
+      <div class="v">The reviewer is spun up <b>cold, fresh per PR</b>. It never saw the coder's reasoning, so it can't inherit the coder's blind spots or be talked out of a finding by the mind that made the mistake.</div>
+    </div>
+    <div class="card" style="--kc: var(--coder)">
+      <div class="k">Different lenses, wider net</div>
+      <div class="v">The coder optimizes for <b>building the slice</b> (vsa, dotnet, deep modules) and grades one axis; the reviewer grades <b>three</b> — requirements, standards, <i>and</i> CI — through its own persona + smell baseline. Different doctrine surfaces different failure modes.</div>
+    </div>
+    <div class="card" style="--kc: var(--orch)">
+      <div class="k">The split is free</div>
+      <div class="v">Both run on the same cheap <b>workhorse model</b>. Independent review costs nothing but a second agent — so the pattern uses one every single round instead of trusting self-review.</div>
+    </div>
+  </div>
+
+  <div class="verdict">
+    <b>Where it's shared vs split:</b> the <span class="cf">coder</span> and <span class="rf">reviewer</span> diverge exactly where judgement should be independent —
+    the <b>skills they run</b>, the <b>work they do</b> (the coder builds one axis; the reviewer grades three), and the <b>lens they load</b>.
+    They converge on everything that must be common ground — the <b>orchestrator</b> above, the shared <b>tdd / guardrail / doc doctrine</b>,
+    and the repo's <b>profile + resilience</b> below. Same machine, same model, two minds. That's the whole reason an autonomous review is worth trusting.
+  </div>
+
+</main>
+
+<footer class="wrap">
+  Coder lens is repo-generated (donor: a <code>vsa-tdd</code> analog); reviewer loads <code>code-reviewer-persona</code> → doctrine index. <code>tdd</code> and <code>karpathy-guidelines</code> sit in both. Drawn from <code>afk-coder.md</code>, <code>afk-reviewer.md</code>, <code>code-reviewer-persona</code>.
+</footer>
+</body>
+</html>

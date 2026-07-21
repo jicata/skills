@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The AI-driven SDLC — one feature, idea to merged</title>
+<style>
+  :root {
+    --bg: #0d1017;
+    --bg-elev: #151a23;
+    --bg-card: #1a2029;
+    --border: #262f3d;
+    --border-strong: #33405280;
+    --text: #e6edf3;
+    --text-dim: #9aa7b8;
+    --text-faint: #6b7688;
+    --p0: #2dd4bf; --p1: #38bdf8; --p2: #818cf8; --p3: #a78bfa; --p4: #fb923c; --p5: #34d399;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background:
+      radial-gradient(1100px 560px at 10% -10%, #16283a 0%, transparent 55%),
+      radial-gradient(1000px 520px at 100% 0%, #241d33 0%, transparent 52%),
+      var(--bg);
+    color: var(--text); line-height: 1.5; -webkit-font-smoothing: antialiased; min-height: 100vh;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 28px; }
+  a.back { display: inline-block; margin: 26px 8px 0 0; font-family: var(--mono); font-size: 13px;
+    color: var(--text-dim); text-decoration: none; padding: 5px 12px; border: 1px solid var(--border);
+    border-radius: 8px; transition: .15s; }
+  a.back:hover { color: var(--text); background: var(--bg-card); }
+
+  header { padding: 28px 0 20px; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 14px; }
+  h1 { font-size: clamp(28px, 5vw, 44px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.06;
+       background: linear-gradient(180deg, #fff 0%, #b9c6d8 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lede { margin-top: 18px; max-width: 800px; font-size: 16.5px; color: var(--text-dim); }
+  .lede b { color: var(--text); font-weight: 600; }
+  .lede .egf { color: #7dd3fc; font-weight: 600; }
+
+  /* phase stepper */
+  .stepper { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 26px;
+    padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-elev); }
+  .stepper .st { font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 7px; color: var(--sc); background: color-mix(in srgb, var(--sc) 12%, transparent); border: 1px solid color-mix(in srgb, var(--sc) 32%, transparent); }
+  .stepper .sep { color: var(--text-faint); font-size: 13px; }
+
+  /* timeline */
+  .timeline { position: relative; margin-top: 44px; }
+  .timeline::before { content: ""; position: absolute; left: 25px; top: 22px; bottom: 40px; width: 2px;
+    background: linear-gradient(180deg, var(--p0), var(--p1), var(--p2), var(--p3), var(--p4), var(--p5)); opacity: .5; }
+  .station { display: grid; grid-template-columns: 52px 1fr; gap: 20px; padding-bottom: 26px; position: relative; }
+  .node { width: 46px; height: 46px; border-radius: 50%; border: 2px solid var(--pc); background: var(--bg);
+    display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 700;
+    font-size: 15px; color: var(--pc); position: relative; z-index: 2; box-shadow: 0 0 0 5px var(--bg); }
+
+  .card { border: 1px solid var(--border); border-radius: 15px; background: var(--bg-card); overflow: hidden; position: relative; }
+  .card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--pc); }
+  .card-top { padding: 15px 18px 13px; }
+  .card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .phase { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--pc); font-weight: 700; }
+  .driver { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; padding: 3px 9px; border-radius: 6px; }
+  .driver.you { color: #cdd8e6; border: 1px solid #ffffff30; background: #ffffff0d; }
+  .driver.auto { color: #ffd7a0; border: 1px solid #fb923c55; background: #fb923c16; }
+  .driver.hitl { color: #a5f3fc; border: 1px solid #22d3ee44; background: #22d3ee12; }
+  .card h3 { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; margin-bottom: 5px; }
+  .card p { font-size: 13.5px; color: var(--text-dim); line-height: 1.55; max-width: 640px; }
+  .card p code, .card li code { font-family: var(--mono); font-size: .88em; color: #cdd8e6; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+
+  .skills { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 2px; }
+  .sk { font-family: var(--mono); font-size: 13px; font-weight: 600; color: #fff; padding: 6px 12px;
+    border-radius: 9px; border: 1px solid var(--pc); background: #ffffff08; }
+  .sk small { color: var(--text-faint); font-weight: 400; margin-left: 6px; font-size: 11px; }
+
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 13px; }
+  .art { font-family: var(--mono); font-size: 12px; color: #a7f3d0; border: 1px solid #34d39944; background: #34d39910; padding: 5px 10px; border-radius: 8px; }
+  .art.in { color: var(--text-dim); border-color: var(--border-strong); background: #ffffff06; }
+  .flow .fa { color: var(--text-faint); font-size: 14px; }
+  .flow .lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); }
+
+  .eg { margin-top: 13px; border-top: 1px solid var(--border); padding: 12px 18px 15px; background: #ffffff04; font-size: 13px; color: var(--text-dim); }
+  .eg .tag { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--pc); font-weight: 700; margin-right: 9px; }
+  .eg b { color: var(--text); font-weight: 600; }
+  .eg code { font-family: var(--mono); font-size: .9em; color: #7dd3fc; }
+
+  /* build fork */
+  .lanes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 13px; }
+  .lane { border: 1px solid var(--lb); border-radius: 12px; padding: 13px 15px; background: var(--lbg); }
+  .lane.a { --lb: #60a5fa40; --lbg: #60a5fa08; --lc: #60a5fa; }
+  .lane.b { --lb: #fb923c40; --lbg: #fb923c08; --lc: #fb923c; }
+  .lane .lh { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--lc); font-weight: 700; margin-bottom: 4px; }
+  .lane .ld { font-size: 12.5px; color: var(--text-dim); line-height: 1.45; margin-bottom: 10px; }
+  .lane .chain { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+  .lane .cc { font-family: var(--mono); font-size: 11.5px; color: #dbe4ee; padding: 3px 8px; border-radius: 6px; background: #ffffff0a; border: 1px solid var(--lb); }
+  .lane .ca { color: var(--text-faint); font-size: 12px; }
+  .hybrid { margin-top: 12px; border: 1px solid #a78bfa3a; background: #a78bfa0d; border-radius: 12px; padding: 12px 16px; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  .hybrid b { color: #d6c9ff; font-weight: 650; }
+  .deep { margin-top: 11px; font-size: 12.5px; }
+  .deep a { color: #ffd7a0; text-decoration: none; font-family: var(--mono); border-bottom: 1px dotted #fb923c66; }
+  .deep a:hover { border-bottom-style: solid; }
+
+  /* coda */
+  .coda { margin-top: 20px; border: 1px solid var(--border); border-radius: 15px; background: var(--bg-elev); padding: 22px 24px; }
+  .coda h2 { font-size: 18px; margin-bottom: 6px; }
+  .coda .sub { font-size: 13.5px; color: var(--text-dim); margin-bottom: 16px; }
+  .coda .row { display: grid; grid-template-columns: 170px 1fr; gap: 14px; padding: 11px 0; border-top: 1px solid var(--border); align-items: baseline; }
+  .coda .row .rk { font-family: var(--mono); font-size: 12.5px; color: #fff; }
+  .coda .row .rv { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  .coda .row .rv code { font-family: var(--mono); font-size: .9em; color: #7dd3fc; }
+
+  footer { margin: 40px 0 48px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--text-faint); font-size: 13px; line-height: 1.7; }
+  footer code { font-family: var(--mono); color: var(--text-dim); }
+
+  @media (max-width: 680px) {
+    .lanes, .coda .row { grid-template-columns: 1fr; }
+    .station { grid-template-columns: 40px 1fr; gap: 14px; }
+    .node { width: 38px; height: 38px; font-size: 13px; }
+    .timeline::before { left: 19px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← the full library</a>
+  <a class="back" href="stack.html">the /ship-feature stack</a>
+  <a class="back" href="split.html">the coder / reviewer split</a>
+</div>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow">The golden path · idea → merged on master</div>
+    <h1>One feature, the whole SDLC</h1>
+    <p class="lede">
+      No single skill ships a feature. The library is a <b>pipeline</b> — each skill takes the artifact the last one produced
+      and hands the next a sharper one: a foggy idea becomes a PRD, a PRD becomes sliced issues, issues become plans,
+      plans become merged PRs. Here is one feature —
+      <span class="egf">“saved item collections”</span> — walking the entire path, human-led at the top, autonomous at the bottom.
+    </p>
+    <div class="stepper">
+      <span class="st" style="--sc:var(--p0)">Ideate</span><span class="sep">→</span>
+      <span class="st" style="--sc:var(--p1)">Specify</span><span class="sep">→</span>
+      <span class="st" style="--sc:var(--p2)">Slice</span><span class="sep">→</span>
+      <span class="st" style="--sc:var(--p3)">Plan</span><span class="sep">→</span>
+      <span class="st" style="--sc:var(--p4)">Build</span><span class="sep">→</span>
+      <span class="st" style="--sc:var(--p5)">Ship</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="timeline">
+
+    <!-- 00 IDEATE -->
+    <div class="station" style="--pc: var(--p0)">
+      <div class="node">0</div>
+      <div class="card">
+        <div class="card-top">
+          <div class="card-meta">
+            <span class="phase">Ideate — chart the fog</span>
+            <span class="driver you">you drive</span>
+          </div>
+          <h3>Find the way, or sharpen the plan</h3>
+          <p>A loose idea that's <b>too big for one session</b> → <code>/wayfinder</code> charts it as a GitHub map of decision tickets and resolves them one at a time until the route is clear. A plan that <b>fits in one session</b> → <code>/grill-me</code> stress-tests it; <code>/grill-with-docs</code> also hardens the glossary &amp; ADRs as decisions land.</p>
+          <div class="skills">
+            <span class="sk">/wayfinder</span>
+            <span class="sk">/grill-me</span>
+            <span class="sk">/grill-with-docs</span>
+          </div>
+        </div>
+        <div class="eg">
+          <span class="tag">example</span>Decided: collections are <b>per-user</b>, not per-tenant; sharing is a <b>read-only link</b>. Glossary gains the term <b>“Collection.”</b> No code yet — just a settled destination.
+        </div>
+      </div>
+    </div>
+
+    <!-- 01 SPECIFY -->
+    <div class="station" style="--pc: var(--p1)">
+      <div class="node">1</div>
+      <div class="card">
+        <div class="card-top">
+          <div class="card-meta">
+            <span class="phase">Specify</span>
+            <span class="driver you">you drive</span>
+          </div>
+          <h3>Turn the destination into a PRD</h3>
+          <p><code>/write-a-prd</code> runs a structured interview, explores the codebase, and does the <b>module design up front</b> — then files the PRD as a GitHub issue. The hard boundaries are decided here, on paper, not discovered mid-build.</p>
+          <div class="skills"><span class="sk">/write-a-prd</span></div>
+          <div class="flow">
+            <span class="lbl">produces</span>
+            <span class="art">PRD&nbsp;#142 · “Saved item collections”</span>
+          </div>
+        </div>
+        <div class="eg">
+          <span class="tag">example</span>PRD <code>#142</code> filed: problem statement, module design (a <code>Collections</code> slice), out-of-scope list, and the user stories it must satisfy.
+        </div>
+      </div>
+    </div>
+
+    <!-- 02 SLICE -->
+    <div class="station" style="--pc: var(--p2)">
+      <div class="node">2</div>
+      <div class="card">
+        <div class="card-top">
+          <div class="card-meta">
+            <span class="phase">Slice</span>
+            <span class="driver you">you drive</span>
+          </div>
+          <h3>Cut the PRD into grabbable slices</h3>
+          <p><code>/prd-to-issues</code> breaks the PRD into independently-shippable child issues as <b>tracer-bullet vertical slices</b> — each a thin end-to-end cut, not a horizontal layer — wires the <code>Blocked-by</code> edges into a DAG, and prints the execution order.</p>
+          <div class="skills"><span class="sk">/prd-to-issues</span></div>
+          <div class="flow">
+            <span class="art in">PRD&nbsp;#142</span><span class="fa">→</span>
+            <span class="art">#143 create &amp; list</span>
+            <span class="art">#144 add / remove</span>
+            <span class="art">#145 rename / delete</span>
+            <span class="art">#146 share link</span>
+          </div>
+        </div>
+        <div class="eg">
+          <span class="tag">example</span>Execution order printed: <code>#143</code> (walking skeleton) → then <code>#144</code> + <code>#145</code> in parallel → <code>#146</code> (blocked by #144).
+        </div>
+      </div>
+    </div>
+
+    <!-- 03 PLAN -->
+    <div class="station" style="--pc: var(--p3)">
+      <div class="node">3</div>
+      <div class="card">
+        <div class="card-top">
+          <div class="card-meta">
+            <span class="phase">Plan each slice</span>
+            <span class="driver hitl">you + agent · HITL</span>
+          </div>
+          <h3>Expand every issue into a real plan</h3>
+          <p>For each child, <code>/expand-issue</code> loads the <b>gospel</b> — the design docs &amp; golden fixtures the issue hard-links, plus the real code — proposes a concrete approach through the repo's coder lens, and resolves genuine decisions with you <b>one at a time</b>. It plans only; it writes no production code. Run it <b>ahead of the build</b>: expand the whole set while the first slice is being implemented.</p>
+          <div class="skills"><span class="sk">/expand-issue<small>× each child</small></span></div>
+        </div>
+        <div class="eg">
+          <span class="tag">example</span><code>#143</code> expanded: the table shape, the endpoint contract, and the exact red→green test list are agreed and written back onto the issue — so the builder inherits a plan, not a puzzle.
+        </div>
+      </div>
+    </div>
+
+    <!-- 04 BUILD -->
+    <div class="station" style="--pc: var(--p4)">
+      <div class="node">4</div>
+      <div class="card">
+        <div class="card-top">
+          <div class="card-meta">
+            <span class="phase">Build — the fork</span>
+            <span class="driver you">your call, per slice</span>
+          </div>
+          <h3>Two lanes to a merged PR</h3>
+          <p>Every slice reaches the same place — merged into the PRD's base branch — by one of two lanes. You choose per slice.</p>
+          <div class="lanes">
+            <div class="lane a">
+              <div class="lh">Lane A · HITL — you drive</div>
+              <div class="ld">Hand-drive a slice to validate the plan by eye. The five-skill loop:</div>
+              <div class="chain">
+                <span class="cc">/execute-issue</span><span class="ca">→</span>
+                <span class="cc">/review-pr</span><span class="ca">→</span>
+                <span class="cc">/address-pr</span><span class="ca">→</span>
+                <span class="cc">/merge-pr</span>
+              </div>
+            </div>
+            <div class="lane b">
+              <div class="lh">Lane B · Autonomous — runs itself</div>
+              <div class="ld">Hand the rest to the orchestrator: it loops coder + reviewer over every remaining child, unattended.</div>
+              <div class="chain">
+                <span class="cc">/ship-feature 142</span>
+              </div>
+            </div>
+          </div>
+          <div class="hybrid">
+            <b>The realistic move — a hybrid.</b> Hand-drive the tracer-bullet slice <code>#143</code> through Lane A to prove the walking skeleton and the plan hold up. Then let <code>/ship-feature 142</code> take <code>#144–#146</code> autonomously — the pattern is proven, so the rest doesn't need your eyes on every round.
+          </div>
+          <div class="deep">▸ how Lane B works inside → <a href="stack.html">the /ship-feature stack</a> · <a href="split.html">the coder / reviewer split</a></div>
+        </div>
+        <div class="eg">
+          <span class="tag">example</span><code>#143</code> reviewed &amp; merged by hand (2 review rounds). <code>#144–#146</code> handed to <code>/ship-feature</code> — three PRs built, reviewed, and merged to the base branch without a human in the loop.
+        </div>
+      </div>
+    </div>
+
+    <!-- 05 SHIP -->
+    <div class="station" style="--pc: var(--p5)">
+      <div class="node">5</div>
+      <div class="card">
+        <div class="card-top">
+          <div class="card-meta">
+            <span class="phase">Ship &amp; finalize</span>
+            <span class="driver auto">autonomous</span>
+          </div>
+          <h3>The feature lands on master</h3>
+          <p>When every child is merged, <code>/ship-feature</code> merges the PRD base branch → <b>master</b> and closes the PRD. Nothing ever halted for a human: every unresolvable concern was logged to a single <code>[ship-cleanup]</code> issue instead of stopping the run.</p>
+          <div class="flow">
+            <span class="lbl">produces</span>
+            <span class="art">feature on master ✓</span>
+            <span class="art in">[ship-cleanup] #150</span>
+          </div>
+        </div>
+        <div class="eg">
+          <span class="tag">example</span><b>Saved item collections</b> is live on master. Cleanup issue <code>#150</code> holds two conceded Axis-B nits — real debt, logged and visible, not silently merged away.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- coda -->
+  <div class="coda">
+    <h2>The loop never really ends</h2>
+    <div class="sub">Shipping isn't the terminus — three on-ramps feed the same machine.</div>
+    <div class="row">
+      <div class="rk">A bug turns up</div>
+      <div class="rv"><code>/log-issue</code> writes a fully-formed issue → <code>/ship-issue &lt;n&gt;</code> ships it: the <i>same</i> orchestrator + agents as ship-feature, pointed at one issue instead of a PRD.</div>
+    </div>
+    <div class="row">
+      <div class="rk">Cleanup accrued</div>
+      <div class="rv"><code>/drain-cleanup</code> re-verifies each entry in <code>#150</code> against the current master and spins off well-formed follow-up issues — which re-enter at <code>/ship-issue</code>.</div>
+    </div>
+    <div class="row">
+      <div class="rk">The repo taught you something</div>
+      <div class="rv">A scar learned during the build lands in <code>project-profile.md</code>; <code>/skill-sync</code> flows the generic half back to the base library, so the next repo inherits it for free.</div>
+    </div>
+  </div>
+
+</main>
+
+<footer class="wrap">
+  Golden path: <code>/wayfinder</code> · <code>/grill-me</code> → <code>/write-a-prd</code> → <code>/prd-to-issues</code> → <code>/expand-issue</code> → (Lane A: <code>/execute-issue</code> → <code>/review-pr</code> → <code>/address-pr</code> → <code>/merge-pr</code> · Lane B: <code>/ship-feature</code>) → finalize. The example feature is illustrative; issue numbers are for the walkthrough.
+</footer>
+</body>
+</html>

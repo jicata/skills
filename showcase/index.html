@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Skills Library</title>
+<style>
+  :root {
+    --bg: #0d1017;
+    --bg-elev: #151a23;
+    --bg-card: #1a2029;
+    --bg-card-hover: #202836;
+    --border: #262f3d;
+    --border-strong: #33405280;
+    --text: #e6edf3;
+    --text-dim: #9aa7b8;
+    --text-faint: #6b7688;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #1b2534 0%, transparent 55%),
+      radial-gradient(1000px 500px at 100% 0%, #1a1f2e 0%, transparent 50%),
+      var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---- header ---- */
+  header { padding: 72px 0 40px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 18px;
+  }
+  h1 {
+    font-size: clamp(34px, 6vw, 56px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    background: linear-gradient(180deg, #ffffff 0%, #b9c6d8 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .lede {
+    margin-top: 20px;
+    max-width: 720px;
+    font-size: 17px;
+    color: var(--text-dim);
+  }
+  .lede code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1px 6px;
+    color: #cdd8e6;
+  }
+
+  /* ---- stats ---- */
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 32px;
+  }
+  .stat {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 20px;
+    min-width: 108px;
+  }
+  .stat b { display: block; font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+  .stat span { font-size: 12px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .08em; }
+  .stacklink {
+    display: block; width: fit-content; max-width: 100%; margin-top: 12px; font-size: 15px; color: #ffd7a0; text-decoration: none;
+    padding: 11px 18px; border: 1px solid #fb923c40; background: #fb923c12; border-radius: 11px; transition: .15s;
+  }
+  .stacklink:first-of-type { margin-top: 26px; }
+  .stacklink:hover { background: #fb923c22; border-color: #fb923c70; }
+  .stacklink code { font-family: var(--mono); font-size: 0.9em; }
+
+  /* ---- category nav ---- */
+  nav.cats {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(13,16,23,.82);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    margin-top: 8px;
+  }
+  nav.cats .wrap { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 12px; padding-bottom: 12px; }
+  nav.cats a {
+    font-size: 13px;
+    color: var(--text-dim);
+    text-decoration: none;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: .15s;
+    white-space: nowrap;
+  }
+  nav.cats a:hover { color: var(--text); background: var(--bg-card); border-color: var(--border); }
+  nav.cats a .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+
+  /* ---- section ---- */
+  section.cat { padding: 52px 0 8px; scroll-margin-top: 64px; }
+  .cat-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
+  .cat-head .bar { width: 4px; height: 26px; border-radius: 3px; align-self: center; }
+  .cat-head h2 { font-size: 24px; font-weight: 650; letter-spacing: -0.01em; }
+  .cat-head .count { font-family: var(--mono); font-size: 13px; color: var(--text-faint); }
+  .cat-desc { color: var(--text-dim); max-width: 760px; margin: 4px 0 26px 18px; font-size: 15px; }
+
+  /* ---- card grid ---- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 18px 16px;
+    overflow: hidden;
+    transition: transform .16s ease, border-color .16s ease, background .16s ease;
+  }
+  .card::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent);
+    opacity: .85;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    background: var(--bg-card-hover);
+    border-color: var(--border-strong);
+  }
+  .card .name {
+    font-family: var(--mono);
+    font-size: 14.5px;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: -0.01em;
+  }
+  .card .desc { margin-top: 9px; font-size: 13.5px; color: var(--text-dim); line-height: 1.5; }
+  .card .badges { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .badge {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    background: #ffffff08;
+  }
+  .badge.orch { color: #ffd7a0; border-color: #ffb35c40; background: #ffb35c14; }
+  .badge.agent { color: #c7b3ff; border-color: #a78bfa40; background: #a78bfa14; }
+  .badge.internal { color: #8b96a8; }
+  .card .files { margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+  .card .files span { color: #7f8aa0; }
+
+  footer {
+    margin: 64px 0 48px;
+    padding-top: 28px;
+    border-top: 1px solid var(--border);
+    color: var(--text-faint);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  footer code { font-family: var(--mono); color: var(--text-dim); }
+  footer b { color: var(--text-dim); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow">Base library · adapted per repo</div>
+    <h1>The Skills Library</h1>
+    <p class="lede">
+      A base library of generic agent skills and doctrine, plus a setup interview that adapts
+      the set to any repo. Base files install <b>verbatim</b>; repo-specifics live in a writable
+      <code>project-profile.md</code> overlay; only manifests are ever generated per repo.
+    </p>
+    <div class="stats" id="stats"></div>
+    <a class="stacklink" href="sdlc.html">▸ Start here — the full SDLC walkthrough: one feature, idea → merged →</a>
+    <a class="stacklink" href="stack.html">▸ See how a stack composes: anatomy of <code>/ship-feature</code> →</a>
+  </div>
+</header>
+
+<nav class="cats"><div class="wrap" id="nav"></div></nav>
+
+<main class="wrap" id="main"></main>
+
+<footer class="wrap">
+  <div class="wrap" style="padding:0">
+    <b>How to read this:</b> orange <b>orchestrator</b> cards drive other skills; purple <b>agent</b> cards are dispatched subagents.
+    The <code>afk-*</code> skills are orchestrator-internal — you never type them.<br>
+    Adapt to a repo with <code>/setup</code>; sync repo-grown wisdom back with <code>/skill-sync</code>.
+  </div>
+</footer>
+
+<script>
+const CATEGORIES = [
+  {
+    id: "planning",
+    title: "Planning &amp; Specification",
+    color: "#5eead4",
+    desc: "Turn a fuzzy idea into a sharp, sliced spec — from too-big-for-one-session charting down to a single well-formed issue.",
+    items: [
+      { name: "wayfinder", role: "orch", desc: "Charts work too big for one session as a GitHub map of decision tickets, resolved one at a time until the route is clear. Plans, never builds — hands off to spec authoring." },
+      { name: "grill-me", desc: "Interviews you relentlessly about a plan or design, resolving each branch of the decision tree until you reach shared understanding." },
+      { name: "grill-with-docs", desc: "Grilling that also tests the plan against the domain model, updating the glossary and ADRs inline as decisions crystallise." },
+      { name: "write-a-prd", role: "orch", desc: "Interview → codebase exploration → module design → files a PRD as a GitHub issue." },
+      { name: "prd-to-issues", desc: "Slices a PRD into independently-grabbable child issues as tracer-bullet vertical slices, with Blocked-by edges and a printed execution order." },
+      { name: "log-issue", desc: "Investigates a reported bug/enhancement, proposes the fix, then files a fully-populated issue (root cause, TDD plan, ACs) ready to ship. Escalates to a PRD seed if too big." },
+      { name: "prototype", desc: "A throwaway spike answering one design question. The verdict lands on the issue; the code never merges." },
+    ],
+  },
+  {
+    id: "build",
+    title: "Build Pipeline · HITL lane",
+    color: "#60a5fa",
+    desc: "The human-driven loop. Each step is a skill you type — plan the issue, build it, review, fix, merge.",
+    items: [
+      { name: "expand-issue", desc: "Planning pass for one child issue: loads its linked docs, fixtures and the real code, proposes an approach through the repo's coder lens, resolves decisions one at a time. Plans only — never writes prod code." },
+      { name: "execute-issue", desc: "Picks the next unblocked child issue, branches, implements the slice through the composite coder lens, opens a PR at the PRD base branch. Finalizes the PRD when all children are merged." },
+      { name: "review-pr", desc: "Two-axis review — Axis A requirements (vs the linked issue) and Axis B standards (vs the repo's doctrine). Posts blocking threads; resolves prior ones on follow-up passes." },
+      { name: "address-pr", desc: "Fixes unresolved review threads on a PR and pushes. Takes a PR number directly; the next review pass resolves the threads." },
+      { name: "concede-pr", desc: "Escape hatch when only Axis-B threads remain after max iterations: files a tech-debt issue, resolves the threads, approves." },
+      { name: "merge-pr", desc: "Verifies merge-readiness, squash-merges, deletes the branch, explicitly closes linked issues (keyword auto-close doesn't fire on base-branch PRs)." },
+      { name: "resolving-merge-conflicts", desc: "Resolves an in-progress git merge/rebase conflict by intent, not by hunk." },
+    ],
+  },
+  {
+    id: "autonomous",
+    title: "Autonomous lane · afk-*",
+    color: "#fb923c",
+    desc: "The same pipeline, driven by an orchestrator instead of you. Every afk-* variant is best-effort (never halts), logs residue to a [ship-cleanup] issue instead of asking, and returns structured JSON. You never type these.",
+    items: [
+      { name: "ship-feature", role: "orch", desc: "Top-level orchestrator: ships a whole PRD end-to-end. Loops every child, dispatches coder + reviewer, concedes per-thread after 3 rejects, force-merges after 7 rounds, opens & merges the PRD→default PR. --parallel N runs children over a Blocked-by DAG, one worktree per slot." },
+      { name: "ship-issue", role: "orch", desc: "Same orchestrator shape for a single standalone bug or enhancement — one issue, one PR off the default branch, no PRD scaffolding." },
+      { name: "afk-execute-issue", role: "internal", desc: "Autonomous execute-issue. PRD mode (next child, PR at base) or --single mode (standalone, PR at default)." },
+      { name: "afk-address-pr", role: "internal", desc: "Autonomous address-pr, plus regression localization and pushback-via-thread-reply for out-of-scope concerns." },
+      { name: "afk-review-pr", role: "internal", desc: "Autonomous review-pr, plus arbitration of the coder's pushback replies and suppression of already-conceded concerns." },
+      { name: "afk-merge-pr", role: "internal", desc: "Autonomous merge-pr, with --force for the post-concession path and --single for default-branch PRs." },
+      { name: "afk-concede-thread", role: "internal", desc: "Thread-granular concession (vs concede-pr's whole-PR): appends to the cleanup issue, marks and resolves the thread. Refuses Axis-A unless forced." },
+      { name: "drain-cleanup", desc: "Processes a [ship-cleanup] issue afterwards: re-verifies each entry against the current default branch, classifies stale / actionable / unknown, spins off well-formed issues. Triages, never fixes." },
+    ],
+  },
+  {
+    id: "agents",
+    title: "Agents",
+    color: "#a78bfa",
+    desc: "Subagent definitions the autonomous orchestrators dispatch. Both run on the profile's cheap workhorse model.",
+    items: [
+      { name: "afk-coder", role: "agent", desc: "Autonomous coder subagent: runs afk-execute-issue first, then afk-address-pr on later rounds of the same PR. Persists per PR, fresh for each new PR." },
+      { name: "afk-reviewer", role: "agent", desc: "Autonomous reviewer subagent: runs afk-review-pr, arbitrates pushback, suppresses conceded items. Fresh per PR — cold context keeps review independent." },
+    ],
+  },
+  {
+    id: "design",
+    title: "Design, Quality &amp; Understanding",
+    color: "#f472b6",
+    desc: "The load-bearing craft layer — the vocabulary, the test loop, the review lens, the debugging discipline.",
+    items: [
+      { name: "codebase-design", desc: "The shared vocabulary: deep modules — a lot of behaviour behind a small interface, at a clean seam, testable through it. Other skills speak it.", files: "DEEPENING.md · DESIGN-IT-TWICE.md" },
+      { name: "tdd", desc: "The red-green loop for features, bug fixes and integration tests.", files: "tests.md · mocking.md · refactoring.md" },
+      { name: "improve-codebase-architecture", desc: "Doc-first architectural review of a scoped area, graded against the repo's own doctrine + ADRs. Diagnoses drift, finds root cause, proposes the refactor plus the rule hardening. Read-only — outward artifacts gated on approval.", files: "REFERENCE.md" },
+      { name: "diagnosing-bugs", desc: "Diagnosis loop for bugs that resist — intermittent, unreproduced, unexplained — and perf regressions.", files: "scripts/hitl-loop.template.sh" },
+      { name: "code-reviewer-persona", desc: "The reviewer persona the review skills adopt — composes the doctrine index, karpathy-guidelines and tdd before reviewing." },
+      { name: "ubiquitous-language", desc: "Extracts a DDD glossary from the conversation, flags ambiguities, proposes canonical terms, writes to the repo's glossary." },
+      { name: "karpathy-guidelines", desc: "Behavioural guidelines targeting common LLM coding pitfalls — think before coding, simplicity first, no speculation." },
+    ],
+  },
+  {
+    id: "doctrine",
+    title: "Doctrine",
+    color: "#facc15",
+    desc: "Loaded on demand via the generated doctrine index; the always-on ones fold into every relevant turn. Stack cores install only when the interview surfaces the stack.",
+    items: [
+      { name: "documentation-first", desc: "Consult docs before code. Defines the lean canon — glossary, ADRs, architecture map — and treats everything else as a temporary artifact on its work item." },
+      { name: "surface-dont-chase", desc: "Ambient rule: a smell noticed in already-loaded context gets one line and an offer to log it — never a refactor. The instinct without the scope creep." },
+      { name: "fowler-smell-baseline", desc: "Curated Fowler smells for the Standards axis. Always a labelled judgement call, never blocking on its own; documented doctrine overrides." },
+      { name: "vsa", desc: "Vertical Slice Architecture — organize by feature, colocate the slice, isolate between slices." },
+      { name: "dotnet-backend", desc: "Idiomatic modern .NET / ASP.NET Core / EF Core rules. Stack core." },
+      { name: "writing-skills", desc: "How skills themselves are authored: predictability as the root virtue, with levers by invocation, hierarchy, steering, pruning. The doctrine this repo is held to.", files: "writing-skills-glossary.md" },
+    ],
+  },
+  {
+    id: "templates",
+    title: "Templates",
+    color: "#34d399",
+    desc: "The one place prose is filled in — instantiated by setup from interview answers, only when the condition applies.",
+    items: [
+      { name: "project-profile", role: "orch", desc: "ALWAYS instantiated → the overlay. The repo's only writable skill surface: YAML facts up top, trigger-indexed scar constraints below." },
+      { name: "router", role: "orch", desc: "ALWAYS generated → the ask-<name> router over what was actually installed, so it can't lie on day 1." },
+      { name: "chassis-foundation", desc: "IF the app sits on base/chassis libraries that own runtime behaviour → an always-on rule: what the chassis owns, the division of labour, reviewer red flags." },
+      { name: "deploy-infra", desc: "IF the path to production leaves this repo → an always-on rule: the pipeline, sibling-repo pointers, the dead-endpoint gateway trigger." },
+    ],
+  },
+];
+
+// stats
+const totalSkills = CATEGORIES.filter(c => !["doctrine","templates","agents"].includes(c.id)).reduce((n,c)=>n+c.items.length,0);
+const STATS = [
+  { n: totalSkills, l: "skills" },
+  { n: CATEGORIES.find(c=>c.id==="doctrine").items.length, l: "doctrine" },
+  { n: CATEGORIES.find(c=>c.id==="templates").items.length, l: "templates" },
+  { n: 2, l: "agents" },
+  { n: CATEGORIES.length, l: "categories" },
+];
+document.getElementById("stats").innerHTML = STATS.map(s =>
+  `<div class="stat"><b>${s.n}</b><span>${s.l}</span></div>`).join("");
+
+// nav
+document.getElementById("nav").innerHTML = CATEGORIES.map(c =>
+  `<a href="#${c.id}"><span class="dot" style="background:${c.color}"></span>${c.title}</a>`).join("");
+
+// sections
+const roleBadge = (r) => {
+  if (r === "orch") return `<span class="badge orch">orchestrator</span>`;
+  if (r === "agent") return `<span class="badge agent">agent</span>`;
+  if (r === "internal") return `<span class="badge internal">internal</span>`;
+  return "";
+};
+
+document.getElementById("main").innerHTML = CATEGORIES.map(c => `
+  <section class="cat" id="${c.id}">
+    <div class="cat-head">
+      <span class="bar" style="background:${c.color}"></span>
+      <h2>${c.title}</h2>
+      <span class="count">${c.items.length}</span>
+    </div>
+    <p class="cat-desc">${c.desc}</p>
+    <div class="grid" style="--accent:${c.color}">
+      ${c.items.map(it => `
+        <div class="card">
+          <div class="name">${it.name}</div>
+          <div class="desc">${it.desc}</div>
+          ${it.role || it.files ? `<div class="badges">${roleBadge(it.role)}</div>` : ""}
+          ${it.files ? `<div class="files"><span>+</span> ${it.files}</div>` : ""}
+        </div>`).join("")}
+    </div>
+  </section>`).join("");
+</script>
+</body>
+</html>

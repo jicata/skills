@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Anatomy of a Skill Stack — /ship-feature</title>
+<style>
+  :root {
+    --bg: #0d1017;
+    --bg-elev: #151a23;
+    --bg-card: #1a2029;
+    --border: #262f3d;
+    --border-strong: #33405280;
+    --text: #e6edf3;
+    --text-dim: #9aa7b8;
+    --text-faint: #6b7688;
+    --orch: #fb923c;
+    --coder: #60a5fa;
+    --reviewer: #f472b6;
+    --agent: #a78bfa;
+    --found: #34d399;
+    --doctrine: #22d3ee;
+    --downstream: #facc15;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #1b2534 0%, transparent 55%),
+      radial-gradient(1000px 500px at 100% 0%, #1a1f2e 0%, transparent 50%),
+      var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  a.back {
+    display: inline-block; margin: 26px 0 0; font-family: var(--mono); font-size: 13px;
+    color: var(--text-dim); text-decoration: none; padding: 5px 12px; border: 1px solid var(--border);
+    border-radius: 8px; transition: .15s;
+  }
+  a.back:hover { color: var(--text); background: var(--bg-card); }
+
+  header { padding: 30px 0 26px; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 14px; }
+  h1 { font-size: clamp(30px, 5vw, 46px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.05;
+       background: linear-gradient(180deg, #fff 0%, #b9c6d8 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .h1 .cmd { font-family: var(--mono); color: var(--orch); -webkit-text-fill-color: var(--orch); }
+  .lede { margin-top: 18px; max-width: 760px; font-size: 16.5px; color: var(--text-dim); }
+  .lede b { color: var(--text); font-weight: 600; }
+
+  h2.sec { font-size: 13px; font-family: var(--mono); letter-spacing: .14em; text-transform: uppercase;
+           color: var(--text-faint); margin: 56px 0 8px; }
+  .sec-sub { color: var(--text-dim); font-size: 15px; max-width: 760px; margin-bottom: 26px; }
+
+  /* ===== the layered stack ===== */
+  .stack { display: flex; flex-direction: column; gap: 12px; position: relative; }
+  .layer {
+    display: grid; grid-template-columns: 148px 1fr; align-items: stretch;
+    border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--bg-card);
+    position: relative;
+  }
+  .layer .rail {
+    display: flex; flex-direction: column; justify-content: center; gap: 3px;
+    padding: 16px; background: #ffffff05; border-right: 1px solid var(--border);
+  }
+  .rail .tier { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .rail .tier-note { font-size: 11.5px; color: var(--text-faint); line-height: 1.4; }
+  .layer .body { padding: 15px 16px; display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
+  .layer::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+
+  .chip {
+    display: inline-flex; flex-direction: column; gap: 3px;
+    border: 1px solid var(--chip-b, var(--border-strong)); border-radius: 10px;
+    padding: 9px 13px; background: var(--chip-bg, #ffffff06); min-width: 0;
+  }
+  .chip .cn { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--chip-c, #fff); }
+  .chip .cd { font-size: 11.5px; color: var(--text-faint); line-height: 1.35; max-width: 340px; }
+  .chip.orch { --chip-b: #fb923c55; --chip-bg: #fb923c14; --chip-c: #ffd7a0; }
+  .chip.coder { --chip-b: #60a5fa55; --chip-bg: #60a5fa14; --chip-c: #bcd7ff; }
+  .chip.reviewer { --chip-b: #f472b655; --chip-bg: #f472b614; --chip-c: #ffc3e0; }
+  .chip.agent { --chip-b: #a78bfa55; --chip-bg: #a78bfa14; --chip-c: #d6c9ff; }
+  .chip.found { --chip-b: #34d39955; --chip-bg: #34d39912; --chip-c: #a7f3d0; }
+  .chip.doctrine { --chip-b: #22d3ee44; --chip-bg: #22d3ee10; --chip-c: #a5f3fc; }
+  .chip.lens { --chip-b: #22d3ee; --chip-bg: #22d3ee20; --chip-c: #cffafe; box-shadow: 0 0 0 1px #22d3ee22, 0 4px 18px -8px #22d3ee66; }
+  .chip.lens .runs { color: #67e8f9; }
+  .chip.lens .runs b { color: #a5f3fc; }
+  .chip.down { --chip-b: #facc1555; --chip-bg: #facc1512; --chip-c: #fde68a; }
+  .chip.cmd  { --chip-b: #ffffff33; --chip-bg: #ffffff0e; --chip-c: #fff; }
+  .chip .runs { font-size: 10.5px; color: var(--text-faint); font-family: var(--mono); }
+  .chip .runs b { color: var(--text-dim); font-weight: 600; }
+
+  .flow-down { text-align: center; color: var(--text-faint); font-size: 18px; margin: -4px 0; height: 8px; line-height: 8px; }
+
+  /* ===== the loop ===== */
+  .loop { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
+  .node {
+    flex: 1 1 150px; border: 1px solid var(--border); border-radius: 13px; background: var(--bg-card);
+    padding: 15px 15px 14px; position: relative; min-width: 150px;
+  }
+  .node::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 3px 0 0 3px; background: var(--nc, var(--border)); }
+  .node .step { font-family: var(--mono); font-size: 11px; color: var(--text-faint); letter-spacing: .08em; }
+  .node .title { font-size: 15px; font-weight: 650; margin: 4px 0 6px; }
+  .node .who { font-family: var(--mono); font-size: 11.5px; color: var(--nc); }
+  .node .sub { font-size: 12px; color: var(--text-dim); margin-top: 6px; line-height: 1.4; }
+  .arrow { align-self: center; color: var(--text-faint); font-size: 22px; flex: 0 0 auto; }
+
+  .cycle {
+    flex: 2 1 320px; border: 1.5px dashed #f472b666; border-radius: 15px; padding: 14px;
+    background: #f472b608; position: relative;
+  }
+  .cycle .cyc-label { position: absolute; top: -11px; left: 16px; background: var(--bg); padding: 0 9px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #ffc3e0; }
+  .cycle .pair { display: flex; align-items: center; gap: 12px; }
+  .cycle .pair .node { flex: 1; margin: 0; }
+  .cyc-mid { display: flex; flex-direction: column; align-items: center; color: var(--text-faint); font-size: 12px; gap: 2px; }
+  .cyc-mid .rot { font-size: 20px; color: #f472b6; }
+
+  .escalation { margin-top: 26px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .rung { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--bg-elev); position: relative; }
+  .rung::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; background: var(--rc); }
+  .rung .cond { font-family: var(--mono); font-size: 12px; color: var(--rc); font-weight: 600; }
+  .rung .act { font-size: 13px; color: var(--text-dim); margin-top: 5px; line-height: 1.45; }
+
+  /* ===== invariants / compare ===== */
+  .invariants { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .inv { border: 1px solid var(--border); border-radius: 12px; padding: 15px 17px; background: var(--bg-card); }
+  .inv .k { font-size: 14px; font-weight: 650; margin-bottom: 5px; }
+  .inv .v { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  .inv .k .em { color: var(--orch); }
+
+  .compare { border: 1px solid var(--border); border-radius: 14px; background: var(--bg-elev); padding: 20px 22px; }
+  .compare h3 { font-size: 16px; margin-bottom: 6px; }
+  .compare h3 code { font-family: var(--mono); color: var(--orch); font-size: 15px; }
+  .compare p { font-size: 14px; color: var(--text-dim); line-height: 1.55; }
+  .compare p b { color: var(--text); font-weight: 600; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
+  .legend .li { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-dim); }
+  .legend .sw { width: 12px; height: 12px; border-radius: 4px; }
+
+  footer { margin: 56px 0 48px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--text-faint); font-size: 13px; line-height: 1.7; }
+  footer code { font-family: var(--mono); color: var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← the full library</a>
+</div>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow">Composition · one command, many skills</div>
+    <h1 class="h1">Anatomy of a stack: <span class="cmd">/ship-feature</span></h1>
+    <p class="lede">
+      One command the human types unfolds into a <b>self-driving loop</b> that ships an entire PRD —
+      every child issue implemented, reviewed, and merged without a human in the loop. It's not one big skill;
+      it's a <b>thin orchestrator composing small, single-purpose skills</b> through two cheap subagents.
+      Here's the whole stack, then the loop it runs.
+    </p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ===================== THE STACK ===================== -->
+  <h2 class="sec">The stack — control flows top → down</h2>
+  <p class="sec-sub">Each layer only knows the layer directly beneath it. The orchestrator never touches code; the agents never decide policy; the skills never loop. Separation is the whole trick.</p>
+
+  <div class="stack">
+
+    <div class="layer" style="--accent: #ffffff55">
+      <div class="rail"><span class="tier" style="--accent:#fff">Command</span><span class="tier-note">what the human types</span></div>
+      <div class="body">
+        <div class="chip cmd"><span class="cn">/ship-feature &lt;prd&gt;</span><span class="cd">The only human touch-point. Everything below runs unattended.</span></div>
+      </div>
+    </div>
+
+    <div class="flow-down">↓</div>
+
+    <div class="layer" style="--accent: var(--orch)">
+      <div class="rail"><span class="tier" style="--accent:var(--orch)">Orchestrator</span><span class="tier-note">the loop &amp; the policy</span></div>
+      <div class="body">
+        <div class="chip orch">
+          <span class="cn">ship-feature</span>
+          <span class="cd">Loops every child issue. Owns the escalation policy, the never-halt rule, and the final PRD→master merge. Runs in isolated git worktrees — your checkout is never touched.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-down">↓ dispatches</div>
+
+    <div class="layer" style="--accent: var(--agent)">
+      <div class="rail"><span class="tier" style="--accent:var(--agent)">Agents</span><span class="tier-note">cheap subagents · workhorse model</span></div>
+      <div class="body">
+        <div class="chip agent">
+          <span class="cn">afk-coder</span>
+          <span class="cd">Persists across rounds on one PR; fresh per PR.</span>
+          <span class="runs">runs → <b>afk-execute-issue</b>, then <b>afk-address-pr</b></span>
+        </div>
+        <div class="chip agent">
+          <span class="cn">afk-reviewer</span>
+          <span class="cd">Cold context per PR — keeps review independent.</span>
+          <span class="runs">runs → <b>afk-review-pr</b></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-down">↓ invoke</div>
+
+    <div class="layer" style="--accent: var(--coder)">
+      <div class="rail"><span class="tier" style="--accent:var(--coder)">Skills</span><span class="tier-note">single-purpose · never loop</span></div>
+      <div class="body">
+        <div class="chip coder"><span class="cn">afk-execute-issue</span><span class="cd">Branch, implement the slice, open the PR.</span></div>
+        <div class="chip coder"><span class="cn">afk-address-pr</span><span class="cd">Fix review threads; localize regressions; push.</span></div>
+        <div class="chip reviewer"><span class="cn">afk-review-pr</span><span class="cd">Grade Axis A (requirements) + Axis B (standards).</span></div>
+        <div class="chip orch"><span class="cn">afk-concede-thread</span><span class="cd">Orchestrator-invoked. Thread-granular concession.</span></div>
+        <div class="chip orch"><span class="cn">afk-merge-pr</span><span class="cd">Orchestrator-invoked. Squash-merge to the PRD base.</span></div>
+      </div>
+    </div>
+
+    <div class="flow-down">↓ every code change is written &amp; judged through</div>
+
+    <div class="layer" style="--accent: var(--doctrine)">
+      <div class="rail"><span class="tier" style="--accent:var(--doctrine)">Doctrine &amp; lenses</span><span class="tier-note">how this repo writes &amp; reviews code</span></div>
+      <div class="body">
+        <div class="chip lens">
+          <span class="cn">vsa-tdd · coder lens</span>
+          <span class="cd">The generated manifest — the exact set of doctrine every coder run loads. One file the coder reads; it pulls in the rest.</span>
+          <span class="runs">bundles → the doctrine below</span>
+        </div>
+        <div class="chip doctrine"><span class="cn">vsa</span><span class="cd">Vertical slices — organize by feature, isolate between them.</span></div>
+        <div class="chip doctrine"><span class="cn">tdd</span><span class="cd">The red-green loop the coder builds through.</span></div>
+        <div class="chip doctrine"><span class="cn">dotnet-backend</span><span class="cd">Idiomatic .NET / ASP.NET Core / EF Core rules. The stack core.</span></div>
+        <div class="chip doctrine"><span class="cn">codebase-design</span><span class="cd">Deep-module vocabulary — small interface, clean seam, testable.</span></div>
+        <div class="chip doctrine"><span class="cn">fowler-smell-baseline</span><span class="cd">The standard behind Axis-B review findings.</span></div>
+        <div class="chip doctrine"><span class="cn">karpathy-guidelines</span><span class="cd">Guards against common LLM coding pitfalls.</span></div>
+        <div class="chip reviewer"><span class="cn">code-reviewer-persona</span><span class="cd">The reviewer's lens — composes the doctrine index + tdd before grading.</span></div>
+      </div>
+    </div>
+
+    <div class="flow-down">↓ all of it running on</div>
+
+    <div class="layer" style="--accent: var(--found)">
+      <div class="rail"><span class="tier" style="--accent:var(--found)">Foundation</span><span class="tier-note">runtime substrate · always-on</span></div>
+      <div class="body">
+        <div class="chip found"><span class="cn">_afk-shared/resilience.md</span><span class="cd">Non-interactive, time-boxed shell so no call can hang. Wins over any skill.</span></div>
+        <div class="chip found"><span class="cn">project-profile.md</span><span class="cd">The repo overlay: check commands, workhorse model, and the scars that steer every skill above.</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="flow-down" style="margin-top:14px">↓ residue, never a halt</div>
+  <div class="layer" style="--accent: var(--downstream)">
+    <div class="rail"><span class="tier" style="--accent:var(--downstream)">Downstream</span><span class="tier-note">picked up later</span></div>
+    <div class="body">
+      <div class="chip down"><span class="cn">[ship-cleanup] issue</span><span class="cd">Every unresolved concern logged here — the loop never stops for a human.</span></div>
+      <div class="arrow">→</div>
+      <div class="chip down"><span class="cn">drain-cleanup</span><span class="cd">Later, re-verifies each entry and spins off well-formed issues.</span></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="li"><span class="sw" style="background:var(--orch)"></span>orchestrator</div>
+    <div class="li"><span class="sw" style="background:var(--agent)"></span>agent</div>
+    <div class="li"><span class="sw" style="background:var(--coder)"></span>coder skill</div>
+    <div class="li"><span class="sw" style="background:var(--reviewer)"></span>reviewer skill</div>
+    <div class="li"><span class="sw" style="background:var(--doctrine)"></span>doctrine &amp; lenses</div>
+    <div class="li"><span class="sw" style="background:var(--found)"></span>foundation</div>
+    <div class="li"><span class="sw" style="background:var(--downstream)"></span>downstream</div>
+  </div>
+
+  <!-- ===================== THE LOOP ===================== -->
+  <h2 class="sec">The loop — run once per child issue</h2>
+  <p class="sec-sub">The orchestrator walks the PRD's children (in <code>Blocked-by</code> order). For each one it drives this cycle to a merge, then moves on. No child is ever skipped.</p>
+
+  <div class="loop">
+    <div class="node" style="--nc: var(--orch)">
+      <div class="step">01</div>
+      <div class="title">Select</div>
+      <div class="who">ship-feature</div>
+      <div class="sub">Next unblocked, unclaimed child issue.</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node" style="--nc: var(--coder)">
+      <div class="step">02</div>
+      <div class="title">Implement</div>
+      <div class="who">afk-coder ▸ afk-execute-issue</div>
+      <div class="sub">Branch, build the slice, open a PR at the PRD base branch.</div>
+    </div>
+    <div class="arrow">→</div>
+
+    <div class="cycle">
+      <span class="cyc-label">03 · review cycle — repeats until clean</span>
+      <div class="pair">
+        <div class="node" style="--nc: var(--reviewer); background:#1a2029">
+          <div class="title">Review</div>
+          <div class="who">afk-reviewer ▸ afk-review-pr</div>
+          <div class="sub">Grades Axis A · B · C, posts blocking threads.</div>
+        </div>
+        <div class="cyc-mid"><span class="rot">⇅</span><span>blockers?</span></div>
+        <div class="node" style="--nc: var(--coder); background:#1a2029">
+          <div class="title">Address</div>
+          <div class="who">afk-coder ▸ afk-address-pr</div>
+          <div class="sub">Fix threads, push, back to review.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow">→</div>
+    <div class="node" style="--nc: var(--orch)">
+      <div class="step">04</div>
+      <div class="title">Merge</div>
+      <div class="who">afk-merge-pr</div>
+      <div class="sub">Squash-merge to base, close the issue, next child.</div>
+    </div>
+  </div>
+
+  <div class="escalation">
+    <div class="rung" style="--rc: var(--reviewer)">
+      <div class="cond">clean review</div>
+      <div class="act">No blocking threads → merge straight away.</div>
+    </div>
+    <div class="rung" style="--rc: #fbbf24">
+      <div class="cond">3 rejects on a thread</div>
+      <div class="act">Axis-B (standards) only → <b>afk-concede-thread</b> logs it to cleanup and resolves it. Axis-A never conceded.</div>
+    </div>
+    <div class="rung" style="--rc: #f87171">
+      <div class="cond">7 rounds, still blocked</div>
+      <div class="act">Force-merge with all-blocker concession. The child ships; the debt is logged, not dropped.</div>
+    </div>
+  </div>
+
+  <!-- ===================== INVARIANTS ===================== -->
+  <h2 class="sec">Why it composes — the load-bearing invariants</h2>
+  <div class="invariants">
+    <div class="inv"><div class="k"><span class="em">Never</span> halt</div><div class="v">Every unresolvable condition becomes a cleanup-issue entry, not a prompt. That single rule is what makes autonomy possible.</div></div>
+    <div class="inv"><div class="k"><span class="em">Cheap</span> subagents</div><div class="v">Orchestrator + agents all run on the profile's workhorse model. The pattern assumes subagents are disposable, so it spawns them freely.</div></div>
+    <div class="inv"><div class="k"><span class="em">Independent</span> review</div><div class="v">The reviewer is a separate agent with cold context per PR — it can't be talked into approving its own code, because it isn't the coder.</div></div>
+    <div class="inv"><div class="k"><span class="em">Isolated</span> worktrees</div><div class="v">All work happens in sibling git worktrees. Your main checkout stays yours for the whole run.</div></div>
+  </div>
+
+  <!-- ===================== SHIP-ISSUE ===================== -->
+  <h2 class="sec">Same machine, smaller job</h2>
+  <div class="compare">
+    <h3>The <code>/ship-issue</code> reuse</h3>
+    <p>
+      <code>/ship-issue &lt;n&gt;</code> is the <b>same orchestrator, same agents, same loop</b> — pointed at a single
+      standalone issue instead of a PRD's children. It drops the outer child-loop and the PRD→master finalize,
+      branches straight off the default branch, and runs the skills in <b>--single</b> mode. One machine, two entry points:
+      that reuse is the payoff of keeping every skill single-purpose.
+    </p>
+    <p style="margin-top:14px">
+      <a href="split.html" style="font-family:var(--mono);font-size:14px;color:#ffc3e0;text-decoration:none;padding:9px 15px;border:1px solid #f472b640;background:#f472b610;border-radius:10px;display:inline-block;transition:.15s">
+        ▸ Next: the coder / reviewer split — two agents, one PR →
+      </a>
+    </p>
+  </div>
+
+</main>
+
+<footer class="wrap">
+  Drawn from <code>skills/ship-feature/SKILL.md</code>. Escalation: per-thread concession after 3 Axis-B rejects; forced merge after 7 rounds. <code>--parallel &lt;N&gt;</code> runs children concurrently over a <code>Blocked-by</code> DAG, one worktree per slot, merges serialized through GitHub's merge queue.
+</footer>
+</body>
+</html>
