@@ -184,7 +184,7 @@ If the worktree already existed (a previous run was interrupted), you are resumi
 1. **Assess State:** Run `git status` and `git diff` inside `$WT` to see exactly what the previous run changed.
 2. **Run the checks:** Run the profile's `check_commands` (the fast pre-push gate) to see if the current state compiles and what is failing.
 3. **Map to ACs:** Compare the existing code against the Acceptance Criteria to determine what is already done and what is missing.
-4. **Resume:** Pick up the TDD loop (Red/Green/Refactor) from exactly where the previous run left off.
+4. **Resume:** Pick up the TDD red-green loop from exactly where the previous run left off. (Refactoring is not part of the cycle — it is the single pre-PR consolidation pass, per `tdd/refactoring.md`.)
 
 ### Step 4 — Understand before you code (lean read order)
 
