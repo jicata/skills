@@ -1,6 +1,6 @@
 <!-- TEMPLATE — instantiated by /setup ONLY when interview Q1 surfaces a chassis: base,
      chassis-like libraries this app is built upon whose source must be read for a complete
-     picture of runtime behavior. Materialize as `.claude/rules/chassis-foundation.md`
+     picture of runtime behavior. Materialize as `.claude/doctrine/chassis-foundation.md`
      (always-on — it guards every backend-reasoning turn). Fill every <FILL: …> slot from the
      interview + a read of the actual chassis source; KEEP the two donor failure stories — they
      are the why; delete this comment. -->

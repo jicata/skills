@@ -64,8 +64,7 @@ A **flow** is a path through the skills. Most work travels the main flow; on-ram
 <FILL>
 
 <example donor tier="full">
-- `/mental-map` — Socratic Q&A that pushes your understanding frontier forward.
-- `/walkthrough` — paves the road already walked: prose narration of the current map's nodes.
+- `/walkthrough` — prose narration that paves the road already walked: senior-to-junior walk of a system's nodes, grounded in the real code.
 - `/flow-map` / `/miro-diagram` — visual: grow a runtime-flow diagram step-by-step / one-shot diagrams.
 - `/prototype` — a throwaway spike answering ONE design question; the verdict lands on the issue, the code never merges.
 </example>
@@ -95,7 +94,7 @@ A **flow** is a path through the skills. Most work travels the main flow; on-ram
 <example donor tier="full">
 - `/codebase-design` — deep-module vocabulary; `/tdd` and `/improve-codebase-architecture` speak it.
 - `/tdd` + `/vsa-tdd` — the implementation lenses. Coders load these; you rarely type them.
-- `.claude/rules/00-doctrine-index.md` — the load-on-demand doctrine table.
+- `.claude/doctrine/00-doctrine-index.md` — the load-on-demand doctrine table.
 </example>
 
 <!-- guidance: OPTIONAL extra sections the donor grew that setup adds only when the backing

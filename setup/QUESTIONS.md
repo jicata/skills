@@ -28,8 +28,11 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 
 **Q6 — Architecture shape.** Detected (a `Features/` VSA signature, layered folders, …), confirmed. → installs the architecture doctrine + **generates the composite coder lens** (the repo's `vsa-tdd` analog: a manifest of which doctrine files every coder run loads).
 
+**Q6b — Frontend surface.** Detected (a `src/pages/` or `src/components/` tree, a component library in `package.json`), confirmed. → installs `doctrine/frontend-architecture` + overlay facts (component library, server-state cache, design-handoff pipeline if any).
+→ *Donor: React + query cache + MUI, with a design-artifact handoff pipeline. Backend-only repos skip this entirely.*
+
 **Q7 — Persistence.** "What database; who owns schema migrations; what substitutes for it locally and in tests?"
-→ database doctrine + overlay facts (migration owner, emulator/stand-in, seeding rules).
+→ installs `doctrine/relational-persistence` + overlay facts (canonical store, migration owner, emulator/stand-in, seeding rules).
 → *Donor: Spanner + EF Core, Flyway owns migrations, emulator locally — and the scar: EF migrate/seed is a dead end (stale migrations + row-ownership interceptor).*
 
 **Q8 — Legacy oracle (brownfield).** "Is there a reference implementation new code must behaviorally match? How is parity proven — golden masters, truth tables, live probing?"
