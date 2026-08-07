@@ -1,0 +1,6 @@
+
+# Windows/MSYS crash artifacts
+*.stackdump
+
+# GitHub App private keys (review identity) — never commit
+*.pem

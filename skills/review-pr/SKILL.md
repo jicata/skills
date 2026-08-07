@@ -292,7 +292,7 @@ Build a JSON payload file (use `Write` to a scratch file, then pass via `--input
 Post it:
 
 ```bash
-gh api /repos/<owner>/<repo>/pulls/<n>/reviews \
+gh api repos/<owner>/<repo>/pulls/<n>/reviews \
   --method POST \
   --input <scratch-file>.json
 ```
@@ -326,7 +326,7 @@ mutation($id: ID!) {
 Optionally, before resolving, post a short reply on the thread confirming what was fixed:
 
 ```bash
-gh api /repos/<owner>/<repo>/pulls/<n>/comments/<comment-id>/replies \
+gh api repos/<owner>/<repo>/pulls/<n>/comments/<comment-id>/replies \
   --method POST \
   -f body="Claude comment 🤖
 

@@ -145,7 +145,7 @@ These are Coder pushback replies. For each:
 
 5. **On accept**: post a reply confirming and resolve the thread:
    ```bash
-   gh api /repos/<owner>/<repo>/pulls/<n>/comments/<comment-id>/replies \
+   gh api repos/<owner>/<repo>/pulls/<n>/comments/<comment-id>/replies \
      --method POST -f body="Claude comment 🤖
 
    ✅ Pushback accepted. <one-line reasoning>. Resolving thread."
@@ -156,7 +156,7 @@ These are Coder pushback replies. For each:
 
 6. **On reject**: post a reply restating the concern (do **not** create a new thread, do **not** resolve):
    ```bash
-   gh api /repos/<owner>/<repo>/pulls/<n>/comments/<comment-id>/replies \
+   gh api repos/<owner>/<repo>/pulls/<n>/comments/<comment-id>/replies \
      --method POST -f body="Claude comment 🤖
 
    ❌ Pushback rejected. <one-line reasoning citing AC or rule>. The original concern stands."
@@ -362,11 +362,11 @@ The structured return must carry the axis-C result alongside the existing counts
 
 ```bash
 # self mode (default)
-gh api /repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input <scratch>
+gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input <scratch>
 
 # app mode — token scoped to this call only, never logged or persisted
 REVIEW_TOKEN="$(<review_app_token_cmd>)"
-GH_TOKEN="$REVIEW_TOKEN" gh api /repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input <scratch>
+GH_TOKEN="$REVIEW_TOKEN" gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input <scratch>
 unset REVIEW_TOKEN
 
 rm <scratch>
@@ -388,7 +388,7 @@ For each thread that did not get resolved by pushback acceptance (Step 3.5):
 ### 9b. Resolve addressed threads
 
 ```bash
-gh api /repos/<owner>/<repo>/pulls/<n>/comments/<first-id>/replies --method POST -f body="Claude comment 🤖
+gh api repos/<owner>/<repo>/pulls/<n>/comments/<first-id>/replies --method POST -f body="Claude comment 🤖
 
 ✅ Resolved: <one-line reason>"
 gh api graphql -f query='mutation($id: ID!) { resolveReviewThread(input: {threadId: $id}) { thread { isResolved } } }' -f id=<thread-id>

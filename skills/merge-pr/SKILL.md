@@ -37,8 +37,8 @@ query($owner: String!, $repo: String!, $pr: Int!) {
       headRefName
       headRefOid
       baseRefName
-      reviewDecision
       reviewThreads(first: 100) { nodes { isResolved } }
+      latestReviews(first: 50) { nodes { state author { login } } }
       reviews(last: 20) { nodes { body state submittedAt author { login } } }
     }
   }
@@ -51,13 +51,13 @@ Check **all** of the following. If any fails, stop and report — do not merge.
 
 1. `state == "OPEN"` — the PR must be open (not already merged or closed)
 2. **Review gate** — resolve the verdict per [`../_shared/review-protocol.md`](../_shared/review-protocol.md) §4. In short:
-   - `reviewDecision == "CHANGES_REQUESTED"` → stop. A human requesting changes is authoritative over any skill verdict.
+   - Any `latestReviews` entry with `state == "CHANGES_REQUESTED"` → stop. A reviewer who requested changes is authoritative over any marker. (Use `latestReviews`, **not** `reviewDecision` — that field is only populated when branch protection requires reviews, so it stays `null` here even for a genuine App-authored block.)
    - Take the newest review whose body starts with `Claude comment 🤖` and parse `**Verdict: …** · reviewed at \`<sha>\``.
    - **`<sha>` ≠ `headRefOid`** → stop as `review_stale`: the review graded a commit that is no longer the head. Suggest re-running `/review-pr <n>`. Do not merge on a stale approval.
    - `REQUEST_CHANGES` → stop; suggest `/address-pr <n>`.
    - `COMMENT` → stop. A comment review is not an approval, even with every thread resolved.
    - `APPROVE` → pass.
-   - No parseable marker → fall back to `reviewDecision == "APPROVED"` (a human approved natively) → pass; anything else → stop as not reviewed. A `Claude comment 🤖` body with no marker predates this protocol — treat it as `COMMENT`, never as an approval, and re-review once to clear it.
+   - No parseable marker → fall back to any `latestReviews` entry with `state == "APPROVED"` (someone approved natively) → pass; anything else → stop as not reviewed. A `Claude comment 🤖` body with no marker predates this protocol — treat it as `COMMENT`, never as an approval, and re-review once to clear it.
 3. Every `reviewThreads.nodes[].isResolved == true` — no unresolved threads. If any are unresolved, stop and suggest `/address-pr <n>`.
 4. `baseRefName` starts with `prd-` — PRs from `/execute-issue` must target a base branch. If `baseRefName` is the default branch, stop and report a structural bug upstream; do not merge past it.
 

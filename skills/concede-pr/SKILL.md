@@ -79,7 +79,7 @@ Capture the URL or number of the newly created issue.
 For each unresolved `[AXIS-B]` thread you identified in Step 1, resolve it and leave a reply linking to the new tech debt issue:
 
 ```bash
-gh api /repos/<owner>/<repo>/pulls/<n>/comments/<comment-id>/replies \
+gh api repos/<owner>/<repo>/pulls/<n>/comments/<comment-id>/replies \
   --method POST \
   -f body="Claude comment 🤖
 
@@ -107,7 +107,7 @@ Post an `APPROVE` **verdict** to unblock the PR, transported per [`../_shared/re
 HEAD_SHA=$(gh pr view <n> --json headRefOid -q .headRefOid)
 
 # self mode (default) — COMMENT event, verdict carried by the marker
-gh api /repos/<owner>/<repo>/pulls/<n>/reviews --method POST \
+gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST \
   -f event=COMMENT \
   -f body="Claude comment 🤖
 

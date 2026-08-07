@@ -28,14 +28,19 @@ const arg = (flag, fallback) => {
   return i !== -1 && argv[i + 1] ? argv[i + 1] : fallback;
 };
 
+const has = (flag) => argv.includes(flag);
+
 const name = arg('--name');
 const org = arg('--org');
+const noOpen = has('--no-open');
 const port = Number(arg('--port', '8765'));
 const keyDir = arg('--key-dir', path.join(os.homedir(), '.ssh'));
 
 if (!name) {
-  console.error('Usage: node create-review-app.js --name <app-name> [--org <org>] [--port 8765]');
-  console.error('  --name must be unique across all of GitHub. It appears on reviews as "<name>[bot]".');
+  console.error('Usage: node create-review-app.js --name <app-name> [--org <org>] [--port 8765] [--no-open]');
+  console.error('  --name     must be unique across all of GitHub. Appears on reviews as "<name>[bot]".');
+  console.error('  --no-open  print the URL instead of launching a browser. Use when your default');
+  console.error('             browser is signed into the wrong GitHub account.');
   process.exit(1);
 }
 
@@ -54,7 +59,12 @@ const manifest = {
     checks: 'read', // Axis C reads check-run conclusions
     metadata: 'read', // mandatory
   },
-  hook_attributes: { url: redirectUrl, active: false }, // never called; webhooks disabled
+  // Webhooks are disabled, but GitHub still validates the URL's host and rejects
+  // localhost/private addresses outright ("Hook url is not supported because it isn't
+  // reachable over the public Internet"). It never calls this URL while active is false;
+  // it only has to parse as a public one. redirect_url MAY be localhost — that is a
+  // browser redirect, not a server-to-server call.
+  hook_attributes: { url: 'https://example.com/unused', active: false },
 };
 
 const createUrl = org
@@ -143,10 +153,15 @@ const server = http.createServer(async (req, res) => {
     console.log('   Choose "Only select repositories" and pick the repo.');
     console.log('   The installation ID is the last path segment of the URL you land on:');
     console.log('   https://github.com/settings/installations/<INSTALLATION_ID>');
+    // The command is consumed by a POSIX shell and by YAML. Windows backslashes are
+    // eaten by bash (C:\Users\x -> C:Usersx) AND are escape sequences inside a
+    // double-quoted YAML scalar. Forward slashes are accepted by Node on Windows and
+    // are inert in both, so always emit them.
+    const posix = (p) => p.replace(/\\/g, '/');
     console.log('\n── Then add to .claude/doctrine/project-profile.md ──────────');
     console.log('review_identity: app');
     console.log(
-      `review_app_token_cmd: "GH_APP_ID=${app.id} GH_APP_INSTALLATION_ID=<INSTALLATION_ID> GH_APP_PRIVATE_KEY_PATH=${keyPath} node ${path.join(os.homedir(), '.claude', 'gh-app-token.js')}"`
+      `review_app_token_cmd: "GH_APP_ID=${app.id} GH_APP_INSTALLATION_ID=<INSTALLATION_ID> GH_APP_PRIVATE_KEY_PATH=${posix(keyPath)} node ${posix(path.join(os.homedir(), '.claude', 'gh-app-token.js'))}"`
     );
     console.log('\nVerify with setup/github-app.md §5 before relying on it.\n');
   } catch (err) {
@@ -172,7 +187,13 @@ server.listen(port, () => {
   const url = `http://localhost:${port}/`;
   console.log(`\nCreating GitHub App "${name}"${org ? ` under org ${org}` : ''}.`);
   console.log('Permissions requested: pull_requests:write, contents:read, checks:read, metadata:read.\n');
-  if (!openBrowser(url)) console.log('Open this in a browser:');
+  console.log('Open this in a browser signed in to the GitHub account that should OWN the App:');
   console.log(`   ${url}\n`);
+  if (!noOpen && openBrowser(url)) {
+    console.log('(Tried to open your default browser. If that browser is signed in to a');
+    console.log(' different GitHub account, ignore the window it opened and paste the URL');
+    console.log(' above into the right one — this server accepts either. Re-run with');
+    console.log(' --no-open to skip the auto-launch entirely.)\n');
+  }
   console.log('Waiting for GitHub to redirect back…');
 });

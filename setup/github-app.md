@@ -8,9 +8,11 @@ GitHub refuses `APPROVE` and `REQUEST_CHANGES` from the PR's own author (`422`, 
 
 An App installation is a **distinct actor**, so both events land. You get:
 
-- A real `reviewDecision` on the PR
+- Reviews carrying a real `APPROVED` / `CHANGES_REQUESTED` state instead of `COMMENTED`
 - Reviews attributed to a named bot, visually distinct from your own comments
 - Native blocking via branch protection, *where branch protection is available* (not on private repos on the free plan)
+
+What it does **not** light up is the PR's `reviewDecision` field. That requires branch protection with a review requirement, so on a private repo on the free plan it stays `null` even with a genuine App `CHANGES_REQUESTED` on the PR. Read `latestReviews[].state` instead — the merge gate already does.
 
 What it does **not** get you: an independent opinion. Same model, same doctrine, different badge.
 
@@ -27,6 +29,8 @@ node setup/create-review-app.js --name claude-reviewer-<yourhandle>   # add --or
 ```
 
 Two clicks — **Create GitHub App**, then **Install** on the repo — and it prints the App ID, key path, and the exact `review_app_token_cmd`. Fill in the installation ID from the URL you land on, then go to §4 for the token script and §5 to verify.
+
+> **Multiple GitHub accounts?** The App is owned by whichever account is signed in *in the browser that loads the page* — not by your `gh` CLI identity. If your default browser is signed in to the wrong account, ignore the window it opens and paste the printed `http://localhost:<port>/` URL into the right browser; the local server accepts a request from either. `--no-open` skips the auto-launch. Getting this wrong creates the App under the wrong account, and the fix is to delete it and start over.
 
 Requires: Node 18+, and permission to install Apps on the target account. On an org that restricts App installation to owners, the script still creates the App — an owner has to approve the install.
 
@@ -117,34 +121,42 @@ review_app_token_cmd: "GH_APP_ID=123456 GH_APP_INSTALLATION_ID=12345678 GH_APP_P
 
 The App ID and installation ID are not secrets — only the `.pem` is. Keeping the key *path* in the profile and the key itself outside the repo is the whole security boundary.
 
+> **Always write the path with forward slashes**, including on Windows (`C:/Users/you/.ssh/app.pem`). The value is consumed by a POSIX shell *and* by a YAML parser: bash silently eats backslashes (`C:\Users\you` → `C:Usersyou`) and `\U` is an invalid escape inside a double-quoted YAML scalar. Node accepts forward slashes on Windows, so they are inert in both.
+>
+> Note also that `chmod 600` has no real effect on Windows — the key file will still list as `-rw-r--r--` under Git Bash. Protect it with NTFS ACLs or by location, not by mode bits.
+
 ### 5. Verify before relying on it
 
 ```bash
-# 1. The command prints a token (starts with ghs_)
-eval "$(<review_app_token_cmd>)" | head -c 4
+TOK=$(<review_app_token_cmd>)      # the command itself, substituted in verbatim
 
-# 2. The token identifies as the App, not you
-GH_TOKEN="$(<review_app_token_cmd>)" gh api /installation/repositories --jq '.repositories[].full_name'
+# 1. It minted an installation token
+echo "${TOK:0:4}...  (len ${#TOK})"        # expect ghs_...
 
-# 3. The real test — a native APPROVE on an open PR authored by you
-GH_TOKEN="$(<review_app_token_cmd>)" gh api /repos/<owner>/<repo>/pulls/<n>/reviews \
+# 2. The token is the App, and is scoped to the repo you installed it on
+GH_TOKEN="$TOK" gh api installation/repositories --jq '.repositories[].full_name'
+
+# 3. Baseline — prove your own account CANNOT do this (expect 422 twice)
+gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST -f event=APPROVE -f body=probe
+gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST -f event=REQUEST_CHANGES -f body=probe
+
+# 4. The real test — the same call as the App
+SHA=$(gh pr view <n> --json headRefOid -q .headRefOid)
+GH_TOKEN="$TOK" gh api repos/<owner>/<repo>/pulls/<n>/reviews \
   --method POST -f event=APPROVE -f body="Claude comment 🤖
 
-**Verdict: APPROVE** · reviewed at \`$(gh pr view <n> --json headRefOid -q .headRefOid)\`
+**Verdict: APPROVE** · reviewed at \`$SHA\`
 
-Verifying App review identity."
-
-# 4. Confirm it registered as a real decision
-gh pr view <n> --json reviewDecision
+Verifying App review identity." --jq '"state=\(.state) author=\(.user.login) id=\(.id)"'
 ```
 
-Step 4 printing `APPROVED` is the proof. Under `self` mode step 3 would have failed with `422` — that difference is the entire point.
+**Step 4 printing `state=APPROVED author=<your-app>[bot]` is the proof**, against step 3's two `422`s. Do **not** verify with `gh pr view <n> --json reviewDecision` — that field stays `null` without branch protection and will make a working App look broken.
 
-Dismiss the test review afterwards if you don't want it on the record:
+Dismiss the test review afterwards so it doesn't sit on the PR as a real approval:
 
 ```bash
-gh api /repos/<owner>/<repo>/pulls/<n>/reviews/<review-id>/dismissals \
-  --method PUT -f message="Identity verification only."
+gh api repos/<owner>/<repo>/pulls/<n>/reviews/<id>/dismissals \
+  --method PUT -f message="Verification only."
 ```
 
 ## Failure modes
@@ -156,6 +168,10 @@ gh api /repos/<owner>/<repo>/pulls/<n>/reviews/<review-id>/dismissals \
 | `404` on `/app/installations/<id>/access_tokens` | Wrong installation ID, or the App was uninstalled from the repo. |
 | `403 Resource not accessible by integration` | Missing **Pull requests: Read & write**. Permission changes need re-approval on the installation page. |
 | Token works but reviews 404 | The App is installed on the account but not on *this* repository. |
+| `reviewDecision` still empty after a successful App review | Not a failure. That field needs branch protection with a review requirement; without it, it stays `null` no matter who reviews. Check the review's own `state` and `latestReviews[].state` instead. |
+| `Hook url is not supported because it isn't reachable over the public Internet` | Only from a hand-written manifest — `hook_attributes.url` is host-validated even when `active: false`, so it cannot be `localhost`. `redirect_url` may be. The bundled script already uses a public placeholder. |
+| `invalid API endpoint: "C:/Program Files/Git/..."` | Git Bash on Windows rewrote a leading-slash API path into a filesystem path. Call `gh api repos/...` without the leading slash — that form is correct in every shell. |
+| App created under the wrong account | Ownership follows the browser session that loaded the consent page, not `gh auth status`. Delete the App and re-run in the right browser. |
 
 Per the protocol, any failure here degrades to `self` behaviour for that run rather than losing the review — the verdict marker still carries the decision and the merge gate still reads it correctly.
 

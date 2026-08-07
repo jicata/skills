@@ -57,9 +57,11 @@ In `app` mode, acquire the token first (§5) and post with it. In `self` mode po
 
 ## 4. Reading the verdict at the merge gate
 
-One resolution routine, used by `/merge-pr` and `/afk-merge-pr`. Fetch `headRefOid`, `reviewDecision`, `reviewThreads`, and `latestReviews`/`reviews` (body + author + state, newest last).
+One resolution routine, used by `/merge-pr` and `/afk-merge-pr`. Fetch `headRefOid`, `reviewThreads`, `latestReviews` (author + state), and `reviews` (body + state, newest last).
 
-1. **Human `CHANGES_REQUESTED` wins over everything.** If `reviewDecision == "CHANGES_REQUESTED"` → **blocked**. A human explicitly requesting changes is authoritative regardless of what any bot verdict says. (Reachable in `app` mode and whenever a human reviews; in `self` mode a *bot* can never produce it, but a *human* still can.)
+1. **A native `CHANGES_REQUESTED` wins over everything.** If any entry in `latestReviews` has `state == "CHANGES_REQUESTED"` → **blocked**. A reviewer who explicitly requested changes is authoritative regardless of what any marker says.
+
+   > **Read `latestReviews[].state`, not `reviewDecision`.** `reviewDecision` is only populated when the repo *requires* reviews via branch protection — on a private repo on the free plan (where protection is unavailable) it stays `null` **even in `app` mode with a genuine `CHANGES_REQUESTED` review on the PR**. Verified 2026-08-07 on `jicata/Brochures` #978: an App-authored `CHANGES_REQUESTED` review registered `state: CHANGES_REQUESTED` on the review object and in `latestReviews`, while `reviewDecision` stayed empty. Gating on `reviewDecision` silently never fires. `latestReviews` gives one entry per reviewer, already reduced to their most recent review, and a dismissed review reads as `DISMISSED` — which correctly stops blocking.
 2. **Find the governing verdict.** Take the newest review whose body starts with `Claude comment 🤖`, and parse its marker per §2 → `verdict` + `reviewed_sha`.
 3. **Staleness.** If `reviewed_sha != headRefOid` → **`review_stale`**. The review graded a commit that is no longer the head; its approval says nothing about the current code. This is a *route-back*, not a failure — the caller re-reviews and continues.
 4. **Apply the verdict:**
@@ -69,7 +71,7 @@ One resolution routine, used by `/merge-pr` and `/afk-merge-pr`. Fetch `headRefO
    - `APPROVE` with all threads resolved → **pass**
    - `APPROVE` with any unresolved thread → **blocked** (`unresolved_threads`)
 5. **No marker found.** If no review carries a parseable marker:
-   - `reviewDecision == "APPROVED"` (a human approved natively) → **pass**, subject to the same thread check
+   - any `latestReviews[].state == "APPROVED"` (someone approved natively) → **pass**, subject to the same thread check
    - otherwise → **blocked** (`not_reviewed`)
 
 **Legacy tolerance.** A review body that starts with `Claude comment 🤖` but carries no marker predates this protocol. Treat it as `COMMENT` — never as an approval. It will read as `not_approved` and require one fresh review pass to clear. That is the intended migration cost; do not add a fallback that infers approval from thread state.
@@ -87,7 +89,7 @@ Run it, use the result for the review-posting calls only, and discard it:
 
 ```bash
 REVIEW_TOKEN="$(<review_app_token_cmd>)"
-GH_TOKEN="$REVIEW_TOKEN" gh api /repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input <scratch>
+GH_TOKEN="$REVIEW_TOKEN" gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input <scratch>
 unset REVIEW_TOKEN
 ```
 
@@ -100,6 +102,6 @@ Rules:
 
 ## 6. What this protocol does and does not buy
 
-- **Does:** a gate that reads an explicit verdict instead of inferring one from thread state; a stale-review check; identical behaviour across both identity modes; a GitHub audit trail that matches the decision actually made.
-- **Does not:** server-side enforcement. Whether GitHub *blocks* a merge is branch protection's job, and branch protection is unavailable on private repos on the free plan. In `app` mode a native `REQUEST_CHANGES` will additionally block via GitHub where protection is configured — but the skill-level gate above is what actually governs the agents, in every repo, on every plan.
+- **Does:** a gate that reads an explicit verdict instead of inferring one from thread state; a stale-review check; identical behaviour across both identity modes; a GitHub audit trail that matches the decision actually made. In `app` mode, reviews carry a real `APPROVED`/`CHANGES_REQUESTED` state and a `[bot]` author, visibly distinct from the operator's own comments.
+- **Does not:** server-side enforcement, and **not** a populated `reviewDecision`. That field needs branch protection with a review requirement, which is unavailable on private repos on the free plan — so even a genuine App-authored `CHANGES_REQUESTED` leaves it `null` there. Where protection *is* configured, `app` mode additionally blocks the merge via GitHub. Everywhere else the skill-level gate above is the only thing governing the agents, which is precisely why the marker is authoritative and `reviewDecision` is not consulted.
 - **Does not:** independent review. A bot identity is a different actor to GitHub, not a different judgment. The reviewer is still the same model reading the same doctrine; `app` mode makes the trail honest, it does not make the review adversarial.

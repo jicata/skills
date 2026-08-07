@@ -65,8 +65,8 @@ query($owner: String!, $repo: String!, $pr: Int!) {
       headRefName
       headRefOid
       baseRefName
-      reviewDecision
       reviewThreads(first: 100) { nodes { isResolved } }
+      latestReviews(first: 50) { nodes { state author { login } } }
       reviews(last: 20) { nodes { body state submittedAt author { login } } }
     }
   }
@@ -80,9 +80,9 @@ If `state != "OPEN"`:
 {"result": "pr_not_open", "pr_state": "..."}
 ```
 
-Standard merge gate (skip if `--force`). **Resolve the verdict per [`../_shared/review-protocol.md`](../_shared/review-protocol.md) §4** — the verdict is the `**Verdict: …**` marker in the newest `Claude comment 🤖` review body, not `reviewDecision`. Under `review_identity: self`, `reviewDecision` is *always* `null`; under `app` it carries the same verdict natively. The marker is authoritative in both modes, so this gate is identity-independent.
+Standard merge gate (skip if `--force`). **Resolve the verdict per [`../_shared/review-protocol.md`](../_shared/review-protocol.md) §4** — the verdict is the `**Verdict: …**` marker in the newest `Claude comment 🤖` review body. Native review *state* is read from `latestReviews`; **never** from `reviewDecision`, which requires branch protection with a review requirement and is `null` on most repos regardless of identity mode. The marker is authoritative in both modes, so this gate is identity-independent.
 
-- **Human `CHANGES_REQUESTED`** (`reviewDecision == "CHANGES_REQUESTED"`) → block. Authoritative over any skill verdict:
+- **Native `CHANGES_REQUESTED`** (any `latestReviews` entry with `state == "CHANGES_REQUESTED"`) → block. Authoritative over any marker:
   ```json
   {"result": "changes_requested", "pr_url": "..."}
   ```
@@ -98,7 +98,7 @@ Standard merge gate (skip if `--force`). **Resolve the verdict per [`../_shared/
   ```json
   {"result": "not_approved", "verdict": "comment"}
   ```
-- **No parseable marker** → `reviewDecision == "APPROVED"` (human native approval) passes; otherwise block:
+- **No parseable marker** → any `latestReviews` entry with `state == "APPROVED"` (native approval) passes; otherwise block:
   ```json
   {"result": "not_reviewed"}
   ```
@@ -235,7 +235,7 @@ On exit 0 set `postman_pushed: true` (name any overwrite warnings in `notes`). O
 
 ## Critical Rules
 
-1. **Never merge without an `APPROVE` verdict against the current head** unless `--force` was passed. The verdict is the review-body marker, not `reviewDecision` — under `self` identity `reviewDecision` is permanently `null` and gating on it would never pass. A `COMMENT` verdict with all threads resolved is **not** an approval.
+1. **Never merge without an `APPROVE` verdict against the current head** unless `--force` was passed. The verdict is the review-body marker; native state comes from `latestReviews`. `reviewDecision` is never consulted — it needs branch protection to be populated at all. A `COMMENT` verdict with all threads resolved is **not** an approval.
 1b. **Never merge on a stale approval in the standard gate.** Marker SHA ≠ `headRefOid` → `review_stale`; the orchestrator routes back to review. Under `--force` this is **recorded, not enforced** (`stale_review_forced: true` + a line in the 🚨 comment) — `--force` is the pipeline's termination guarantee and must always be able to complete.
 2. **Never merge with unresolved review threads** unless `--force` was passed.
 3. **Never bypass branch protection.**
