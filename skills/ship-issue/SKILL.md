@@ -205,7 +205,8 @@ Parse the return:
 - `result: merge_conflict` → re-dispatch Coder for `/afk-address-pr` to rebase; one retry; on persistent conflict, mark `outcome = unmergeable`
 - `result: branch_protection` → cleanup entry; mark `outcome = unmergeable`, GO TO DONE
 - `result: pr_not_open` → reconcile (may already be merged); if merged, set `outcome = clean`, GO TO DONE
-- `result: changes_requested` / `unresolved_threads` → orchestrator bug; halt with diagnostic
+- `result: review_stale` → a commit landed after the approving review, so the head is ungraded. GO TO REVIEW to re-grade at the current head. **Guard:** if this is the second consecutive `review_stale` for this PR, something is pushing between review and merge — log a `[stale-review-loop]` cleanup entry and GO TO MERGE with `--force` (which records `stale_review_forced`) rather than looping
+- `result: changes_requested` / `unresolved_threads` / `not_approved` / `not_reviewed` → orchestrator bug; halt with diagnostic. The REVIEW gate already requires `verdict: approve` with zero blockers, so reaching MERGE without an approval means the state machine routed wrongly
 
 ### DONE
 

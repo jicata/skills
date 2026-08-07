@@ -324,20 +324,26 @@ Build a JSON payload file under `tmp/afk/review-<pr>-<ts>.json`:
 
 ```json
 {
-  "event": "REQUEST_CHANGES" | "COMMENT" | "APPROVE",
-  "body": "Claude comment 🤖\n\nReviewed at commit `<sha>`.\n...",
+  "event": "<per identity mode — see below>",
+  "body": "Claude comment 🤖\n\n**Verdict: REQUEST_CHANGES** · reviewed at `<sha>`\n\n...",
   "comments": [
     {"path": "...", "line": <n>, "body": "Claude comment 🤖\n\n[AXIS-A] 🔴 ..."}
   ]
 }
 ```
 
-Event selection:
+**Verdict selection** (from findings alone — identity mode never changes the verdict):
 - Any 🔴 blockers (Axis A, B, **or C**) → `REQUEST_CHANGES`
 - Only 🟡 / 💭 → `COMMENT`
 - No findings AND no unresolved skill-authored threads AND `axis_c == "pass"` → `APPROVE`
 
 **Never `APPROVE` on `axis_c` of `fail`, `unknown`, or `superseded`.** Only an observed green counts as green.
+
+**Transport** — per [`../_shared/review-protocol.md`](../_shared/review-protocol.md), from the profile's `review_identity` (absent ⇒ `self`):
+- `self` → `"event": "COMMENT"` always, whatever the verdict. Submitting `APPROVE`/`REQUEST_CHANGES` as the PR author is a `422` and loses the entire review, inline comments included.
+- `app` → `"event"` equals the verdict; post with the App token per protocol §5. If the token command fails, fall back to `self` behaviour and set `review_identity_fallback: true` in the return — never drop the review over a token problem.
+
+The `**Verdict:**` marker is written in **both** modes and is what `/afk-merge-pr` gates on. `<sha>` is `REVIEWED_SHA` in full 40-char form — the same commit Axis C was evaluated against.
 
 The structured return must carry the axis-C result alongside the existing counts:
 
@@ -355,9 +361,18 @@ The structured return must carry the axis-C result alongside the existing counts
 ```
 
 ```bash
+# self mode (default)
 gh api /repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input <scratch>
+
+# app mode — token scoped to this call only, never logged or persisted
+REVIEW_TOKEN="$(<review_app_token_cmd>)"
+GH_TOKEN="$REVIEW_TOKEN" gh api /repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input <scratch>
+unset REVIEW_TOKEN
+
 rm <scratch>
 ```
+
+Thread replies, resolutions, and every other call in this skill keep running as the normal account — the App is the reviewer, not the operator.
 
 Every inline comment body MUST start with `Claude comment 🤖\n\n`.
 
@@ -395,6 +410,8 @@ Run Axes A and B again on the current state. Any new findings become new inline 
   "result": "reviewed" | "local_diverged" | "dirty_tree_foreign" | "missing_pr",
   "verdict": "approve" | "request_changes" | "comment",
   "head_sha": "<sha>",
+  "review_identity": "self" | "app",
+  "review_identity_fallback": <bool>,
   "axis_a_blockers": <count>,
   "axis_b_blockers": <count>,
   "suggestion_count": <count>,

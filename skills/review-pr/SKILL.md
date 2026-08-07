@@ -250,11 +250,26 @@ Claude comment 🤖
 
 Post **exactly one** review per skill invocation containing **every** inline comment from Axes A, B, and C. Do not drip-feed comments across multiple review API calls — a single batched review lets the addresser fix everything in one pass, which is the main lever against multi-round review churn.
 
-Use the REST API to create a review with inline comments in a single request. Event type depends on findings:
+Use the REST API to create a review with inline comments in a single request.
 
-- Any 🔴 blockers → `REQUEST_CHANGES` (blocks merge on protected branches)
-- Only 🟡 / 💭 → `COMMENT`
-- No findings at all → `APPROVE`
+**Decide the verdict from findings alone:**
+
+- Any 🔴 blockers → verdict `REQUEST_CHANGES`
+- Only 🟡 / 💭 → verdict `COMMENT`
+- No findings at all → verdict `APPROVE`
+
+**Then transport it per [`../_shared/review-protocol.md`](../_shared/review-protocol.md).** Read `review_identity` from the profile (absent ⇒ `self`):
+
+- `self` — the `event` field is **always** `"COMMENT"`, whatever the verdict. GitHub rejects `APPROVE`/`REQUEST_CHANGES` from the PR author with a `422`, and the whole review — inline comments included — is lost.
+- `app` — the `event` field matches the verdict; post with the App token per protocol §5.
+
+In both modes the review body **opens with the verdict marker**, which is what the merge gate actually reads:
+
+```
+Claude comment 🤖
+
+**Verdict: REQUEST_CHANGES** · reviewed at `<full-40-char-head-sha>`
+```
 
 Every inline comment body **must start with** `Claude comment 🤖\n\n`.
 
@@ -262,8 +277,8 @@ Build a JSON payload file (use `Write` to a scratch file, then pass via `--input
 
 ```json
 {
-  "event": "REQUEST_CHANGES",
-  "body": "Claude comment 🤖\n\n## Review Summary\n...",
+  "event": "COMMENT",
+  "body": "Claude comment 🤖\n\n**Verdict: REQUEST_CHANGES** · reviewed at `a1b2c3...`\n\n## Review Summary\n...",
   "comments": [
     {
       "path": "src/Foo/FooHandler.ext",
@@ -330,9 +345,11 @@ Run Axis A and Axis B again on the current state of the PR (not just the latest 
 
 #### 9e. Post the follow-up review
 
-- If all prior threads were resolved AND no new issues were found → `APPROVE`, with body: `Claude comment 🤖\n\n✅ All prior concerns addressed. Ready to merge.`
-- If new issues were found → `REQUEST_CHANGES` (or `COMMENT` if only 🟡/💭), with a new body summarizing resolutions + new findings
-- If prior threads remain unresolved → `REQUEST_CHANGES`, with a body noting what still needs work
+Same protocol as Step 8 — decide the verdict, then transport it per the identity mode. Every follow-up review carries its own marker with the **current** head SHA; the merge gate rejects a verdict graded against a superseded commit.
+
+- If all prior threads were resolved AND no new issues were found → verdict `APPROVE`, body: `Claude comment 🤖\n\n**Verdict: APPROVE** · reviewed at \`<sha>\`\n\n✅ All prior concerns addressed. Ready to merge.`
+- If new issues were found → verdict `REQUEST_CHANGES` (or `COMMENT` if only 🟡/💭), with a new body summarizing resolutions + new findings
+- If prior threads remain unresolved → verdict `REQUEST_CHANGES`, with a body noting what still needs work
 
 ### Step 10 — Report back to the user
 
@@ -348,7 +365,7 @@ After posting, output a concise summary in chat:
 2. **Never skip reading a rule file** and reconstruct its rules from memory — rules evolve.
 3. **Never post without the `Claude comment 🤖` prefix** — it breaks follow-up detection permanently.
 4. **Never resolve a thread you did not author.** Only threads whose first comment starts with `Claude comment 🤖` are yours.
-5. **Prefer REQUEST_CHANGES over COMMENT for blockers.** The whole point of this skill is to gate merges on agent-authored PRs.
+5. **Never soften the verdict to fit the transport.** Any 🔴 means the verdict is `REQUEST_CHANGES`, and the marker must say so — even in `self` mode where the posted `event` is necessarily `COMMENT`. The marker is what gates the merge; downgrading it to match the event is how a blocker becomes invisible. Conversely, **never post `APPROVE`/`REQUEST_CHANGES` as the `event` in `self` mode** — the API rejects it and the entire review is lost.
 6. **Read files in full** when judging issues — diffs lack context.
 7. **Praise what works.** Review summaries that contain only criticism are a training signal to write more defensively, not more correctly.
 8. **Confirm ambiguity back to the user** instead of guessing. If an acceptance criterion is unclear, flag it in the review body rather than deciding unilaterally.

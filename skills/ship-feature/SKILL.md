@@ -424,7 +424,8 @@ Parse the structured return:
 - `result: merge_queued` (parallel queue-mode only) → slot remains occupied; SCHEDULER_TICK polls `gh pr view <pr> --json mergedAt,state` on subsequent ticks. On observed merge, transition to `merged`. If the PR transitions to `closed` without `mergedAt` (queue rejected it — required check failure on rebased base), GO TO ADDRESS.
 - `result: merge_conflict` → re-dispatch `afk-coder` for `/afk-address-pr` to attempt rebase; if Coder returns `rebase_conflict` again, force-concede + retry merge; if still failing, mark `unmergeable`
 - `result: branch_protection` → cleanup entry, mark `unmergeable`, NEXT_CHILD
-- `result: changes_requested` / `unresolved_threads` → orchestrator bug (shouldn't reach here without forcing); halt with diagnostic
+- `result: review_stale` → a commit landed after the approving review, so the head is ungraded. GO TO REVIEW to re-grade at the current head. **Guard:** on a second consecutive `review_stale` for the same PR, log a `[stale-review-loop]` cleanup entry and GO TO MERGE_CHILD with `--force <cleanup-issue-number>` (which records `stale_review_forced`) rather than looping. In mutex mode this is expected occasionally — a `needs_rebase` slot pushes a rebase after its review pass
+- `result: changes_requested` / `unresolved_threads` / `not_approved` / `not_reviewed` → orchestrator bug (shouldn't reach here without forcing); halt with diagnostic
 - `result: structural_bug_master_target` → halt; this is a PRD-config error
 
 ### FINALIZE_PRD

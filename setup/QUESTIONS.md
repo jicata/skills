@@ -56,6 +56,13 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 → overlay facts + reviewer expectations.
 → *Donor: local `dotnet test` is the gate; CI doesn't gate .NET (deliberate, deferred) — an agent re-flagging this as a blocker is noise.*
 
+**Q12b — Review identity.** **Ask this whenever the pipeline is installed, and recommend `app`.** "Reviews posting from your own account can only ever be COMMENT — GitHub rejects APPROVE and REQUEST_CHANGES from a PR's own author, so the verdict never shows up as a real decision. I can set up a GitHub App so reviews post natively; it's two browser clicks via `setup/create-review-app.js`. Do that now, or stay on comment-only?"
+→ *yes (recommended):* run `setup/create-review-app.js`, walk `setup/github-app.md` §4–5, **verify with §5 before writing the profile** — then record `review_identity: app` + `review_app_token_cmd`.
+→ *no / deferred / can't install Apps here:* omit both keys. The absent-key default is `self` and the gate is fully functional under it — this is a real choice, not a degraded one.
+→ Either way the binding verdict is the review-body marker, per `skills/_shared/review-protocol.md`. The identity only decides whether GitHub *also* records it natively.
+→ **Recommend, never force.** Org repos frequently restrict App installation to owners; a repo with human reviewers may not want a bot approving at all; and `app` mode adds a private key to manage. A "no" here costs nothing but the audit trail.
+→ *Donor: `self` — 400 PRs, every `reviewDecision` null, every review `COMMENTED`.*
+
 **Q13 — LLM surface.** "Does this app construct prompts / call models?" → *yes:* install `llm-prompt-craft` doctrine (prompt-visibility gate).
 
 **Q14 — Wire-contract tooling.** "How do humans exercise the API — Postman? Is the collection repo-owned and synced?" → *yes:* install the postman-collection skill pattern (repo-owned JSON as source of truth).

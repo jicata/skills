@@ -63,9 +63,11 @@ query($owner: String!, $repo: String!, $pr: Int!) {
       url
       state
       headRefName
+      headRefOid
       baseRefName
       reviewDecision
       reviewThreads(first: 100) { nodes { isResolved } }
+      reviews(last: 20) { nodes { body state submittedAt author { login } } }
     }
   }
 }' -f owner=<owner> -f repo=<repo> -F pr=<pr-number>
@@ -78,12 +80,30 @@ If `state != "OPEN"`:
 {"result": "pr_not_open", "pr_state": "..."}
 ```
 
-Standard merge gate (skip if `--force`):
-- **Review gate**: `reviewDecision == "APPROVED"`, **OR** `reviewDecision == null` AND at least one review body starts with `Claude comment 🤖` AND all `reviewThreads` are resolved
-- **`reviewDecision == "CHANGES_REQUESTED"`** → block:
+Standard merge gate (skip if `--force`). **Resolve the verdict per [`../_shared/review-protocol.md`](../_shared/review-protocol.md) §4** — the verdict is the `**Verdict: …**` marker in the newest `Claude comment 🤖` review body, not `reviewDecision`. Under `review_identity: self`, `reviewDecision` is *always* `null`; under `app` it carries the same verdict natively. The marker is authoritative in both modes, so this gate is identity-independent.
+
+- **Human `CHANGES_REQUESTED`** (`reviewDecision == "CHANGES_REQUESTED"`) → block. Authoritative over any skill verdict:
   ```json
   {"result": "changes_requested", "pr_url": "..."}
   ```
+- **Stale review** — marker's reviewed SHA ≠ `headRefOid` → block. The approval graded a commit that is no longer the head:
+  ```json
+  {"result": "review_stale", "reviewed_sha": "<sha>", "head_sha": "<headRefOid>"}
+  ```
+- **Verdict `REQUEST_CHANGES`** → block:
+  ```json
+  {"result": "changes_requested", "pr_url": "..."}
+  ```
+- **Verdict `COMMENT`** → block. A comment review is not an approval, even with every thread resolved:
+  ```json
+  {"result": "not_approved", "verdict": "comment"}
+  ```
+- **No parseable marker** → `reviewDecision == "APPROVED"` (human native approval) passes; otherwise block:
+  ```json
+  {"result": "not_reviewed"}
+  ```
+  A `Claude comment 🤖` body with no marker predates this protocol — treat as `COMMENT`, never as approval.
+- **Verdict `APPROVE`** → pass, subject to the thread check below.
 - **All reviewThreads.isResolved == true** — if not:
   ```json
   {"result": "unresolved_threads", "unresolved_count": <n>}
@@ -99,6 +119,8 @@ Standard merge gate (skip if `--force`):
     ```
 
 **Force mode**: skip the review gate and unresolved-threads gate. Still require `state == "OPEN"` and a base-branch match per mode. The orchestrator guarantees concessions have been applied before calling with `--force`.
+
+Staleness is **evaluated but not enforced** under `--force`: if the marker SHA ≠ `headRefOid`, set `stale_review_forced: true`, add a line to the Step 4 🚨 comment naming both SHAs, and proceed. `--force` is the pipeline's guarantee that the loop always terminates — a gate it cannot clear would deadlock the orchestrator, which is worse than merging conceded work whose last commit went ungraded. In practice concession resolves threads without pushing code, so the SHAs normally still match.
 
 ## Step 3 — Identify linked issue(s)
 
@@ -190,7 +212,7 @@ On exit 0 set `postman_pushed: true` (name any overwrite warnings in `notes`). O
 {
   "skill": "afk-merge-pr",
   "mode": "prd" | "single",
-  "result": "merged" | "merge_queued" | "merge_conflict" | "merge_queue_disabled" | "branch_protection" | "changes_requested" | "unresolved_threads" | "structural_bug_master_target" | "structural_bug_wrong_base" | "pr_not_open" | "dirty_tree_foreign" | "missing_pr",
+  "result": "merged" | "merge_queued" | "merge_conflict" | "merge_queue_disabled" | "branch_protection" | "changes_requested" | "review_stale" | "not_approved" | "not_reviewed" | "unresolved_threads" | "structural_bug_master_target" | "structural_bug_wrong_base" | "pr_not_open" | "dirty_tree_foreign" | "missing_pr",
   "auto_mode": <bool>,
   "queued_at": "<iso>" | null,
   "pr_number": <n>,
@@ -201,6 +223,7 @@ On exit 0 set `postman_pushed: true` (name any overwrite warnings in `notes`). O
   "linked_issues_missing": <bool>,
   "issue_close_failed": [<n>...],
   "force_mode": <bool>,
+  "stale_review_forced": <bool>,
   "single_mode": <bool>,
   "cleanup_issue_referenced": <n> | null,
   "base_branch": "...",
@@ -212,7 +235,8 @@ On exit 0 set `postman_pushed: true` (name any overwrite warnings in `notes`). O
 
 ## Critical Rules
 
-1. **Never merge without a passing review gate** unless `--force` was passed.
+1. **Never merge without an `APPROVE` verdict against the current head** unless `--force` was passed. The verdict is the review-body marker, not `reviewDecision` — under `self` identity `reviewDecision` is permanently `null` and gating on it would never pass. A `COMMENT` verdict with all threads resolved is **not** an approval.
+1b. **Never merge on a stale approval in the standard gate.** Marker SHA ≠ `headRefOid` → `review_stale`; the orchestrator routes back to review. Under `--force` this is **recorded, not enforced** (`stale_review_forced: true` + a line in the 🚨 comment) — `--force` is the pipeline's termination guarantee and must always be able to complete.
 2. **Never merge with unresolved review threads** unless `--force` was passed.
 3. **Never bypass branch protection.**
 4. **Never merge a PR targeting the default branch in PRD mode** — that's a structural bug from upstream. In `--single` mode, targeting the default branch is required.
@@ -224,6 +248,8 @@ On exit 0 set `postman_pushed: true` (name any overwrite warnings in `notes`). O
 ## Edge Cases
 
 - **PR already merged** → emit `result: merged`, populate `merge_commit` from existing state, still close any open linked issues
+- **Approval exists but a later commit landed** → `review_stale`; orchestrator routes back to REVIEW, not to ADDRESS — the code may well be fine, it just hasn't been graded
+- **Review body has the `Claude comment 🤖` prefix but no verdict marker** → pre-protocol review; treat as `COMMENT` → `not_approved`. One fresh review pass clears it
 - **Merge conflict with base** → return `merge_conflict`; orchestrator routes back to `/afk-address-pr` for rebase
 - **PR closes multiple issues** → close all, each with its own comment
 - **Linked issue belongs to different repo** → skip, note in return
