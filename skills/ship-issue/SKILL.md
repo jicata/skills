@@ -255,7 +255,9 @@ gh issue comment <issue-number> --body "$(cat <<EOF
 
 ## Execution conformance
 <Either "✅ Ran as configured." or, for each mismatch, one line:
- "⚠️ <what> — configured: <x>, executed: <y>. Cause: <reason>. Fix: <remedy>.">
+ "⚠️ <what> — configured: <x>, executed: <y>. Cause: <reason>. Fix: run `<repair skill>`.">
+ Name a skill the operator can invoke, never a sequence of manual steps — for review identity that is
+ `/fix-review-identity`.>
 
 ## Rounds
 <round_count>

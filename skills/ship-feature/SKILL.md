@@ -549,7 +549,9 @@ gh issue comment <prd-number> --body "$(cat <<EOF
 
 ## Execution conformance
 <Either "✅ Ran as configured." or, for each mismatch, one line:
- "⚠️ <what> — configured: <x>, executed: <y>. Cause: <reason>. Fix: <remedy>."
+ "⚠️ <what> — configured: <x>, executed: <y>. Cause: <reason>. Fix: run `<repair skill>`."
+ Name a skill the operator can invoke, never a sequence of manual steps — for review identity that is
+ `/fix-review-identity`.
  Rows to check: review identity (profile `review_identity` vs `review_identity_effective`);
  merge strategy (Step 0c preferred `queue` vs executed `mutex`); anything else where the run
  silently took a fallback path.>

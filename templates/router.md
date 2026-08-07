@@ -53,6 +53,7 @@ A **flow** is a path through the skills. Most work travels the main flow; on-ram
 - A bug or small enhancement → `/log-issue` → `/ship-issue <n>` (autonomous) or the HITL lane off master. Outgrows one PR → PRD seed → `/write-a-prd`. A bug that *resists* drops into `/diagnosing-bugs` first.
 - A PR someone (or some agent) else wrote → `/review-pr <n>`; fixes via `/address-pr`; merge via `/merge-pr`.
 - A `[ship-cleanup]` issue accumulated residue → `/drain-cleanup`.
+- A run's **Execution conformance** block flagged a review-identity mismatch, or a review posted as the PR author instead of the App → `/fix-review-identity`. (Include this line only when the pipeline skills are installed.)
 </example>
 
 ## Understanding the system

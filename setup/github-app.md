@@ -161,6 +161,8 @@ gh api repos/<owner>/<repo>/pulls/<n>/reviews/<id>/dismissals \
 
 ## Failure modes
 
+Run `/fix-review-identity` before working through these by hand — it classifies the cause and repairs most of them.
+
 | Symptom | Cause |
 |---|---|
 | `422 Can not approve your own pull request` | The review ran as you, not the App — `review_app_token_cmd` failed and the run fell back to `self`. Check the return's `review_identity_fallback` flag. |
@@ -179,7 +181,9 @@ Per the protocol, any failure here degrades to `self` behaviour for that run rat
 
 `review_app_token_cmd` lives in the repo, but the two things it points at deliberately do not. A fresh clone therefore has the *configuration* for `app` mode without the *capability*, and reviews will degrade to comment-only.
 
-Copy both, to the exact paths named in the command:
+Run **`/fix-review-identity`** first — it rewrites a missing token helper on its own and will find and repoint at a private key that is present under a different path, which covers most machine moves without any manual copying.
+
+If it reports the key is genuinely absent, place it yourself:
 
 | What | Typical path | Why it isn't in the repo |
 |---|---|---|
@@ -190,7 +194,7 @@ Then re-run §5 to confirm. Prefer `$HOME`-relative paths in `review_app_token_c
 
 **You will not silently get this wrong.** A repo configured `review_identity: app` whose token command fails says so in the run's **Execution conformance** block — the closing section of `/ship-issue` and `/ship-feature`, which states configured vs executed mode and the fix. `/review-pr` on its own leads its chat summary with the same line. The orchestrators additionally probe the token at startup (`/ship-issue` Step 0d, `/ship-feature` Step 0b), so a fresh machine is reported before any work begins rather than several review rounds in. See `skills/_shared/review-protocol.md` §7.
 
-Recovery needs no repair command: tokens are minted per call, so once the key and helper are in place the next review is back to `app` mode on its own.
+Then re-run `/fix-review-identity` to verify. Tokens are minted per call, so once it reports green the next review is back to `app` mode with nothing to re-run.
 
 ## Reverting
 
