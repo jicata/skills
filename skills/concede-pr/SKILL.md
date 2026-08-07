@@ -122,7 +122,7 @@ Ready to merge."
 # app mode — same body, native APPROVE event, App token
 ```
 
-If the App token cannot be minted, post the identical body with `-f event=COMMENT` **and the degraded-identity banner from protocol §7.2** beneath the marker. The concession still clears the gate — the marker carries `APPROVE` — but a conceded PR that also silently lost its review identity is exactly the combination nobody would notice.
+If the App token cannot be minted, post the identical body with `-f event=COMMENT` **and the §7.2 degraded clause appended to the marker line**. The concession still clears the gate — the marker carries `APPROVE` — but a conceded PR that also silently lost its review identity is exactly the combination nobody would notice.
 
 The marker must carry the **current** head SHA. Concession resolves threads without changing code, so re-read `headRefOid` at this step rather than reusing a SHA from an earlier review pass — a mismatch trips the merge gate's staleness check.
 

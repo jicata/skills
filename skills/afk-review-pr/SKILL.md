@@ -343,7 +343,7 @@ Build a JSON payload file under `tmp/afk/review-<pr>-<ts>.json`:
 - `self` → `"event": "COMMENT"` always, whatever the verdict. Submitting `APPROVE`/`REQUEST_CHANGES` as the PR author is a `422` and loses the entire review, inline comments included.
 - `app` → `"event"` equals the verdict; post with the App token per protocol §5.
 
-**If the token cannot be minted, degrade loudly, never silently** (protocol §7): classify the cause per §7.1, post `"event": "COMMENT"` with the marker unchanged **plus the §7.2 banner beneath it**, and populate the four `review_identity_*` fields in the return. Never drop the review over a token problem, and never block on one — the verdict travels in the marker and the gate is unaffected.
+**If the token cannot be minted, degrade loudly, never silently** (protocol §7): classify the cause per §7.1, post `"event": "COMMENT"`, append the §7.2 degraded clause to the marker line, and populate the four `review_identity_*` fields in the return — the orchestrator builds its Execution conformance report from those. Never drop the review over a token problem, and never block on one — the verdict travels in the marker and the gate is unaffected.
 
 The `**Verdict:**` marker is written in **both** modes and is what `/afk-merge-pr` gates on. `<sha>` is `REVIEWED_SHA` in full 40-char form — the same commit Axis C was evaluated against.
 

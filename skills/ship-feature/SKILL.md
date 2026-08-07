@@ -68,7 +68,9 @@ If the profile sets `review_identity: app`, run its `review_app_token_cmd` **onc
 - **Succeeds** → record `review_identity_effective = "app"` and continue silently.
 - **Fails** → classify per `.claude/skills/_shared/review-protocol.md` §7.1, record `review_identity_effective = "self"` plus the reason and remedy, and **tell the operator in the opening run message** — not at the end. Then continue.
 
-**Never fail-fast on this.** A credential problem must not cost a run, and the verdict travels in the review-body marker regardless, so the merge gate is unaffected. What it must not do is pass unnoticed: every review this run posts will carry the §7.2 degraded banner, and the run logs exactly **one** `[review-identity-degraded]` cleanup entry — it is a machine-level fault, and one entry per review round would bury the cleanup issue.
+**Never fail-fast on this.** A credential problem must not cost a run, and the verdict travels in the review-body marker regardless, so the merge gate is unaffected. What it must not do is pass unnoticed — carry the result into the **Execution conformance** block of the final report, which states configured vs executed mode explicitly.
+
+Do **not** file this as a cleanup-issue entry. The cleanup issue tracks code debt to fix before release; a missing credential on one machine is neither, and filing it there buries real findings behind an operational notice.
 
 Probing here rather than at first review means a fresh machine missing the key or the token helper is reported before any work is done, instead of surfacing several rounds in.
 
@@ -545,6 +547,13 @@ gh issue comment <prd-number> --body "$(cat <<EOF
 ## Cleanup issue
 <link, or "none">
 
+## Execution conformance
+<Either "✅ Ran as configured." or, for each mismatch, one line:
+ "⚠️ <what> — configured: <x>, executed: <y>. Cause: <reason>. Fix: <remedy>."
+ Rows to check: review identity (profile `review_identity` vs `review_identity_effective`);
+ merge strategy (Step 0c preferred `queue` vs executed `mutex`); anything else where the run
+ silently took a fallback path.>
+
 ## Children
 <table: pr_number | title | merged_at | residue_tags>
 
@@ -655,7 +664,7 @@ Agent(
 4. **Always lazy-create the cleanup issue** on first concern, never up-front.
 5. **Always emit final report to chat AND PRD issue comment.**
 6. **Never bypass branch protection.**
-7. **Always run preflight Steps 0a/0b (and 0c in parallel mode) before anything else.** Step 0b's review-identity probe warns and continues rather than failing fast — but a degraded identity must be stated up front and logged once to cleanup, never left silent. Step 0b includes the resilience preflight: read `resilience.md` (it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs) before first dispatch.
+7. **Always run preflight Steps 0a/0b (and 0c in parallel mode) before anything else.** Step 0b's review-identity probe warns and continues rather than failing fast — but any gap between configured and executed mode must be stated up front **and** repeated in the final report's Execution conformance block, never left silent. Step 0b includes the resilience preflight: read `resilience.md` (it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs) before first dispatch.
 8. **Always reconcile from GitHub on re-invocation.** Open PRs targeting the PRD base branch are picked up and resumed.
 9. **Never create more than one ship-cleanup issue per PRD.** Helper deduplicates by title search.
 10. **Coder and Reviewer must be separate agent dispatches.** Independence is the design.

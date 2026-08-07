@@ -58,7 +58,9 @@ If the profile sets `review_identity: app`, run its `review_app_token_cmd` **onc
 - **Succeeds** → record `review_identity_effective = "app"` and continue silently.
 - **Fails** → classify per `.claude/skills/_shared/review-protocol.md` §7.1, record `review_identity_effective = "self"` plus the reason and remedy, and **tell the operator in the opening run message** — not at the end. Then continue.
 
-**Never fail-fast on this.** A credential problem must not cost a run, and the verdict travels in the review-body marker regardless, so the merge gate is unaffected. What it must not do is pass unnoticed: every review this run posts will carry the §7.2 degraded banner, and the run logs exactly **one** `[review-identity-degraded]` cleanup entry — it is a machine-level fault, and one entry per review round would bury the cleanup issue.
+**Never fail-fast on this.** A credential problem must not cost a run, and the verdict travels in the review-body marker regardless, so the merge gate is unaffected. What it must not do is pass unnoticed — carry the result into the **Execution conformance** block of the final report, which states configured vs executed mode explicitly.
+
+Do **not** file this as a cleanup-issue entry. The cleanup issue tracks code debt to fix before release; a missing credential on one machine is neither, and filing it there buries real findings behind an operational notice.
 
 Probing here rather than at first review means a fresh machine missing the key or the token helper is reported before any work is done, instead of surfacing several rounds in.
 
@@ -250,6 +252,10 @@ gh issue comment <issue-number> --body "$(cat <<EOF
 
 ## Cleanup issue
 <link, or "none">
+
+## Execution conformance
+<Either "✅ Ran as configured." or, for each mismatch, one line:
+ "⚠️ <what> — configured: <x>, executed: <y>. Cause: <reason>. Fix: <remedy>.">
 
 ## Rounds
 <round_count>

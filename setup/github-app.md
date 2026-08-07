@@ -188,7 +188,7 @@ Copy both, to the exact paths named in the command:
 
 Then re-run §5 to confirm. Prefer `$HOME`-relative paths in `review_app_token_cmd` so the same value works on every machine.
 
-**You will not silently get this wrong.** A repo configured `review_identity: app` whose token command fails reports it three ways — a banner on every review it posts, `review_identity_fallback` in the structured return, and one `[review-identity-degraded]` cleanup entry per orchestrator run. The autonomous orchestrators additionally probe the token at startup (`/ship-issue` Step 0d, `/ship-feature` Step 0b), so a fresh machine is caught before any work begins rather than several review rounds in. See `skills/_shared/review-protocol.md` §7.
+**You will not silently get this wrong.** A repo configured `review_identity: app` whose token command fails says so in the run's **Execution conformance** block — the closing section of `/ship-issue` and `/ship-feature`, which states configured vs executed mode and the fix. `/review-pr` on its own leads its chat summary with the same line. The orchestrators additionally probe the token at startup (`/ship-issue` Step 0d, `/ship-feature` Step 0b), so a fresh machine is reported before any work begins rather than several review rounds in. See `skills/_shared/review-protocol.md` §7.
 
 Recovery needs no repair command: tokens are minted per call, so once the key and helper are in place the next review is back to `app` mode on its own.
 

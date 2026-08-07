@@ -128,25 +128,13 @@ Attempt the token once. On failure, classify — the remedy differs and a bare "
 
 Never print the token, and never print more than the first stderr line — helper output can contain the key path but must never contain key material.
 
-### 7.2 Surface it in three places at once
+### 7.2 Report it where the operator is actually looking
 
-**1. On the pull request** — a banner directly beneath the verdict marker. This is the durable one: it outlives the session, and anyone reading the PR sees it.
+**The run's own final report is the primary surface.** An autonomous run ends with an execution-conformance block (`/ship-issue` Step 3, `/ship-feature` Step 4) that states, in plain terms, where the run's *executed* mode differed from its *configured* mode. Review identity is one row in that block. `/review-pr` invoked on its own has no run report, so its chat summary carries the same statement as its first line.
 
-```
-Claude comment 🤖
+This is deliberately **not** a cleanup-issue entry. The cleanup issue tracks code debt to fix before release; a missing credential on one machine is neither code nor debt, and filing it there both buries real findings and implies the wrong remedy.
 
-**Verdict: APPROVE** · reviewed at `<sha>`
-
-> ⚠️ **Degraded review identity.** This repo is configured `review_identity: app`, but the
-> App token could not be minted, so this review posted as the PR author with a `COMMENT`
-> event instead of a native `APPROVE`. **The verdict above is still binding** — the merge
-> gate reads the marker, not the event.
-> Cause: `<reason>` — <first stderr line>.
-> Fix: <remedy>. Then re-run the review; the token is minted per call, so a repaired
-> machine recovers on the next pass with no further action.
-```
-
-**2. In the structured return** — configured and effective are separate fields, so an orchestrator can never conflate them:
+**In the structured return**, `configured` and `effective` are separate fields so an orchestrator can never conflate them — this is the mechanism the report is built from:
 
 ```json
 "review_identity_configured": "app",
@@ -158,9 +146,13 @@ Claude comment 🤖
 
 When they match, `review_identity_fallback` is `false` and the other fields are omitted.
 
-**3. In the human-facing summary** — one line, at the top of the report, not buried at the end.
+**On the pull request**, add one clause to the existing marker line — not a banner, not a block:
 
-Orchestrators additionally log one `[review-identity-degraded]` cleanup entry **per run, not per review** — it is a machine-level fault, and one entry per round would bury the cleanup issue.
+```
+**Verdict: APPROVE** · reviewed at `<sha>` · ⚠️ posted as PR author (App token unavailable)
+```
+
+The verdict stays binding and the gate is unaffected; the clause exists so that someone auditing this PR months later can tell a real App approval from a degraded one. Keep it to that single clause — the diagnosis and remedy belong in the run report, not in a code-review artifact.
 
 ### 7.3 Never block on it
 

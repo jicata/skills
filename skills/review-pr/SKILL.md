@@ -263,7 +263,7 @@ Use the REST API to create a review with inline comments in a single request.
 - `self` — the `event` field is **always** `"COMMENT"`, whatever the verdict. GitHub rejects `APPROVE`/`REQUEST_CHANGES` from the PR author with a `422`, and the whole review — inline comments included — is lost.
 - `app` — the `event` field matches the verdict; post with the App token per protocol §5.
 
-**If the profile says `app` but the token cannot be minted, do not quietly post as yourself.** Fall back to `event: "COMMENT"` with the marker unchanged — and add the degraded-identity banner from protocol §7.2 directly beneath the marker, naming the classified cause and its remedy. A reviewer that silently stops being the bot is indistinguishable, on the PR, from a repo that was never configured for one. The verdict stays binding either way.
+**If the profile says `app` but the token cannot be minted, do not quietly post as yourself.** Fall back to `event: "COMMENT"` with the marker unchanged — and append the §7.2 degraded clause to the marker line (` · ⚠️ posted as PR author (App token unavailable)`). The classified cause and remedy go in your Step 10 chat summary, not on the PR. A reviewer that silently stops being the bot is indistinguishable, on the PR, from a repo that was never configured for one. The verdict stays binding either way.
 
 In both modes the review body **opens with the verdict marker**, which is what the merge gate actually reads:
 
