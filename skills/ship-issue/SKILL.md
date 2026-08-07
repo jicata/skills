@@ -51,6 +51,17 @@ Read `.claude/skills/_afk-shared/resilience.md` now, before dispatching any back
 
 There is no watchdog to arm and no `ScheduleWakeup` to load. Every long-running step runs as a **visible** background `Agent` you can watch in the live agent display, and the harness's completion notification advances the state machine. Do not poll background agents and do not schedule wakeups for them.
 
+## Step 0d — Review-identity preflight (warn, never fail-fast)
+
+If the profile sets `review_identity: app`, run its `review_app_token_cmd` **once, now**, and discard the token. This is a reachability probe, not a review.
+
+- **Succeeds** → record `review_identity_effective = "app"` and continue silently.
+- **Fails** → classify per `.claude/skills/_shared/review-protocol.md` §7.1, record `review_identity_effective = "self"` plus the reason and remedy, and **tell the operator in the opening run message** — not at the end. Then continue.
+
+**Never fail-fast on this.** A credential problem must not cost a run, and the verdict travels in the review-body marker regardless, so the merge gate is unaffected. What it must not do is pass unnoticed: every review this run posts will carry the §7.2 degraded banner, and the run logs exactly **one** `[review-identity-degraded]` cleanup entry — it is a machine-level fault, and one entry per review round would bury the cleanup issue.
+
+Probing here rather than at first review means a fresh machine missing the key or the token helper is reported before any work is done, instead of surfacing several rounds in.
+
 ## Step 1 — Validate issue and reconcile state
 
 ```bash
@@ -287,7 +298,7 @@ The inline `/afk-merge-pr` and `/afk-concede-thread` steps (run in the orchestra
 3. **Never auto-concede Axis-A** in normal mode. Only the forced-merge path (round 7) uses `--force-axis-a`.
 4. **Never create a cleanup issue speculatively.** Lazy-create on first residue only.
 5. **Never bypass branch protection.**
-6. **Always run preflight Steps 0a/0b/0c before anything else.** Step 0c (read `resilience.md`) is mandatory — it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs.
+6. **Always run preflight Steps 0a/0b/0c/0d before anything else.** 0d (review identity) warns and continues; the others fail fast. Step 0c (read `resilience.md`) is mandatory — it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs.
 7. **Always reconcile from GitHub on re-invocation.** An open PR for the issue is adopted, not duplicated.
 8. **Always emit final report to chat AND issue comment.**
 9. **Coder and Reviewer must be separate `Agent` dispatches, run in the background** (`run_in_background: true`) so both are visible in the agent display. Independence is the design. Drive on completion notifications; never poll or arm a wakeup. If a child wedges, the operator sees it frozen in the display and intervenes.

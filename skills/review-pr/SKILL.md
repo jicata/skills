@@ -263,6 +263,8 @@ Use the REST API to create a review with inline comments in a single request.
 - `self` — the `event` field is **always** `"COMMENT"`, whatever the verdict. GitHub rejects `APPROVE`/`REQUEST_CHANGES` from the PR author with a `422`, and the whole review — inline comments included — is lost.
 - `app` — the `event` field matches the verdict; post with the App token per protocol §5.
 
+**If the profile says `app` but the token cannot be minted, do not quietly post as yourself.** Fall back to `event: "COMMENT"` with the marker unchanged — and add the degraded-identity banner from protocol §7.2 directly beneath the marker, naming the classified cause and its remedy. A reviewer that silently stops being the bot is indistinguishable, on the PR, from a repo that was never configured for one. The verdict stays binding either way.
+
 In both modes the review body **opens with the verdict marker**, which is what the merge gate actually reads:
 
 ```
@@ -353,7 +355,8 @@ Same protocol as Step 8 — decide the verdict, then transport it per the identi
 
 ### Step 10 — Report back to the user
 
-After posting, output a concise summary in chat:
+After posting, output a concise summary in chat. **If the review ran degraded (protocol §7), that is the first line, not a footnote** — state the configured vs effective identity, the cause, and the remedy.
+
 - Link to the review (`gh pr view <n> --json reviews -q '.reviews[-1].url'` or similar)
 - Count of 🔴 / 🟡 / 💭
 - Count of threads resolved (follow-up only)

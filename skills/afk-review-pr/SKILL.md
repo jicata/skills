@@ -341,7 +341,9 @@ Build a JSON payload file under `tmp/afk/review-<pr>-<ts>.json`:
 
 **Transport** — per [`../_shared/review-protocol.md`](../_shared/review-protocol.md), from the profile's `review_identity` (absent ⇒ `self`):
 - `self` → `"event": "COMMENT"` always, whatever the verdict. Submitting `APPROVE`/`REQUEST_CHANGES` as the PR author is a `422` and loses the entire review, inline comments included.
-- `app` → `"event"` equals the verdict; post with the App token per protocol §5. If the token command fails, fall back to `self` behaviour and set `review_identity_fallback: true` in the return — never drop the review over a token problem.
+- `app` → `"event"` equals the verdict; post with the App token per protocol §5.
+
+**If the token cannot be minted, degrade loudly, never silently** (protocol §7): classify the cause per §7.1, post `"event": "COMMENT"` with the marker unchanged **plus the §7.2 banner beneath it**, and populate the four `review_identity_*` fields in the return. Never drop the review over a token problem, and never block on one — the verdict travels in the marker and the gate is unaffected.
 
 The `**Verdict:**` marker is written in **both** modes and is what `/afk-merge-pr` gates on. `<sha>` is `REVIEWED_SHA` in full 40-char form — the same commit Axis C was evaluated against.
 
@@ -410,8 +412,11 @@ Run Axes A and B again on the current state. Any new findings become new inline 
   "result": "reviewed" | "local_diverged" | "dirty_tree_foreign" | "missing_pr",
   "verdict": "approve" | "request_changes" | "comment",
   "head_sha": "<sha>",
-  "review_identity": "self" | "app",
+  "review_identity_configured": "self" | "app",
+  "review_identity_effective": "self" | "app",
   "review_identity_fallback": <bool>,
+  "review_identity_fallback_reason": "not_configured" | "helper_missing" | "key_missing" | "auth_failed" | "not_installed" | "forbidden" | "token_error" | null,
+  "review_identity_remedy": "<one-line fix>" | null,
   "axis_a_blockers": <count>,
   "axis_b_blockers": <count>,
   "suggestion_count": <count>,

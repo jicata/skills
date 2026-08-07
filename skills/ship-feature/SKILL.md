@@ -61,6 +61,17 @@ If any required permission is missing, **stop immediately** and tell the user:
 
 Do not attempt to add permissions silently.
 
+### Review-identity preflight (warn, never fail-fast)
+
+If the profile sets `review_identity: app`, run its `review_app_token_cmd` **once, now**, and discard the token. This is a reachability probe, not a review.
+
+- **Succeeds** → record `review_identity_effective = "app"` and continue silently.
+- **Fails** → classify per `.claude/skills/_shared/review-protocol.md` §7.1, record `review_identity_effective = "self"` plus the reason and remedy, and **tell the operator in the opening run message** — not at the end. Then continue.
+
+**Never fail-fast on this.** A credential problem must not cost a run, and the verdict travels in the review-body marker regardless, so the merge gate is unaffected. What it must not do is pass unnoticed: every review this run posts will carry the §7.2 degraded banner, and the run logs exactly **one** `[review-identity-degraded]` cleanup entry — it is a machine-level fault, and one entry per review round would bury the cleanup issue.
+
+Probing here rather than at first review means a fresh machine missing the key or the token helper is reported before any work is done, instead of surfacing several rounds in.
+
 **Resilience preflight (mandatory, before first Agent dispatch):** Read `.claude/skills/_afk-shared/resilience.md` immediately after the permission check. It governs §1 — the non-interactive, time-boxed shell that prevents `gh` / remote-`git` / provisioning calls from hanging. There is no watchdog to arm and no `ScheduleWakeup` to load: every long-running step runs as a **visible** background `Agent` the operator can watch in the live agent display, and the harness's completion notification advances the state machine.
 
 ## Step 0c — Merge-strategy detection (parallel mode only)
@@ -644,7 +655,7 @@ Agent(
 4. **Always lazy-create the cleanup issue** on first concern, never up-front.
 5. **Always emit final report to chat AND PRD issue comment.**
 6. **Never bypass branch protection.**
-7. **Always run preflight Steps 0a/0b (and 0c in parallel mode) before anything else.** Step 0b includes the resilience preflight: read `resilience.md` (it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs) before first dispatch.
+7. **Always run preflight Steps 0a/0b (and 0c in parallel mode) before anything else.** Step 0b's review-identity probe warns and continues rather than failing fast — but a degraded identity must be stated up front and logged once to cleanup, never left silent. Step 0b includes the resilience preflight: read `resilience.md` (it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs) before first dispatch.
 8. **Always reconcile from GitHub on re-invocation.** Open PRs targeting the PRD base branch are picked up and resumed.
 9. **Never create more than one ship-cleanup issue per PRD.** Helper deduplicates by title search.
 10. **Coder and Reviewer must be separate agent dispatches.** Independence is the design.

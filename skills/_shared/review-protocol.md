@@ -98,10 +98,76 @@ Rules:
 - **Scope the token to review submission.** Thread resolution, replies, merges, and issue closes keep running as the normal account — the App is the reviewer, not the operator.
 - **Never write the token to a file, a log, a PR comment, or the structured JSON return.**
 - **Never echo the command's output** other than into the variable.
-- If `review_app_token_cmd` is missing, empty, or exits non-zero, **fall back to `self` behaviour for this run** (post `COMMENT` with the marker) and note `review_identity_fallback: true` in the structured return. A token problem must never cost a review — the marker still carries the verdict, and the gate still reads it correctly.
+- If `review_app_token_cmd` is missing, empty, or exits non-zero, **fall back to `self` behaviour for this run** — but never silently. See §7.
 
 ## 6. What this protocol does and does not buy
 
 - **Does:** a gate that reads an explicit verdict instead of inferring one from thread state; a stale-review check; identical behaviour across both identity modes; a GitHub audit trail that matches the decision actually made. In `app` mode, reviews carry a real `APPROVED`/`CHANGES_REQUESTED` state and a `[bot]` author, visibly distinct from the operator's own comments.
 - **Does not:** server-side enforcement, and **not** a populated `reviewDecision`. That field needs branch protection with a review requirement, which is unavailable on private repos on the free plan — so even a genuine App-authored `CHANGES_REQUESTED` leaves it `null` there. Where protection *is* configured, `app` mode additionally blocks the merge via GitHub. Everywhere else the skill-level gate above is the only thing governing the agents, which is precisely why the marker is authoritative and `reviewDecision` is not consulted.
 - **Does not:** independent review. A bot identity is a different actor to GitHub, not a different judgment. The reviewer is still the same model reading the same doctrine; `app` mode makes the trail honest, it does not make the review adversarial.
+
+## 7. Degraded identity — loud, diagnosed, retriggerable
+
+**A declared capability that is not actually available is a fault, not a mode.** `review_identity: self` behaving like `self` is correct and silent. `review_identity: app` behaving like `self` is a **mismatch between configured and effective**, and must never pass unremarked — a reviewer that quietly stops being the bot looks identical, in the GitHub UI, to a repo that was never configured for it.
+
+Degrading is still the right *behaviour*: a credential problem must not cost a review, and the marker carries the verdict regardless. The requirement is that it is impossible to miss.
+
+### 7.1 Detect and classify
+
+Attempt the token once. On failure, classify — the remedy differs and a bare "it failed" is not actionable:
+
+| `reason` | Signal | Remedy to print |
+|---|---|---|
+| `not_configured` | `review_identity: app` but no `review_app_token_cmd` | Add the key, per `setup/github-app.md` §4 |
+| `helper_missing` | `Cannot find module` / `No such file` on the script path | Fresh machine — copy the token helper to the path in `review_app_token_cmd` |
+| `key_missing` | `ENOENT` on the `.pem` path | Fresh machine — copy the private key to that path (it is intentionally not in the repo) |
+| `auth_failed` | `401` / `A JWT could not be decoded` | Key does not match `GH_APP_ID`; regenerate per §2 of the setup doc |
+| `not_installed` | `404` on the installations endpoint | App uninstalled from the repo, or wrong installation ID |
+| `forbidden` | `403 Resource not accessible by integration` | Permissions changed and need re-approval on the installation page |
+| `token_error` | anything else non-zero | Print the command's first stderr line verbatim |
+
+Never print the token, and never print more than the first stderr line — helper output can contain the key path but must never contain key material.
+
+### 7.2 Surface it in three places at once
+
+**1. On the pull request** — a banner directly beneath the verdict marker. This is the durable one: it outlives the session, and anyone reading the PR sees it.
+
+```
+Claude comment 🤖
+
+**Verdict: APPROVE** · reviewed at `<sha>`
+
+> ⚠️ **Degraded review identity.** This repo is configured `review_identity: app`, but the
+> App token could not be minted, so this review posted as the PR author with a `COMMENT`
+> event instead of a native `APPROVE`. **The verdict above is still binding** — the merge
+> gate reads the marker, not the event.
+> Cause: `<reason>` — <first stderr line>.
+> Fix: <remedy>. Then re-run the review; the token is minted per call, so a repaired
+> machine recovers on the next pass with no further action.
+```
+
+**2. In the structured return** — configured and effective are separate fields, so an orchestrator can never conflate them:
+
+```json
+"review_identity_configured": "app",
+"review_identity_effective": "self",
+"review_identity_fallback": true,
+"review_identity_fallback_reason": "key_missing",
+"review_identity_remedy": "Copy the private key to ~/.ssh/<app>.pem"
+```
+
+When they match, `review_identity_fallback` is `false` and the other fields are omitted.
+
+**3. In the human-facing summary** — one line, at the top of the report, not buried at the end.
+
+Orchestrators additionally log one `[review-identity-degraded]` cleanup entry **per run, not per review** — it is a machine-level fault, and one entry per round would bury the cleanup issue.
+
+### 7.3 Never block on it
+
+A degraded identity must not halt the pipeline, fail the review, or change the verdict. The verdict is a value the skills own (§2) and travels in the marker either way, so the gate is unaffected. Blocking would convert a cosmetic problem into an outage.
+
+### 7.4 Retrigger
+
+There is no repair command and no cached state to clear: the token is minted per call. Fix the underlying cause, then re-run the review — `/review-pr <n>` for the human flow, or let the orchestrator's next review round run. Confirm recovery with `setup/github-app.md` §5, which distinguishes a working App from a silently-degraded one.
+
+A run that has already merged past a degraded review needs nothing undone — the verdict was binding and correctly gated. Only the GitHub-visible attribution was wrong.

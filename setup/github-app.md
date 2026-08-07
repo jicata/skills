@@ -175,6 +175,23 @@ gh api repos/<owner>/<repo>/pulls/<n>/reviews/<id>/dismissals \
 
 Per the protocol, any failure here degrades to `self` behaviour for that run rather than losing the review — the verdict marker still carries the decision and the merge gate still reads it correctly.
 
+## Moving to another machine
+
+`review_app_token_cmd` lives in the repo, but the two things it points at deliberately do not. A fresh clone therefore has the *configuration* for `app` mode without the *capability*, and reviews will degrade to comment-only.
+
+Copy both, to the exact paths named in the command:
+
+| What | Typical path | Why it isn't in the repo |
+|---|---|---|
+| The private key | `~/.ssh/<app-slug>.pem` | It's a credential. Committing it would let anyone review, and GitHub auto-revokes keys it finds in public repos. |
+| The token helper | `~/.claude/gh-app-token.js` | Machine-level tooling, shared by every repo using this App. |
+
+Then re-run §5 to confirm. Prefer `$HOME`-relative paths in `review_app_token_cmd` so the same value works on every machine.
+
+**You will not silently get this wrong.** A repo configured `review_identity: app` whose token command fails reports it three ways — a banner on every review it posts, `review_identity_fallback` in the structured return, and one `[review-identity-degraded]` cleanup entry per orchestrator run. The autonomous orchestrators additionally probe the token at startup (`/ship-issue` Step 0d, `/ship-feature` Step 0b), so a fresh machine is caught before any work begins rather than several review rounds in. See `skills/_shared/review-protocol.md` §7.
+
+Recovery needs no repair command: tokens are minted per call, so once the key and helper are in place the next review is back to `app` mode on its own.
+
 ## Reverting
 
 Set `review_identity: self` (or delete both keys) in the profile. Nothing else changes; the gate reads the marker either way.
