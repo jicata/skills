@@ -79,7 +79,7 @@ Capture the URL or number of the newly created issue.
 For each unresolved `[AXIS-B]` thread you identified in Step 1, resolve it and leave a reply linking to the new tech debt issue:
 
 ```bash
-gh api /repos/<owner>/<repo>/pulls/<n>/comments/<comment-id>/replies \
+gh api repos/<owner>/<repo>/pulls/<n>/comments/<comment-id>/replies \
   --method POST \
   -f body="Claude comment 🤖
 
@@ -99,17 +99,32 @@ mutation($id: ID!) {
 
 ### Step 4 — Approve the PR
 
-Submit an `APPROVE` review to unblock the PR:
+Post an `APPROVE` **verdict** to unblock the PR, transported per [`../_shared/review-protocol.md`](../_shared/review-protocol.md).
+
+`gh pr review --approve` is **not** usable here under the default `review_identity: self` — GitHub rejects an approval from the PR's own author with a `422` and posts nothing at all, leaving the PR permanently stuck at the merge gate. Post the verdict marker instead; that is what `/merge-pr` reads.
 
 ```bash
-gh pr review <n> --approve --body "Claude comment 🤖
+HEAD_SHA=$(gh pr view <n> --json headRefOid -q .headRefOid)
+
+# self mode (default) — COMMENT event, verdict carried by the marker
+gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST \
+  -f event=COMMENT \
+  -f body="Claude comment 🤖
+
+**Verdict: APPROVE** · reviewed at \`$HEAD_SHA\`
 
 ⚠️ **Review Conceded**
 
 Maximum review iterations reached. All remaining \`[AXIS-B]\` standards violations have been deferred and are tracked in <new-issue-url>.
 
 Ready to merge."
+
+# app mode — same body, native APPROVE event, App token
 ```
+
+If the App token cannot be minted, post the identical body with `-f event=COMMENT` **and the §7.2 degraded clause appended to the marker line**. The concession still clears the gate — the marker carries `APPROVE` — but a conceded PR that also silently lost its review identity is exactly the combination nobody would notice.
+
+The marker must carry the **current** head SHA. Concession resolves threads without changing code, so re-read `headRefOid` at this step rather than reusing a SHA from an earlier review pass — a mismatch trips the merge gate's staleness check.
 
 ### Step 5 — Report back to the user
 

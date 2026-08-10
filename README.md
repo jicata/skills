@@ -92,6 +92,14 @@ Agents in `agents/`: **`afk-coder`** (runs `afk-execute-issue`, then `afk-addres
 | `ubiquitous-language` | Extracts a DDD glossary from the conversation, flags ambiguities, proposes canonical terms, writes to the repo's glossary. |
 | `karpathy-guidelines` | Behavioural guidelines targeting common LLM coding pitfalls. |
 
+### Learning
+
+Orthogonal to the build pipeline — not a step in any flow. Imported verbatim from [mattpocock/skills](https://github.com/mattpocock/skills) (the same upstream the donor was seeded from) and kept read-only like any base file; a future `/setup` question could wire it into a repo, but nothing routes to it yet.
+
+| Skill | What it does |
+| --- | --- |
+| `teach` | A stateful, multi-session tutor for learning any topic — not just code. Turns a directory into a teaching workspace (`MISSION.md`, curated `RESOURCES.md`, incremental `learning-records/`, self-contained HTML `lessons/` + reference cheat-sheets). Grounds every lesson in *why* you want the skill, splits knowledge / skills / wisdom, and targets storage strength over fluency via the zone of proximal development. Resource-grounded (trusted sources + communities), not codebase-grounded. (`MISSION-FORMAT.md`, `RESOURCES-FORMAT.md`, `LEARNING-RECORD-FORMAT.md`, `GLOSSARY-FORMAT.md`) |
+
 ## Doctrine
 
 Loaded on demand via the generated doctrine index; the always-on ones are pulled into every relevant turn.
@@ -100,9 +108,13 @@ Loaded on demand via the generated doctrine index; the always-on ones are pulled
 | --- | --- |
 | `documentation-first.md` | Consult docs before code. Defines the **lean canon** — glossary, ADRs, architecture/concept map — and treats everything else as a temporary artifact living on its work item. |
 | `surface-dont-chase.md` | Ambient rule: a smell noticed in already-loaded context gets **one line and an offer to log it**, never a refactor. Captures the instinct without the scope creep. |
+| `how-to-explain.md` | How explanations are written. The reader is a senior engineer not resident in *this* system: assume the vocabulary, spend the words on the local wiring. Carries the spine (problem → why the obvious fix fails → what they're right about → plan → risk → one question), the prose moves, and a full worked exemplar. The rule the teaching briefings in `expand-issue` / `log-issue` are specializations of. |
 | `fowler-smell-baseline.md` | Curated Fowler smells for the Standards axis. Always a labelled judgement call, never blocking on its own; documented doctrine overrides. |
 | `vsa.md` | Vertical Slice Architecture — organize by feature, colocate the slice, isolate between slices. |
+| `frontend-architecture.md` | The frontend counterpart to `vsa.md`: page/component boundary, the promotion rule, server-state vs client-state ownership, and the "design artifact is the build target" extraction rule. Structural rules are framework-generic; a React section applies where the profile says React. |
 | `dotnet-backend.md` | Idiomatic modern .NET / ASP.NET Core / EF Core rules. |
+| `relational-persistence.md` | Schema, migrations, indexes, and query practice behind an ORM. Spine: **the test stand-in lies** — every persistence change is judged against both the canonical store and the faster thing tests run on. Carries the natural-key rule for runtime-mutated reference data and the concurrent-context trap. |
+| `llm-prompt-craft.md` | For apps that construct prompts. A **visibility gate** (render the prompt as text and surface it — every change, no threshold) plus craft doctrine: self-contained, plain, example-driven, disposition stated, contract separated from teaching. |
 | `writing-skills.md` + `writing-skills-glossary.md` | How skills themselves are authored: **predictability** as the root virtue, with levers grouped by invocation, information hierarchy, steering, and pruning. This is the doctrine this repo is held to. |
 
 ## Templates
@@ -113,8 +125,8 @@ Prose is filled in here and nowhere else — instantiated by setup from intervie
 | --- | --- | --- |
 | `project-profile.md` | **always** | `.claude/doctrine/project-profile.md` — the overlay. The repo's only writable skill surface. |
 | `router.md` | always | `.claude/skills/ask-<name>/SKILL.md` — the router, generated from what was *actually* installed. |
-| `chassis-foundation.md` | Q1 — the app sits on base/chassis libraries that own runtime behaviour | `.claude/rules/chassis-foundation.md` (always-on): what the chassis owns, the division of labour, reviewer red flags, and the "read the chassis before asserting runtime behaviour" trigger list. |
-| `deploy-infra.md` | Q2 — the path to production leaves this repo | `.claude/rules/deploy-infra-foundation.md` (always-on): the pipeline, sibling-repo pointers, and the "a route the gateway doesn't know is a dead endpoint" trigger. |
+| `chassis-foundation.md` | Q1 — the app sits on base/chassis libraries that own runtime behaviour | `.claude/doctrine/chassis-foundation.md` (always-on): what the chassis owns, the division of labour, reviewer red flags, and the "read the chassis before asserting runtime behaviour" trigger list. |
+| `deploy-infra.md` | Q2 — the path to production leaves this repo | `.claude/doctrine/deploy-infra-foundation.md` (always-on): the pipeline, sibling-repo pointers, and the "a route the gateway doesn't know is a dead endpoint" trigger. |
 
 ---
 

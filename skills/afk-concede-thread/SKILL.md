@@ -181,7 +181,7 @@ Capture the cleanup issue number.
 ## Step 5 — Post the thread reply
 
 ```bash
-gh api /repos/<owner>/<repo>/pulls/<pr-number>/comments/<first-comment-id>/replies \
+gh api repos/<owner>/<repo>/pulls/<pr-number>/comments/<first-comment-id>/replies \
   --method POST \
   -f body="Claude comment 🤖
 

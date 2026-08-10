@@ -7,7 +7,7 @@ description: Doc-first architectural review of a scoped area (a slice, a folder,
 
 This skill reproduces the workflow a careful architect runs by hand: **someone points at an area that feels wrong → you understand it through the docs first → you diagnose it against the project's own written rules → you find what *led* there → you propose the fix AND the guardrail that would have prevented it → nothing outward-facing happens without a yes.**
 
-It is **read-only with respect to source code.** It never edits application source, never opens a PR, never runs a migration. Its products are: a diagnosis (chat), and — only after you approve — a work-item seed (the repo's issue- or spec-authoring skill) and/or direct edits to `.claude/rules/*` and `.claude/skills/*` (internal governance, like a rule-hardening session).
+It is **read-only with respect to source code.** It never edits application source, never opens a PR, never runs a migration. Its products are: a diagnosis (chat), and — only after you approve — a work-item seed (the repo's issue- or spec-authoring skill) and/or direct edits to `.claude/doctrine/*` and `.claude/skills/*` (internal governance, like a rule-hardening session).
 
 ## Two orthogonal lenses (and the guardrail between them)
 

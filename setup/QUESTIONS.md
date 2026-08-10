@@ -28,8 +28,11 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 
 **Q6 — Architecture shape.** Detected (a `Features/` VSA signature, layered folders, …), confirmed. → installs the architecture doctrine + **generates the composite coder lens** (the repo's `vsa-tdd` analog: a manifest of which doctrine files every coder run loads).
 
+**Q6b — Frontend surface.** Detected (a `src/pages/` or `src/components/` tree, a component library in `package.json`), confirmed. → installs `doctrine/frontend-architecture` + overlay facts (component library, server-state cache, design-handoff pipeline if any).
+→ *Donor: React + query cache + MUI, with a design-artifact handoff pipeline. Backend-only repos skip this entirely.*
+
 **Q7 — Persistence.** "What database; who owns schema migrations; what substitutes for it locally and in tests?"
-→ database doctrine + overlay facts (migration owner, emulator/stand-in, seeding rules).
+→ installs `doctrine/relational-persistence` + overlay facts (canonical store, migration owner, emulator/stand-in, seeding rules).
 → *Donor: Spanner + EF Core, Flyway owns migrations, emulator locally — and the scar: EF migrate/seed is a dead end (stale migrations + row-ownership interceptor).*
 
 **Q8 — Legacy oracle (brownfield).** "Is there a reference implementation new code must behaviorally match? How is parity proven — golden masters, truth tables, live probing?"
@@ -49,9 +52,16 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 → overlay testing section.
 → *Donor: controller-as-unit, no HTTP-auth e2e (identity via IRequestContext); HTTP e2e deferred.*
 
-**Q12 — Merge gates.** "What gates a merge — CI, local checks, review policy?"
-→ overlay facts + reviewer expectations.
+**Q12 — Merge gates.** "What gates a merge — CI, local checks, review policy?" If CI exists, follow up: **"is it trustworthy enough to block a merge yet, or still being stood up?"**
+→ overlay facts + reviewer expectations + `axis_c` (`off` / `advisory` / `enforcing`, per `skills/_shared/axis-c.md`). A repo mid-CI-rollout wants `advisory`: the machinery runs and reports, but a flaky suite cannot stall the pipeline. Record what would promote it to `enforcing`, or it silently becomes permanent.
 → *Donor: local `dotnet test` is the gate; CI doesn't gate .NET (deliberate, deferred) — an agent re-flagging this as a blocker is noise.*
+
+**Q12b — Review identity.** **Ask this whenever the pipeline is installed, and recommend `app`.** "Reviews posting from your own account can only ever be COMMENT — GitHub rejects APPROVE and REQUEST_CHANGES from a PR's own author, so the verdict never shows up as a real decision. I can set up a GitHub App so reviews post natively; it's two browser clicks via `setup/create-review-app.js`. Do that now, or stay on comment-only?"
+→ *yes (recommended):* run `setup/create-review-app.js`, walk `setup/github-app.md` §4–5, **verify with §5 before writing the profile** — then record `review_identity: app` + `review_app_token_cmd`.
+→ *no / deferred / can't install Apps here:* omit both keys. The absent-key default is `self` and the gate is fully functional under it — this is a real choice, not a degraded one.
+→ Either way the binding verdict is the review-body marker, per `skills/_shared/review-protocol.md`. The identity only decides whether GitHub *also* records it natively.
+→ **Recommend, never force.** Org repos frequently restrict App installation to owners; a repo with human reviewers may not want a bot approving at all; and `app` mode adds a private key to manage. A "no" here costs nothing but the audit trail.
+→ *Donor: `self` — 400 PRs, every `reviewDecision` null, every review `COMMENTED`.*
 
 **Q13 — LLM surface.** "Does this app construct prompts / call models?" → *yes:* install `llm-prompt-craft` doctrine (prompt-visibility gate).
 

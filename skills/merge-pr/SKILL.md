@@ -35,9 +35,11 @@ query($owner: String!, $repo: String!, $pr: Int!) {
       url
       state
       headRefName
+      headRefOid
       baseRefName
-      reviewDecision
       reviewThreads(first: 100) { nodes { isResolved } }
+      latestReviews(first: 50) { nodes { state author { login } } }
+      reviews(last: 20) { nodes { body state submittedAt author { login } } }
     }
   }
 }' -f owner=<owner> -f repo=<repo> -F pr=<pr-number>
@@ -48,10 +50,14 @@ query($owner: String!, $repo: String!, $pr: Int!) {
 Check **all** of the following. If any fails, stop and report — do not merge.
 
 1. `state == "OPEN"` — the PR must be open (not already merged or closed)
-2. Review gate — **one** of the following must be true:
-   - `reviewDecision == "APPROVED"` — a non-author reviewer has formally approved, **OR**
-   - `reviewDecision` is `null` AND at least one review body starts with `Claude comment 🤖` AND all `reviewThreads` are resolved — the PR author cannot self-approve on GitHub, so a clean `/review-pr` follow-up pass (all threads resolved, no new issues) is treated as equivalent
-   - `CHANGES_REQUESTED` always blocks → stop
+2. **Review gate** — resolve the verdict per [`../_shared/review-protocol.md`](../_shared/review-protocol.md) §4. In short:
+   - Any `latestReviews` entry with `state == "CHANGES_REQUESTED"` → stop. A reviewer who requested changes is authoritative over any marker. (Use `latestReviews`, **not** `reviewDecision` — that field is only populated when branch protection requires reviews, so it stays `null` here even for a genuine App-authored block.)
+   - Take the newest review whose body starts with `Claude comment 🤖` and parse `**Verdict: …** · reviewed at \`<sha>\``.
+   - **`<sha>` ≠ `headRefOid`** → stop as `review_stale`: the review graded a commit that is no longer the head. Suggest re-running `/review-pr <n>`. Do not merge on a stale approval.
+   - `REQUEST_CHANGES` → stop; suggest `/address-pr <n>`.
+   - `COMMENT` → stop. A comment review is not an approval, even with every thread resolved.
+   - `APPROVE` → pass.
+   - No parseable marker → fall back to any `latestReviews` entry with `state == "APPROVED"` (someone approved natively) → pass; anything else → stop as not reviewed. A `Claude comment 🤖` body with no marker predates this protocol — treat it as `COMMENT`, never as an approval, and re-review once to clear it.
 3. Every `reviewThreads.nodes[].isResolved == true` — no unresolved threads. If any are unresolved, stop and suggest `/address-pr <n>`.
 4. `baseRefName` starts with `prd-` — PRs from `/execute-issue` must target a base branch. If `baseRefName` is the default branch, stop and report a structural bug upstream; do not merge past it.
 
@@ -114,7 +120,7 @@ Stop. Do not chain into `/execute-issue` yourself.
 
 ## Critical Rules
 
-1. **Never merge without a passing review gate.** Either a formal `APPROVED` decision, or a complete `/review-pr` cycle where all skill-authored threads were resolved and no new blockers were raised. A bare COMMENT review with open threads does not qualify.
+1. **Never merge without an `APPROVE` verdict against the current head.** Either a `**Verdict: APPROVE**` marker whose reviewed SHA equals `headRefOid`, or a human's native `APPROVED` decision. A `COMMENT` verdict does not qualify no matter how many threads are resolved, and neither does an approval of a superseded commit — re-run `/review-pr` instead.
 2. **Never merge with unresolved review threads.** Suggest `/address-pr` instead.
 3. **Never attempt conflict resolution on a failed merge.** Stop and report; a human decides whether to rebase, merge-in, or escalate.
 4. **Never merge a PR targeting the default branch.** PRs from `/execute-issue` target the PRD's base branch by design. A default-branch-targeted PR is a structural bug upstream — stop and report.
@@ -130,6 +136,8 @@ Stop. Do not chain into `/execute-issue` yourself.
 - **Merge conflict with base branch** → stop; ask the user to rebase or resolve manually
 - **PR body has no `Fixes #N`** → merge anyway, note the missing link in the report, leave any issue-closing to the user
 - **PR closes multiple issues** → close all of them, each with its own comment linking the merged PR
+- **Approval exists but new commits landed after it** → stop as `review_stale`; re-run `/review-pr <n>`. Common when `/address-pr` pushes a fix after the approving pass
+- **Review body starts with `Claude comment 🤖` but carries no verdict marker** → pre-protocol review; treat as `COMMENT` and re-review once. Never infer approval from resolved threads
 - **Branch protection requires a status check still pending** → stop; tell the user to wait for CI
 - **Branch protection requires a review from a specific user who hasn't reviewed** → stop and report; don't try to bypass
 - **Linked issue was deleted (not closed)** → report the dangling reference and continue

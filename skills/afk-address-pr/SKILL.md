@@ -124,7 +124,7 @@ The thread asks for changes beyond the child issue's Acceptance Criteria.
 1. **Do not implement the change.**
 2. Post a pushback reply on the thread:
    ```bash
-   gh api /repos/<owner>/<repo>/pulls/<pr>/comments/<first-comment-id>/replies \
+   gh api repos/<owner>/<repo>/pulls/<pr>/comments/<first-comment-id>/replies \
      --method POST \
      -f body="Claude comment 🤖
 

@@ -61,6 +61,19 @@ If any required permission is missing, **stop immediately** and tell the user:
 
 Do not attempt to add permissions silently.
 
+### Review-identity preflight (warn, never fail-fast)
+
+If the profile sets `review_identity: app`, run its `review_app_token_cmd` **once, now**, and discard the token. This is a reachability probe, not a review.
+
+- **Succeeds** → record `review_identity_effective = "app"` and continue silently.
+- **Fails** → classify per `.claude/skills/_shared/review-protocol.md` §7.1, record `review_identity_effective = "self"` plus the reason and remedy, and **tell the operator in the opening run message** — not at the end. Then continue.
+
+**Never fail-fast on this.** A credential problem must not cost a run, and the verdict travels in the review-body marker regardless, so the merge gate is unaffected. What it must not do is pass unnoticed — carry the result into the **Execution conformance** block of the final report, which states configured vs executed mode explicitly.
+
+Do **not** file this as a cleanup-issue entry. The cleanup issue tracks code debt to fix before release; a missing credential on one machine is neither, and filing it there buries real findings behind an operational notice.
+
+Probing here rather than at first review means a fresh machine missing the key or the token helper is reported before any work is done, instead of surfacing several rounds in.
+
 **Resilience preflight (mandatory, before first Agent dispatch):** Read `.claude/skills/_afk-shared/resilience.md` immediately after the permission check. It governs §1 — the non-interactive, time-boxed shell that prevents `gh` / remote-`git` / provisioning calls from hanging. There is no watchdog to arm and no `ScheduleWakeup` to load: every long-running step runs as a **visible** background `Agent` the operator can watch in the live agent display, and the harness's completion notification advances the state machine.
 
 ## Step 0c — Merge-strategy detection (parallel mode only)
@@ -355,7 +368,9 @@ Parse the structured return — keep findings as `reviewer_verdict` for this PR.
 
 #### Decision
 
-- `verdict: approve` AND `axis_a_blockers == 0` AND `axis_b_blockers == 0` AND `axis_c == "pass"` AND no unresolved threads → GO TO MERGE_CHILD
+- `verdict: approve` AND `axis_a_blockers == 0` AND `axis_b_blockers == 0` AND (`axis_c_mode != "enforcing"` OR `axis_c == "pass"`) AND no unresolved threads → GO TO MERGE_CHILD
+
+**The Axis-C clause only binds under `axis_c_mode: "enforcing"`.** Under `advisory` a red CI is reported but never blocks the transition; under `off` there is nothing to read. The whole `axis_c == "fail"` routing below is likewise enforcing-only — see `.claude/skills/_shared/axis-c.md`.
 - `axis_c: "superseded"` (Coder pushed mid-review; findings describe a stale diff) → re-dispatch Reviewer on the new head **without** incrementing `round_count` — a superseded review was never a real round
 - `axis_c: "unknown"` (CI still pending at the reviewer's 15m cap, or cancelled) → re-dispatch Reviewer once to re-read CI without incrementing `round_count`. On a second `unknown`, log a `[ci-unknown]` cleanup entry and treat as `fail` — **never** as pass
 - Otherwise → GO TO ADDRESS
@@ -424,7 +439,8 @@ Parse the structured return:
 - `result: merge_queued` (parallel queue-mode only) → slot remains occupied; SCHEDULER_TICK polls `gh pr view <pr> --json mergedAt,state` on subsequent ticks. On observed merge, transition to `merged`. If the PR transitions to `closed` without `mergedAt` (queue rejected it — required check failure on rebased base), GO TO ADDRESS.
 - `result: merge_conflict` → re-dispatch `afk-coder` for `/afk-address-pr` to attempt rebase; if Coder returns `rebase_conflict` again, force-concede + retry merge; if still failing, mark `unmergeable`
 - `result: branch_protection` → cleanup entry, mark `unmergeable`, NEXT_CHILD
-- `result: changes_requested` / `unresolved_threads` → orchestrator bug (shouldn't reach here without forcing); halt with diagnostic
+- `result: review_stale` → a commit landed after the approving review, so the head is ungraded. GO TO REVIEW to re-grade at the current head. **Guard:** on a second consecutive `review_stale` for the same PR, log a `[stale-review-loop]` cleanup entry and GO TO MERGE_CHILD with `--force <cleanup-issue-number>` (which records `stale_review_forced`) rather than looping. In mutex mode this is expected occasionally — a `needs_rebase` slot pushes a rebase after its review pass
+- `result: changes_requested` / `unresolved_threads` / `not_approved` / `not_reviewed` → orchestrator bug (shouldn't reach here without forcing); halt with diagnostic
 - `result: structural_bug_master_target` → halt; this is a PRD-config error
 
 ### FINALIZE_PRD
@@ -532,6 +548,17 @@ gh issue comment <prd-number> --body "$(cat <<EOF
 
 ## Cleanup issue
 <link, or "none">
+
+## Execution conformance
+<Either "✅ Ran as configured." or, for each mismatch, one line:
+ "⚠️ <what> — configured: <x>, executed: <y>. Cause: <reason>. Fix: run `<repair skill>`."
+ Name a skill the operator can invoke, never a sequence of manual steps — for review identity that is
+ `/fix-review-identity`.
+ Rows to check: review identity (profile `review_identity` vs `review_identity_effective`);
+ CI authority (profile `axis_c`) — under `advisory`, report any red or unknown check here even though it did
+ not block, so a permanently-red suite cannot become invisible;
+ merge strategy (Step 0c preferred `queue` vs executed `mutex`); anything else where the run
+ silently took a fallback path.>
 
 ## Children
 <table: pr_number | title | merged_at | residue_tags>
@@ -643,7 +670,7 @@ Agent(
 4. **Always lazy-create the cleanup issue** on first concern, never up-front.
 5. **Always emit final report to chat AND PRD issue comment.**
 6. **Never bypass branch protection.**
-7. **Always run preflight Steps 0a/0b (and 0c in parallel mode) before anything else.** Step 0b includes the resilience preflight: read `resilience.md` (it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs) before first dispatch.
+7. **Always run preflight Steps 0a/0b (and 0c in parallel mode) before anything else.** Step 0b's review-identity probe warns and continues rather than failing fast — but any gap between configured and executed mode must be stated up front **and** repeated in the final report's Execution conformance block, never left silent. Step 0b includes the resilience preflight: read `resilience.md` (it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs) before first dispatch.
 8. **Always reconcile from GitHub on re-invocation.** Open PRs targeting the PRD base branch are picked up and resumed.
 9. **Never create more than one ship-cleanup issue per PRD.** Helper deduplicates by title search.
 10. **Coder and Reviewer must be separate agent dispatches.** Independence is the design.

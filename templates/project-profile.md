@@ -19,6 +19,9 @@ chassis: <FILL: none | paths — if not none, templates/chassis-foundation was i
 legacy_oracle: <FILL: none | pointer to the reference implementation new code must behaviorally match>
 doc_appetite: <FILL: full | lean>
 pipeline_tier: <FILL: full | light>
+axis_c: <FILL: off | advisory | enforcing — how much authority CI check-runs have over a review verdict and a merge. Omit to infer from `ci` (none ⇒ off, configured ⇒ enforcing). `advisory` is the transition state while CI is being stood up: fully exercised and reported, but never blocking. See skills/_shared/axis-c.md>
+review_identity: <FILL: self | app — who authors reviews. `self` (default; omit the key entirely for it) means the PR author's own account, which GitHub restricts to COMMENT-only reviews. `app` means a GitHub App installation, which can post native APPROVE / REQUEST_CHANGES. Consumed by skills/_shared/review-protocol.md; see setup/github-app.md>
+review_app_token_cmd: <FILL: only when review_identity is app — a command printing a short-lived installation access token to stdout. Holds a key PATH, never a key. Omit entirely under `self`>
 workhorse_model: <FILL: the cheap/fast model the autonomous ship-* pipeline runs orchestrator + coder/reviewer subagents on, e.g. "sonnet" — consumed by ship-feature/ship-issue model preflight and every Agent dispatch; omit if the pipeline isn't installed>
 glossary: <FILL: path, e.g. docs/UBIQUITOUS_LANGUAGE.md | none>
 smell_routing: <FILL: where ambient architectural smells get logged, e.g. "file a tracker issue" | a bucket-issue pointer — consumed by doctrine/surface-dont-chase.md>
@@ -57,6 +60,16 @@ base_version: <FILL: version/commit of the skills base library this repo was set
 <FILL>
 
 > **EXAMPLE (donor: the donor stack) — delete:** Test endpoints controller-as-unit with identity injected via `IRequestContext`; HTTP-auth e2e is deliberately deferred — do not flag its absence as a gap. WHY: real SSO tokens aren't available in test rigs; the deferral is a recorded decision, not an oversight. Evidence: `backend-test-strategy` memory.
+
+## Merge gates
+
+<!-- What actually gates a merge here — CI, local checks, review policy — and what is DELIBERATELY not a gate, so reviewers stop re-flagging it (Q12, Q12b). -->
+
+<FILL: the real gates, plus anything deliberately ungated>
+
+> **EXAMPLE (donor: the donor stack) — delete:** Local `dotnet test` is the merge gate; CI does not gate .NET builds. WHY: a deliberate, deferred decision — not an oversight. Evidence: Q12 interview, 2026-07. An agent raising "CI doesn't run the .NET suite" as a blocker is noise; suppress it.
+
+> **EXAMPLE — delete:** Review identity is `self`, so every skill review posts as `COMMENTED` and `reviewDecision` is permanently `null`. The binding verdict is the `**Verdict:**` marker in the review body, per `skills/_shared/review-protocol.md`. WHY: GitHub rejects APPROVE/REQUEST_CHANGES from the PR author. Evidence: 400 PRs, zero non-null `reviewDecision`.
 
 ## Deploy & environments
 
