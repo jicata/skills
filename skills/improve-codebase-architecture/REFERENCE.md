@@ -53,4 +53,4 @@ Hand off the problem statement, the root cause, the target architecture, and the
 
 ### Guardrail hardening → direct rule/skill edits
 
-When Step 5 found a missing guardrail, the fix is an edit to `.claude/rules/*` or `.claude/skills/*` (a new anti-pattern entry, a census step in the review skills, a sweep here). Show the diff, get a yes, edit directly — these are internal governance files and do **not** go through the GitHub issue pipeline. Consider whether the change is also ADR-worthy per the repo's ADR gate (hard to reverse + surprising + a real trade-off).
+When Step 5 found a missing guardrail, the fix is a constraint in `.claude/doctrine/project-profile.md`, or an edit to `.claude/doctrine/*` / `.claude/skills/*` (and, if it is path-specific, a `.claude/rules/*` entry so it loads automatically) (a new anti-pattern entry, a census step in the review skills, a sweep here). Show the diff, get a yes, edit directly — these are internal governance files and do **not** go through the GitHub issue pipeline. Consider whether the change is also ADR-worthy per the repo's ADR gate (hard to reverse + surprising + a real trade-off).

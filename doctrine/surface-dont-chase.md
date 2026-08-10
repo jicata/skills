@@ -1,6 +1,6 @@
 # Surface, don't chase
 
-**Priority:** Medium — always-on ambient rule.
+**Priority:** Medium — ambient. Genuinely wants to be always-on, so if a repo cares about it, the generated `CLAUDE.md` should carry its one-line form ("a smell noticed in passing gets one line and an offer to log it, never a refactor") and point here for the rest.
 
 When you're already deep in a file for another reason (a bug fix, a feature, a review) and notice a genuine architectural smell — an over-complex key, a god orchestrator, infra tangled with domain, a concept smeared across shallow files — **name it in one line, offer to log it, then get back to the task.** Do not fix it, do not expand the current diff, do not launch a diagnosis.
 

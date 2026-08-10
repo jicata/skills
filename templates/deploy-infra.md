@@ -1,6 +1,6 @@
 <!-- TEMPLATE — instantiated by /setup ONLY when interview Q2 surfaces it: the path from
      merged code to a running system leaves this repo (GitOps repos, gateways, IaC).
-     Materialize as `.claude/doctrine/deploy-infra-foundation.md` (always-on). Fill every
+     Materialize as `.claude/doctrine/deploy-infra-foundation.md`, reached on-trigger via the doctrine index — it bites at ship time rather than while editing a file, so it gets no path-scoped rule. Fill every
      <FILL: …> slot; the donor pipeline stays as a worked example — replace its details with
      yours but keep the shape as reference if it matches; delete this comment. -->
 

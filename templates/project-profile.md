@@ -7,7 +7,7 @@
 
 # Project Profile — <FILL: repo name>
 
-**Priority:** High — always-on. This is the repo's overlay over the read-only base skill library: the machine-readable facts other skills key off, and the repo's own scar tissue. Base files are never edited; everything repo-specific lands here.
+**Priority:** High. Pointed at from the generated `CLAUDE.md`, so an agent is told to read it every session — but it is **not** auto-loaded, and nothing but `CLAUDE.md` is. Constraints that must survive regardless (the catastrophic, non-discoverable few) belong *in* `CLAUDE.md`; everything else lives here and is read on the way in. This is the repo's overlay over the read-only base skill library: the machine-readable facts other skills key off, and the repo's own scar tissue. Base files are never edited; everything repo-specific lands here.
 
 ```yaml
 stack: <FILL: language + framework, e.g. ".NET 8 / ASP.NET Core">

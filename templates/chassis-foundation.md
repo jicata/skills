@@ -1,7 +1,7 @@
 <!-- TEMPLATE — instantiated by /setup ONLY when interview Q1 surfaces a chassis: base,
      chassis-like libraries this app is built upon whose source must be read for a complete
      picture of runtime behavior. Materialize as `.claude/doctrine/chassis-foundation.md`
-     (always-on — it guards every backend-reasoning turn). Fill every <FILL: …> slot from the
+     (reached from a `CLAUDE.md` line AND a path-scoped rule over the app's source — nothing under `.claude/doctrine/` is auto-loaded, and this is the one file whose absence has caused production incidents, so it must not depend on an agent remembering to look). Fill every <FILL: …> slot from the
      interview + a read of the actual chassis source; KEEP the two donor failure stories — they
      are the why; delete this comment. -->
 

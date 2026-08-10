@@ -1,6 +1,6 @@
 # Documentation-First Understanding
 
-**Priority:** High — always-on.
+**Priority:** High — on-trigger. Loaded by the doc-touching skills and the doctrine index, not automatically; it is activity-scoped, so it maps to no path and gets no rule.
 
 To thoroughly understand the user's prompt (an issue, a question, or a feature request), **always consult the documentation before exploring the codebase**.
 

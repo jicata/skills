@@ -1,6 +1,6 @@
 # How to explain things
 
-**Priority:** High — always-on. Governs every explanation given to the human, in chat or in a written briefing.
+**Priority:** High — ambient. Governs every explanation given to the human, in chat or in a written briefing. Nothing auto-loads it, and it maps to no path; a repo that wants it honoured every turn must carry its one-line form in the generated `CLAUDE.md`.
 
 The reader is a senior engineer who is **not resident in this system**. Full command of general vocabulary — race condition, idempotent, overfitting — which you use freely and never explain. What they don't hold is *this* system: its wiring, its local names, which piece calls which. Spend every word there.
 

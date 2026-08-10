@@ -10,7 +10,7 @@ The one rule that keeps N repos upgradeable:
 
 - **Base files install verbatim and are read-only by convention.** A repo never edits an installed base skill. Upgrades are file copies.
 - **Each repo gets a writable overlay** — a `project-profile.md` the interview writes and every later session maintains: YAML facts up top (stack, architecture, tracker, check commands, chassis, mode), **trigger-indexed** constraint sections below (keyed by activity: persistence, testing, deploy…). Constraints are edited in place, never appended chronologically; every constraint carries its **why + an evidence pointer** — a rule with a scar attached gets obeyed, a bare imperative gets relitigated. When a section outgrows a screen, it graduates into its own doctrine file and leaves an index line behind.
-- **Only three things are ever generated per repo**, because they are manifests, not wisdom: the composite coder lens (a file list), the doctrine index (a table), and the repo's `ask-*` router (derived from what setup actually installed — so the router can't lie on day 1).
+- **Only manifests are ever generated per repo** — never wisdom. Five of them: the composite coder lens (a file list), the doctrine index (a table), the repo's `ask-*` router (derived from what setup actually installed, so it can't lie on day 1), a short `CLAUDE.md`, and a set of path-scoped `.claude/rules/`. The last two are what make loading *real*: `CLAUDE.md` is the only file Claude Code reads into every session, and a rule with `paths:` frontmatter loads its doctrine automatically the moment a matching file is opened. Both are routers into doctrine, never copies of it.
 
 Templates (chassis-foundation, deploy-infra, …) are instantiated **only when the interview surfaces the condition** — nothing here assumes every project has a chassis, a GitOps pipeline, or a legacy oracle.
 
@@ -102,7 +102,15 @@ Orthogonal to the build pipeline — not a step in any flow. Imported verbatim f
 
 ## Doctrine
 
-Loaded on demand via the generated doctrine index; the always-on ones are pulled into every relevant turn.
+Doctrine files are **not** auto-loaded by Claude Code. Three mechanisms put them in context, and a file should say which one it relies on:
+
+| Tier | Mechanism | Cost |
+| --- | --- | --- |
+| **always-on** | named in the generated `CLAUDE.md` | every session — reserve for the catastrophic few |
+| **path-scoped** | a generated `.claude/rules/*.md` with `paths:` frontmatter | only when a matching file is opened |
+| **on-trigger** | the generated doctrine index, read by a skill | only when that skill runs |
+
+Most doctrine is path-scoped or on-trigger. Marking a file "always-on" without a `CLAUDE.md` line behind it is a wish, not a fact.
 
 | File | Scope |
 | --- | --- |
@@ -125,8 +133,8 @@ Prose is filled in here and nowhere else — instantiated by setup from intervie
 | --- | --- | --- |
 | `project-profile.md` | **always** | `.claude/doctrine/project-profile.md` — the overlay. The repo's only writable skill surface. |
 | `router.md` | always | `.claude/skills/ask-<name>/SKILL.md` — the router, generated from what was *actually* installed. |
-| `chassis-foundation.md` | Q1 — the app sits on base/chassis libraries that own runtime behaviour | `.claude/doctrine/chassis-foundation.md` (always-on): what the chassis owns, the division of labour, reviewer red flags, and the "read the chassis before asserting runtime behaviour" trigger list. |
-| `deploy-infra.md` | Q2 — the path to production leaves this repo | `.claude/doctrine/deploy-infra-foundation.md` (always-on): the pipeline, sibling-repo pointers, and the "a route the gateway doesn't know is a dead endpoint" trigger. |
+| `chassis-foundation.md` | Q1 — the app sits on base/chassis libraries that own runtime behaviour | `.claude/doctrine/chassis-foundation.md`, reached **both** ways — a line in `CLAUDE.md` (this is the one whose absence caused two production incidents, so it earns always-on budget) **and** a path-scoped rule over the app's own source, so it arrives whenever an agent is about to reason about runtime behaviour: what the chassis owns, the division of labour, reviewer red flags, and the "read the chassis before asserting runtime behaviour" trigger list. |
+| `deploy-infra.md` | Q2 — the path to production leaves this repo | `.claude/doctrine/deploy-infra-foundation.md`, on-trigger via the doctrine index (it bites at ship time, not while editing a file, so it maps to no path): the pipeline, sibling-repo pointers, and the "a route the gateway doesn't know is a dead endpoint" trigger. |
 
 ---
 
