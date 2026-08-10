@@ -19,6 +19,7 @@ chassis: <FILL: none | paths — if not none, templates/chassis-foundation was i
 legacy_oracle: <FILL: none | pointer to the reference implementation new code must behaviorally match>
 doc_appetite: <FILL: full | lean>
 pipeline_tier: <FILL: full | light>
+axis_c: <FILL: off | advisory | enforcing — how much authority CI check-runs have over a review verdict and a merge. Omit to infer from `ci` (none ⇒ off, configured ⇒ enforcing). `advisory` is the transition state while CI is being stood up: fully exercised and reported, but never blocking. See skills/_shared/axis-c.md>
 review_identity: <FILL: self | app — who authors reviews. `self` (default; omit the key entirely for it) means the PR author's own account, which GitHub restricts to COMMENT-only reviews. `app` means a GitHub App installation, which can post native APPROVE / REQUEST_CHANGES. Consumed by skills/_shared/review-protocol.md; see setup/github-app.md>
 review_app_token_cmd: <FILL: only when review_identity is app — a command printing a short-lived installation access token to stdout. Holds a key PATH, never a key. Omit entirely under `self`>
 workhorse_model: <FILL: the cheap/fast model the autonomous ship-* pipeline runs orchestrator + coder/reviewer subagents on, e.g. "sonnet" — consumed by ship-feature/ship-issue model preflight and every Agent dispatch; omit if the pipeline isn't installed>

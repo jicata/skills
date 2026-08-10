@@ -368,7 +368,9 @@ Parse the structured return — keep findings as `reviewer_verdict` for this PR.
 
 #### Decision
 
-- `verdict: approve` AND `axis_a_blockers == 0` AND `axis_b_blockers == 0` AND `axis_c == "pass"` AND no unresolved threads → GO TO MERGE_CHILD
+- `verdict: approve` AND `axis_a_blockers == 0` AND `axis_b_blockers == 0` AND (`axis_c_mode != "enforcing"` OR `axis_c == "pass"`) AND no unresolved threads → GO TO MERGE_CHILD
+
+**The Axis-C clause only binds under `axis_c_mode: "enforcing"`.** Under `advisory` a red CI is reported but never blocks the transition; under `off` there is nothing to read. The whole `axis_c == "fail"` routing below is likewise enforcing-only — see `.claude/skills/_shared/axis-c.md`.
 - `axis_c: "superseded"` (Coder pushed mid-review; findings describe a stale diff) → re-dispatch Reviewer on the new head **without** incrementing `round_count` — a superseded review was never a real round
 - `axis_c: "unknown"` (CI still pending at the reviewer's 15m cap, or cancelled) → re-dispatch Reviewer once to re-read CI without incrementing `round_count`. On a second `unknown`, log a `[ci-unknown]` cleanup entry and treat as `fail` — **never** as pass
 - Otherwise → GO TO ADDRESS
@@ -553,6 +555,8 @@ gh issue comment <prd-number> --body "$(cat <<EOF
  Name a skill the operator can invoke, never a sequence of manual steps — for review identity that is
  `/fix-review-identity`.
  Rows to check: review identity (profile `review_identity` vs `review_identity_effective`);
+ CI authority (profile `axis_c`) — under `advisory`, report any red or unknown check here even though it did
+ not block, so a permanently-red suite cannot become invisible;
  merge strategy (Step 0c preferred `queue` vs executed `mutex`); anything else where the run
  silently took a fallback path.>
 

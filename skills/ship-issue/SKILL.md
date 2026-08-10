@@ -161,7 +161,8 @@ Parse the return — keep findings in working memory as `reviewer_verdict`, and 
 
 #### Decision
 
-- `verdict: approve` AND `axis_a_blockers == 0` AND `axis_b_blockers == 0` AND no unresolved threads → GO TO MERGE
+- `verdict: approve` AND `axis_a_blockers == 0` AND `axis_b_blockers == 0` AND (`axis_c_mode != "enforcing"` OR `axis_c == "pass"`) AND no unresolved threads → GO TO MERGE
+- `axis_c: "fail"` / `"unknown"` **under `enforcing`** → do not merge; route back to the Coder with the failing check names. Axis C is never conceded. Under `advisory` the failing checks go in the run report and the run continues; under `off` there is nothing to read. See `.claude/skills/_shared/axis-c.md`
 - Otherwise → GO TO ADDRESS
 
 For each thread in `thread_outcomes` with state `still_open` or `pushback_rejected`, increment `reject_count` for that thread.
@@ -255,7 +256,9 @@ gh issue comment <issue-number> --body "$(cat <<EOF
 
 ## Execution conformance
 <Either "✅ Ran as configured." or, for each mismatch, one line:
- "⚠️ <what> — configured: <x>, executed: <y>. Cause: <reason>. Fix: run `<repair skill>`.">
+ "⚠️ <what> — configured: <x>, executed: <y>. Cause: <reason>. Fix: run `<repair skill>`."
+ Also report here, under `axis_c: advisory`, any red or unknown CI check that did not block — an advisory
+ suite that stays red must not become invisible.>
  Name a skill the operator can invoke, never a sequence of manual steps — for review identity that is
  `/fix-review-identity`.>
 

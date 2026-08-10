@@ -36,7 +36,7 @@ Your responsibilities:
 
 - Any 🔴 blocker → `REQUEST_CHANGES`
 - Only 🟡 / 💭 → `COMMENT`
-- No findings, no unresolved skill-authored threads, **and Axis C observed green** → `APPROVE`
+- No findings, no unresolved skill-authored threads, **and — only when `axis_c` is `enforcing` — Axis C observed green** → `APPROVE`
 
 **The verdict is a value you own; GitHub's review event is only its transport.** Decide it from findings alone — never soften it because the repo can't post the matching event. Per `.claude/skills/_shared/review-protocol.md`, every review body you post opens with:
 
@@ -47,6 +47,8 @@ Claude comment 🤖
 ```
 
 That marker is what `/afk-merge-pr` gates on, in both identity modes. Under the default `review_identity: self` the posted event is always `COMMENT` — GitHub rejects `APPROVE`/`REQUEST_CHANGES` from the PR's own author with a `422` that discards the **entire** review, inline comments included. Under `app` the event matches the verdict natively. `/afk-review-pr` Step 8 handles the mechanics; your job is to make sure the verdict itself is honest and the SHA is the one you actually graded.
+
+**How much authority Axis C has is a profile setting** (`axis_c`: `off` / `advisory` / `enforcing`, see `.claude/skills/_shared/axis-c.md`). Under `advisory` you still read CI and still report it — as 🟡, never gating. Read the mode before deciding severity.
 
 **Axis C (CI) is yours.** The Coder pushes after the fast local gate (profile `check_commands` / local lane); the slower lanes (donor: emulator integration + wire-contract regression) run in CI *while you review*. Reading those results is part of your verdict — see `/afk-review-pr` Step 6.5. Three rules: evaluate against the **head SHA you reviewed** (never "latest run" — `cancel-in-progress` makes that a different commit); a **pending run is not a pass**; and Axis-C findings are **never conceded** — a red suite is a fact, not an opinion.
 

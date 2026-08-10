@@ -238,6 +238,8 @@ For each in-scope violation, prepare an inline comment with:
 
 ## Step 6.5 — Axis C (CI)
 
+**First read `axis_c` from the profile** (`off` / `advisory` / `enforcing`; absent ⇒ infer from `ci`) — see [`../_shared/axis-c.md`](../_shared/axis-c.md). If `off`, skip this step entirely and emit `axis_c: "off"`. If `advisory`, run every part of this step as written but raise findings as 🟡 rather than 🔴, and never let the result gate the verdict. If `enforcing`, findings are 🔴 and gate as described.
+
 The Coder runs only the fast lane of the profile's `check_commands` before pushing — the expensive lanes run in CI, **concurrently with this review**. Reading CI is therefore part of the review, not a separate step someone else does. Run this **after** Axes A and B, so review work overlaps the CI run instead of blocking on it.
 
 ### 6.5a. Pin the SHA
@@ -335,9 +337,9 @@ Build a JSON payload file under `tmp/afk/review-<pr>-<ts>.json`:
 **Verdict selection** (from findings alone — identity mode never changes the verdict):
 - Any 🔴 blockers (Axis A, B, **or C**) → `REQUEST_CHANGES`
 - Only 🟡 / 💭 → `COMMENT`
-- No findings AND no unresolved skill-authored threads AND `axis_c == "pass"` → `APPROVE`
+- No findings AND no unresolved skill-authored threads AND (`axis_c_mode != "enforcing"` OR `axis_c == "pass"`) → `APPROVE`
 
-**Never `APPROVE` on `axis_c` of `fail`, `unknown`, or `superseded`.** Only an observed green counts as green.
+**Under `enforcing`, never `APPROVE` on `axis_c` of `fail`, `unknown`, or `superseded`** — only an observed green counts as green. Under `advisory` the CI state is reported but never withholds approval; under `off` it is not read at all.
 
 **Transport** — per [`../_shared/review-protocol.md`](../_shared/review-protocol.md), from the profile's `review_identity` (absent ⇒ `self`):
 - `self` → `"event": "COMMENT"` always, whatever the verdict. Submitting `APPROVE`/`REQUEST_CHANGES` as the PR author is a `422` and loses the entire review, inline comments included.
@@ -354,7 +356,8 @@ The structured return must carry the axis-C result alongside the existing counts
   "verdict": "approve" | "request_changes" | "comment",
   "axis_a_blockers": <n>,
   "axis_b_blockers": <n>,
-  "axis_c": "pass" | "fail" | "unknown" | "superseded",
+  "axis_c_mode": "off" | "advisory" | "enforcing",
+  "axis_c": "pass" | "fail" | "unknown" | "superseded" | "off",
   "axis_c_failing_checks": [
     {"check": "<failing-check-name>", "detail": "<extracted assertion/test name>", "url": "...", "pre_existing_on_base": true|false}
   ],
