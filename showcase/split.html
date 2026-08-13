@@ -100,6 +100,8 @@
   .lanenote { grid-column: 1 / -1; margin: 14px 0 0; border: 1px solid #34d39933; background: #34d3990c;
     border-radius: 12px; padding: 12px 16px; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
   .lanenote b { color: #a7f3d0; font-weight: 650; }
+  .lanenote code { font-family: var(--mono); font-size: 12px; color: #a7f3d0; background: #34d39914;
+    border: 1px solid #34d39926; border-radius: 5px; padding: 1px 5px; white-space: nowrap; }
   .lanenote .cf { color: var(--coder); font-weight: 650; }
   .lanenote .rf { color: var(--reviewer); font-weight: 650; }
 
@@ -303,7 +305,10 @@
     <div class="lanenote">
       🧪 <b>Tests split by lane speed.</b> The <span class="cf">coder</span> gates on the <b>fast local suite</b> before every push;
       the <span class="rf">reviewer</span> owns the <b>slow CI lanes</b> (Axis C), which run <i>while</i> it reviews — so nothing waits on them.
-      A red suite is a fact, not an opinion: Axis C is never conceded.
+      How much authority CI gets is a profile setting — <code>axis_c: off · advisory · enforcing</code>.
+      Under <b>enforcing</b>, a red suite is a fact, not an opinion: Axis C is never conceded.
+      Under <b>advisory</b> — the transition state while CI is being stood up — the full procedure still runs and still reports,
+      but at 🟡, never gating a verdict or a merge. The machinery stays exercised instead of sitting dormant until someone trusts it.
     </div>
   </div>
 
