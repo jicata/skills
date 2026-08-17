@@ -253,8 +253,10 @@ const CATEGORIES = [
       { name: "grill-with-docs", desc: "Grilling that also tests the plan against the domain model, updating the glossary and ADRs inline as decisions crystallise." },
       { name: "write-a-prd", role: "orch", desc: "Interview → codebase exploration → module design → files a PRD as a GitHub issue." },
       { name: "prd-to-issues", desc: "Slices a PRD into independently-grabbable child issues as tracer-bullet vertical slices, with Blocked-by edges and a printed execution order." },
-      { name: "log-issue", desc: "Investigates a reported bug/enhancement, proposes the fix, then files a fully-populated issue (root cause, TDD plan, ACs) ready to ship. Escalates to a PRD seed if too big." },
+      { name: "triage", desc: "For a report you can't yet name. Interviews you only where a human answer redirects the investigation, quarantines your theory as a claim to falsify, and returns a situation report — what is actually going on, with no fix attached. Exits to log-issue, a PRD, diagnosis, or nothing-to-file." },
+      { name: "log-issue", desc: "Investigates a reported bug/enhancement, proposes the fix, then files a fully-populated issue (root cause, TDD plan, ACs) ready to ship. Escalates to a PRD if too big. Start at triage when you can't name the defect yet." },
       { name: "prototype", desc: "A throwaway spike answering one design question. The verdict lands on the issue; the code never merges." },
+      { name: "lab", desc: "Turns a hunch into a measured verdict without touching production. Grills it into a falsifiable question with a prediction and a decision rule written before the run, splits into a purpose issue (the science, and the notebook the campaign appends to) and an instrument issue (the harness, built by a coder agent), calibrates the instruments against production source before the meter starts, then exits through promote, kill, or park." },
     ],
   },
   {

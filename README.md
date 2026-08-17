@@ -46,8 +46,10 @@ skill-sync/  the return path: classify repo deltas as overlay-bound / upstreamab
 | `grill-with-docs` | Grilling that also challenges the plan against the domain model, and updates the glossary/ADRs inline as decisions crystallise. Use when the session should leave a paper trail. |
 | `write-a-prd` | Interview → codebase exploration → module design → files a `PRD:` GitHub issue. |
 | `prd-to-issues` | Slices a PRD into independently-grabbable child issues as tracer-bullet vertical slices, with `Blocked by` edges and a printed execution order. |
-| `log-issue` | Investigates a reported bug/enhancement, proposes the fix, and on approval files a fully-populated issue (root cause, TDD plan, acceptance criteria) ready for `/ship-issue`. |
+| `triage` | For a report you can't yet name — "something's wrong here, not sure". Interviews you only where a human answer redirects the investigation, quarantines your theory as a claim to falsify, and comes back with a **situation report**: what is actually going on, with no fix attached. Exits to `/log-issue`, `/write-a-prd`, `/diagnosing-bugs`, or nothing-to-file. |
+| `log-issue` | Investigates a reported bug/enhancement, proposes the fix, and on approval files a fully-populated issue (root cause, TDD plan, acceptance criteria) ready for `/ship-issue`. Reach for it directly when you already know what's wrong; otherwise start at `/triage`. |
 | `prototype` | A throwaway spike answering **one** design question. The verdict lands on the issue; the code never merges. |
+| `lab` | Turns a hunch into a **measured verdict** without touching production. Grills it into a falsifiable question with a prediction and a decision rule written *before* the run, then splits into two issues — the **purpose** issue (the science, and the notebook the campaign appends to) and the **instrument** issue (the harness, built autonomously by a coder agent). Calibrates what the coder built against production source before the meter starts, runs the campaign with the operator, and exits through exactly one of promote / kill / park. Where `prototype` answers a design question by feel, `lab` answers an empirical one with numbers — and its instruments merge. (`ISSUE-TEMPLATES.md`) |
 
 ### The build pipeline (HITL lane)
 
