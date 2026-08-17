@@ -47,7 +47,8 @@ A **flow** is a path through the skills. Most work travels the main flow; on-ram
      PRD flow when it outgrows one PR), an unnamed suspicion (triage → its four exits),
      someone else's PR (review-pr), cleanup-residue drain, any planning-scale escalation
      skill. Route on certainty, not on size: triage when the reporter can't yet name the
-     defect, log-issue when they can. -->
+     defect, log-issue when they can — and note that log-issue redirects itself, so the
+     reader is never picking wrong, only picking slower. -->
 
 <FILL>
 

@@ -1,6 +1,6 @@
 ---
 name: log-issue
-description: Author a GitHub issue for a bug or enhancement you can already name — propose the fix, gate it with the user, then file it fully populated (behavior contract, TDD plan, acceptance criteria) ready for /ship-issue, with a walkthrough comment the coder consumes. Escalates to /write-a-prd when the work outgrows one PR. Use when the user runs /log-issue, or knows what is wrong and wants it written up; start at /triage instead when the defect cannot yet be named.
+description: Author a GitHub issue for a bug or enhancement you can already name — propose the fix, gate it with the user, then file it fully populated (behavior contract, TDD plan, acceptance criteria) ready for /ship-issue, with a walkthrough comment the coder consumes. Redirects to /triage on its own when the report is still a suspicion, and escalates to /write-a-prd when the work outgrows one PR. Use when the user runs /log-issue, or knows what is wrong and wants it written up.
 ---
 
 # Log Issue
@@ -23,10 +23,23 @@ Repo facts this skill keys off — canon doc locations, chassis, local stand-in,
 
 **Entered cold:**
 
+0. **Check you're the right skill.** This one authors what the user can already name. A report that names the surface, the concrete instance, or the behaviour it should have shown belongs here. A report that hedges instead — *"I think"*, *"not sure"*, *"something seems off"* — and carries neither an instance nor an expected behaviour is a suspicion, not a defect. Say so in one line and run `/triage`, then return here through its exit 2. Routing is this skill's job; the user types whichever command is in their fingers.
+
 1. **Two questions**, per [`../_shared/report-interrogation.md`](../_shared/report-interrogation.md) — the concrete instance, and the expected behaviour. Quarantine any causal claim the user makes; a report that arrives with its own diagnosis attached still gets that diagnosis tested rather than assumed.
+
 2. **Investigate**, per [`../_shared/investigation-brief.md`](../_shared/investigation-brief.md). Aim it at the observation.
+
 3. **Establish the evidence.** Is the mechanism backed by a **red** loop or an observed evidence chain, or by a code path that merely looks like it would produce this? Plausible-only on a bug-shaped report drops into the `/diagnosing-bugs` loop here, inline, and comes back with the red command.
-4. **Write the situation**, per [`../_shared/situation-report.md`](../_shared/situation-report.md). Fold it into the Step 3 proposal rather than gating on it separately — a cold entry means the user already holds the situation. Where the investigation contradicts what they told you, that is its own gate: present it and stop.
+
+4. **Write the situation**, per [`../_shared/situation-report.md`](../_shared/situation-report.md), and decide whether it stands alone.
+
+   **Present it and stop, before proposing anything,** on any of three triggers:
+
+   - The investigation **contradicts** what the user told you
+   - It **rules out the obvious fix** — the one they would reach for, and probably already have
+   - It **reclassifies** the report — bug to enhancement, or the reverse
+
+   Each is a case where the user's model of the problem is about to change, and a model is far cheaper to revise before a plan is attached to it than after. Fold the situation into the Step 3 proposal only when none of the three fired: the investigation confirmed what they already held, and there is nothing to review.
 
 **Classify the shape**, from the findings rather than the wording: **bug-shaped** where existing behavior is wrong, **enhancement-shaped** where it is correct but insufficient. The investigation may reclassify what the report implied.
 
@@ -227,4 +240,4 @@ Stop. The user invokes it — ceremony transitions stay user-gated.
 - **The code path cannot be located** → say so plainly and ask for more context before proposing. A proposal built on a guessed mechanism is worse than no proposal.
 - **Signals trip but the user wants the light flow anyway** → respect it, file the issue, and record the overridden signals under a `## Note` section so `/ship-issue` inherits the context.
 - **The user asks how this differs from `/write-a-prd`** → light flow is one issue, one PR, autonomously merged by `/ship-issue`. PRD flow is a multi-issue feature under `/ship-feature`. Ceremony scales with blast radius.
-- **The user asks how this differs from `/triage`** → triage investigates and stops at a situation; this authors and files. Route on certainty: triage when the defect cannot yet be named.
+- **The user asks how this differs from `/triage`** → triage investigates and stops at a situation; this authors and files. The split is certainty, not size — and Step 0 routes it for them, so either command is a fine thing to type.
