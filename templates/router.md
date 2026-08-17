@@ -44,13 +44,16 @@ A **flow** is a path through the skills. Most work travels the main flow; on-ram
 
 <!-- guidance: entry points that merge onto the main flow. Include only installed ones:
      bug/small enhancement (log-issue → ship-issue or HITL lane; escalation path back to the
-     PRD flow when it outgrows one PR; diagnosing-bugs gate for resistant bugs), someone
-     else's PR (review-pr), cleanup-residue drain, any planning-scale escalation skill. -->
+     PRD flow when it outgrows one PR), an unnamed suspicion (triage → its four exits),
+     someone else's PR (review-pr), cleanup-residue drain, any planning-scale escalation
+     skill. Route on certainty, not on size: triage when the reporter can't yet name the
+     defect, log-issue when they can. -->
 
 <FILL>
 
 <example donor tier="full">
-- A bug or small enhancement → `/log-issue` → `/ship-issue <n>` (autonomous) or the HITL lane off master. Outgrows one PR → PRD seed → `/write-a-prd`. A bug that *resists* drops into `/diagnosing-bugs` first.
+- Something feels off and you can't name it yet → `/triage`. It comes back with what's actually going on and no fix attached, then exits to `/log-issue`, `/write-a-prd`, or nothing-to-file.
+- A bug or small enhancement you *can* name → `/log-issue` → `/ship-issue <n>` (autonomous) or the HITL lane off master. Outgrows one PR → `/write-a-prd`. A bug that *resists* drops into `/diagnosing-bugs`.
 - A PR someone (or some agent) else wrote → `/review-pr <n>`; fixes via `/address-pr`; merge via `/merge-pr`.
 - A `[ship-cleanup]` issue accumulated residue → `/drain-cleanup`.
 - A run's **Execution conformance** block flagged a review-identity mismatch, or a review posted as the PR author instead of the App → `/fix-review-identity`. (Include this line only when the pipeline skills are installed.)

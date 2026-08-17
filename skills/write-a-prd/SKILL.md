@@ -7,33 +7,21 @@ This skill will be invoked when the user wants to create a PRD. You may skip ste
 
 Repo facts this skill keys off (external consumers/oracle, local stand-in, live-data safety constraints, stack) live in the profile: `.claude/doctrine/project-profile.md`.
 
-### Step 0 — Check for a PRD seed (from `/log-issue` escalation)
+### Step 0 — Arriving from an escalation
 
-Before asking the user anything, check for an existing seed file written by `/log-issue` when an investigation revealed the work was too big for a single-issue flow:
+`/triage` and `/log-issue` escalate here when investigated work outgrows a single PR. Nothing is read from disk — **the handoff is the conversation**. The situation report, the findings, the behavior contract and the unresolved questions are already in context.
 
-```bash
-ls specs/seed-*.md 2>/dev/null
-```
+Where they are:
 
-For each seed file, read the frontmatter and confirm `type: prd-seed`.
+- The **situation report** and findings feed Step 2 — verify them rather than re-exploring from scratch
+- The **proposed approach** is the starting point for Step 4's module sketch; refine it rather than re-deriving it
+- The **open questions** are the interview agenda for Step 3 — they are exactly what code alone could not settle
 
-- **Exactly one seed exists** → present its summary to the user and ask: *"Found `specs/seed-<slug>.md` from `/log-issue` (created \<date\>, triggered by: \<signals\>). Use it as the starting point for this PRD? [Y/n]"*
-- **Multiple seeds exist** → list them with creation dates and triggered signals; ask the user which to consume (or "none")
-- **No seed exists, or user declines** → proceed to Step 1 cold
-
-If the user consumes a seed:
-- The seed's **Original report**, **Investigation findings**, and **Why this escalated** sections become input context for Step 2 (codebase exploration) — you've already done much of this work, so verify rather than re-explore from scratch
-- The seed's **Proposed approach (high-level)** becomes the starting point for Step 4 (module sketch) — refine it, don't re-derive it
-- The seed's **Open questions for the PRD** section becomes the **interview agenda** for Step 3 — these are the questions Explore couldn't answer alone
-- After the PRD GitHub issue is created successfully in Step 5, **delete the seed file**:
-  ```bash
-  git rm specs/seed-<slug>.md
-  ```
-  Seed files are ephemeral point-in-time planning artifacts — they retire on consumption, just like plan files retire on ship.
+Invoked cold, with no prior investigation in context, start at Step 1.
 
 1. Ask the user for a long, detailed description of the problem they want to solve and any potential ideas for solutions.
 
-   (If a seed was consumed in Step 0, you already have this in the seed's "Original report" section — confirm with the user that the original framing still holds and skip ahead.)
+   (Arriving from an escalation, you already hold this — confirm the original framing still stands and move on.)
 
 2. Explore the repo to verify their assertions and understand the current state of the codebase (docs-first: the lean canon — glossary, architecture/concept map, ADRs — before the code).
 

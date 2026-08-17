@@ -7,7 +7,9 @@ description: Diagnosis loop for hard bugs and performance regressions — interm
 
 A discipline for hard bugs. Skip phases only when explicitly justified.
 
-**Where this sits:** in front of the repo's issue-authoring skill (per its pipeline). When the bug is understood (root cause + red repro loop in hand), hand off there — the repro command and the correct-seam finding become the issue's TDD Fix Plan. Easy bugs (explainable from reading the code) skip this skill entirely.
+**Where this sits:** usually **inside** the repo's triage or issue-authoring skill, run inline once an investigation returns a mechanism that is merely plausible rather than proven — no round-trip through the human. The repro command and the correct-seam finding become the issue's TDD Fix Plan. It also stands alone mid-implementation, when a test fails in a way you can't place. Easy bugs — explainable from reading the code, with evidence — skip it entirely.
+
+Where a report has not yet been sorted into observation and theory, do that first, per [`../_shared/report-interrogation.md`](../_shared/report-interrogation.md): the concrete instance and the scope answer are what Phase 1 builds its loop from.
 
 When exploring the codebase, follow the repo's documented read order (glossary → architecture map → ADRs → the code and tests), per its documentation doctrine. ⚠️ If the profile (`.claude/doctrine/project-profile.md`) declares chassis-like base libraries, any hypothesis in their territory must cite their source — in the donor stack, app-repo-alone reasoning was the most-repeated diagnostic failure.
 
