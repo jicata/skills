@@ -5,7 +5,7 @@ description: Top-level autonomous orchestrator that ships a single bug or enhanc
 
 # Ship Issue
 
-(Extracted 2026-07 from the donor stack. Pipeline-generic; repo facts — check commands, workhorse model — live in the repo's `.claude/doctrine/project-profile.md` overlay. `master` throughout denotes the repo's **default branch**.)
+(Extracted 2026-07 from the donor stack. Pipeline-generic; repo facts — check commands, per-role models — live in the repo's `.claude/doctrine/project-profile.md` overlay. `master` throughout denotes the repo's **default branch**.)
 
 Autonomous orchestrator for shipping a single bug or enhancement end-to-end. Light-flow parallel to `/ship-feature`. The state machine is the same coder↔reviewer loop with the same 3-reject / 7-round bounds, scaled down to a single issue / single PR / direct-to-master.
 
@@ -315,7 +315,7 @@ The inline `/afk-merge-pr` and `/afk-concede-thread` steps (run in the orchestra
 7. **Always reconcile from GitHub on re-invocation.** An open PR for the issue is adopted, not duplicated.
 8. **Always emit final report to chat AND issue comment.**
 9. **Coder and Reviewer must be separate `Agent` dispatches, run in the background** (`run_in_background: true`) so both are visible in the agent display. Independence is the design. Drive on completion notifications; never poll or arm a wakeup. If a child wedges, the operator sees it frozen in the display and intervenes.
-10. **Workhorse model end-to-end.** Both orchestrator and subagents. Every dispatch passes the profile's `workhorse_model` explicitly.
+10. **Per-role models.** The orchestrator runs on `models.orchestrator`; every dispatch passes the role's model (`models.coder` / `models.reviewer`) explicitly. The reviewer is never weaker than the coder.
 11. **Never adopt a PR for a different issue.** Reconciliation searches by `Fixes #<issue-number>`; if the only open PR doesn't match, treat as no PR.
 12. **Refuse PRD children.** Issues with `## Parent PRD` are explicitly redirected to `/ship-feature`.
 

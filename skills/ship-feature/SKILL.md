@@ -1,11 +1,11 @@
 ---
 name: ship-feature
-description: Top-level autonomous orchestrator that ships an entire PRD end-to-end. Loops through every child issue of the PRD, dispatches the afk-coder subagent to implement and address feedback, dispatches the afk-reviewer subagent for independent review, applies per-thread concession after 3 rejects (Axis-B only), forces merge after 7 rounds with all-blocker concession, then opens and merges a PRD→master PR. Never halts; logs every residual concern to a single per-PRD ship-cleanup GitHub issue. Opt-in `--parallel <N>` mode runs up to N children concurrently, gated on a `Blocked-by:` DAG parsed from PRD child issues, with one git worktree per slot and merges serialized through GitHub's merge queue on the PRD base branch. Runs orchestrator and subagents on the profile's configured workhorse model — the orchestrator pattern assumes subagents are cheap. Use when the user runs /ship-feature <prd-number> to autonomously ship a feature.
+description: Top-level autonomous orchestrator that ships an entire PRD end-to-end. Loops through every child issue of the PRD, dispatches the afk-coder subagent to implement and address feedback, dispatches the afk-reviewer subagent for independent review, applies per-thread concession after 3 rejects (Axis-B only), forces merge after 7 rounds with all-blocker concession, then opens and merges a PRD→master PR. Never halts; logs every residual concern to a single per-PRD ship-cleanup GitHub issue. Opt-in `--parallel <N>` mode runs up to N children concurrently, gated on a `Blocked-by:` DAG parsed from PRD child issues, with one git worktree per slot and merges serialized through GitHub's merge queue on the PRD base branch. Runs each role on the profile's configured per-role model (models.orchestrator / models.coder / models.reviewer). Use when the user runs /ship-feature <prd-number> to autonomously ship a feature.
 ---
 
 # Ship Feature
 
-(Extracted 2026-07 from the donor stack. Pipeline-generic; repo facts — check commands, workhorse model, wire-contract tooling — live in the repo's `.claude/doctrine/project-profile.md` overlay. `master` throughout denotes the repo's **default branch** — substitute `main` etc. per `gh repo view --json defaultBranchRef`.)
+(Extracted 2026-07 from the donor stack. Pipeline-generic; repo facts — check commands, per-role models, wire-contract tooling — live in the repo's `.claude/doctrine/project-profile.md` overlay. `master` throughout denotes the repo's **default branch** — substitute `main` etc. per `gh repo view --json defaultBranchRef`.)
 
 Autonomous orchestrator for shipping an entire PRD end-to-end. Replaces the manual sequence `/execute-issue → /review-pr → /address-pr → /review-pr → … → /merge-pr` with a self-driving loop that ships every child of a PRD and finalizes the PRD branch into master.
 
@@ -587,9 +587,9 @@ To dispatch `afk-coder` and `afk-reviewer`, use the `Agent` tool. Each dispatch 
 
 **Every Agent dispatch from /ship-feature MUST pass `model:` explicitly, resolved from the profile's `models` map by role** — `models.coder` for coder dispatches, `models.reviewer` for reviewer dispatches, falling back to `workhorse_model` for any role the map omits. Non-negotiable:
 
-- The orchestrator itself already runs on the workhorse model (enforced by Step 0a model preflight)
+- The orchestrator itself already runs on `models.orchestrator` (enforced by Step 0a model preflight)
 - The `afk-coder.md` and `afk-reviewer.md` agent definitions may pin the model in frontmatter, but the harness can let the parent's model leak through to subagents in some configurations
-- Passing the model at dispatch time overrides any inheritance and guarantees the workhorse model runs the work
+- Passing the model at dispatch time overrides any inheritance and guarantees the role's assigned tier runs the work — this is also what makes subagent tiers independent of the session model
 - Workhorse end-to-end: orchestrator AND subagents. No premium model in the loop. This is a cost discipline — multi-round Coder↔Reviewer loops on a premium model are prohibitive
 
 If the harness rejects the `model` parameter on a particular `subagent_type`, fall back to `general-purpose` with the explicit `model` parameter.
@@ -674,7 +674,7 @@ Agent(
 8. **Always reconcile from GitHub on re-invocation.** Open PRs targeting the PRD base branch are picked up and resumed.
 9. **Never create more than one ship-cleanup issue per PRD.** Helper deduplicates by title search.
 10. **Coder and Reviewer must be separate agent dispatches.** Independence is the design.
-11. **Workhorse model end-to-end.** The orchestrator MUST run on the profile's workhorse model (Step 0a model preflight). Every Agent dispatch MUST pass that model explicitly (frontmatter alone is insufficient — the dispatch parameter is the load-bearing override). No premium model anywhere in this flow.
+11. **Per-role models.** The orchestrator MUST run on `models.orchestrator` (Step 0a preflight). Every Agent dispatch MUST pass the role's model explicitly — `models.coder` or `models.reviewer` — because frontmatter alone is insufficient: the dispatch parameter is the load-bearing override. **The reviewer must never be weaker than the coder**, or independent review degrades to rubber-stamping.
 12. **Never touch the user's main checkout.** All implementation, branching, pushing, reviewing, and master-merge prep happens inside the dedicated worktree(s). `master` is never checked out — it stays as `origin/master` and the master-merge is staged by merging `origin/master` into `<base-branch>` inside `$BASE_WT` (or `$WORKTREE_PATH` in sequential mode).
 13. **Parallel mode: merges are always serialized.** Step 0c picks the strategy: `queue` (preferred, GH merge queue, no orchestrator-side lock) or `mutex` (fallback, working-memory single-holder lock with synchronous `gh pr merge --squash`). Never run two `afk-merge-pr` calls concurrently in mutex mode. Never bypass either mechanism. In mutex mode, every merge bumps `base_branch_tip` and flags all other in-flight slots `needs_rebase`.
 14. **Parallel mode: slot affinity is mandatory.** Once slot `k` claims a PR, every subsequent dispatch for that PR runs in slot `k` until the PR is merged or marked unmergeable. Migrating a PR across slots loses local context (uncommitted progress, build artifacts) and breaks the dirty-tree guard.
