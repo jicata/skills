@@ -51,7 +51,7 @@ Written for modern .NET — C# 10+, ASP.NET Core, EF Core. Repo-specifics — ta
 
 - **Use dependency injection** for loose coupling and testability. Testability of a component is a primary design concern.
 - **Constructor parameter limit: 4–5 max.** More dependencies than that means the class is doing too much — extract a collaborator that groups related dependencies behind a simpler interface.
-- Use EF Core through whatever data-access shape the repo's **architecture core** prescribes — directly in the slice under `arch-vsa`, behind a domain-owned repository interface under `arch-clean` / `arch-onion`. This file has no vote on placement; it governs only how EF Core is *used* once you are there.
+- Use EF Core through whatever data-access shape the repo's **architecture core** prescribes — directly in the slice under `arch-vsa`, in the feature or data-access layer that owns the query under `arch-layered`, behind a domain-owned repository interface under `arch-clean` / `arch-onion`. This file has no vote on placement; it governs only how EF Core is *used* once you are there.
 
 ## Error handling and validation
 

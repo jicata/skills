@@ -62,6 +62,7 @@ The fast feedback loop on cross-provider portability is a test that applies the 
 This file governs *how* you query; **the repo's architecture core governs where the query lives**, and the two architectures disagree on purpose:
 
 - Under `arch-vsa`: no generic shared repositories across slices. Each slice owns its own queries.
+- Under `arch-layered`: queries live in the data-access layer, or with the feature that owns them where the application layer is feature-subdivided — promoted to shared only on a second real consumer.
 - Under `arch-clean` / `arch-onion`: a repository interface owned by the inner ring, implemented outward — the shared abstraction is the point, not a smell.
 
 What holds under **all** of them: **reaching across a boundary to another unit's data is a smell.** Whether the boundary is a slice or a ring, the fix is the same — extract a domain event or a focused read model instead of importing your way in.

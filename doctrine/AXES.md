@@ -8,7 +8,7 @@ This file is the contract that makes that true. Read it before authoring or edit
 
 | Axis | Filename prefix | Owns | Cores today |
 | --- | --- | --- | --- |
-| **Backend architecture** | `arch-` | **Placement** — where a file lives, what may import what, when a type is promoted | `arch-vsa.md`, `arch-clean.md`, `arch-onion.md` |
+| **Backend architecture** | `arch-` | **Placement** — where a file lives, what may import what, when a type is promoted | `arch-vsa.md`, `arch-layered.md`, `arch-clean.md`, `arch-onion.md` |
 | **Backend language** | `backend-` | **Idiom** — naming, syntax, error handling, DI style, test framework, complexity limits | `backend-dotnet.md`, `backend-python.md` |
 | **Frontend architecture** | `arch-` | Placement — the page/component boundary, folder roots, promotion | `arch-frontend.md` |
 | **Frontend framework** | `frontend-` | Idiom — state primitives, data-fetching mechanics, component syntax | `frontend-react.md`, `frontend-vue.md` |
@@ -35,7 +35,7 @@ This is the whole of pluggability. A single hardlink from `arch-vsa.md` to `back
 A core **may** name the *complete menu* of an adjacent axis, where the point is that the reader picks one:
 
 - `arch-frontend.md` says "load `frontend-react.md` **or** `frontend-vue.md`" — a menu, and the file works identically whichever you pick.
-- `backend-dotnet.md` says "directly in the slice under `arch-vsa`, behind a port under `arch-clean`/`arch-onion`" — it enumerates every architecture and states what each implies, assuming none.
+- `backend-dotnet.md` says "directly in the slice under `arch-vsa`, with the feature that owns it under `arch-layered`, behind a port under `arch-clean`/`arch-onion`" — it enumerates every architecture and states what each implies, assuming none.
 
 What is forbidden is naming a **single** peer as though it were the only one, which silently makes that pairing mandatory. The test: **if a new core were added to the peer axis, would this sentence become wrong?** A menu goes stale and gets a new entry. A dependency was always a bug.
 
