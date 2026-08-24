@@ -28,7 +28,7 @@ Into the repo's `.claude/`:
 
 Five artifacts, all routers or file lists — never prose. The last two are what make the others reachable: **`.claude/doctrine/` is not auto-loaded by Claude Code**, so without them the profile and doctrine only enter context when a skill happens to name them, and ad-hoc work runs with none of it.
 
-- **The composite coder lens** (the repo's `vsa-tdd` analog): a manifest skill listing exactly which installed files every coder run loads.
+- **The composite coder lens** (the repo's `vsa-tdd` analog): a manifest skill listing exactly which installed files every coder run loads. **Record its name in the profile's `coder_lens` key as you generate it** — `execute-issue`, `afk-execute-issue` and the `afk-coder` agent all resolve "the repo's composite coder lens" by reading that key, so a lens the profile does not name is a lens the pipeline cannot find.
 - **The doctrine index**: the load-on-demand table over what was actually installed.
 - **The router** (`ask-<name>` per the user's preference): from `templates/router.md`, filled with the actually-installed skill set and the pipeline tier's real flow. A skill the router mentions must exist; a skill it omits must be orchestrator-internal.
 - **`CLAUDE.md`** from `templates/claude-md.md` — the only file loaded into every session. Keep it under ~50 lines: pointers to the profile and index, the canon, the check commands, and the two-to-four constraints that are catastrophic *and* not discoverable from the code. Oversized always-on context costs tokens every session and reduces adherence, so this is a budget, not a dumping ground.
