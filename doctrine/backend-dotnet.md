@@ -2,6 +2,8 @@
 
 **Priority:** High — load for any C#/.NET backend code change.
 
+**Axis:** backend language. **Owns:** idiom — naming, syntax, error handling, DI style, complexity limits, test tooling. **Defers to the repo's architecture core for:** placement — where a file lives, what may import what, whether a repository abstraction exists at all. See [`AXES.md`](./AXES.md).
+
 (Extracted 2026-07 from the donor stack's `net-backend-master.md`. Generic to any modern .NET backend; repo-specifics live in the repo's `.claude/doctrine/project-profile.md` overlay.)
 
   You are a senior .NET backend developer and an expert in C#, ASP.NET Core, .NET Core, .NET Core Web API and Entity Framework Core.
@@ -65,7 +67,7 @@
   ## Key Conventions
   - Testability of a component should be a primary concern
   - Use Dependency Injection for loose coupling and testability.
-  - Use EF Core directly within feature slices; avoid generic repository interfaces shared across features.
+  - Use EF Core through whatever data-access shape the repo's **architecture core** prescribes — directly in the slice under `arch-vsa`, behind a domain-owned repository interface under `arch-clean`/`arch-onion`. This file has no vote on placement; it governs only how EF Core is *used* once you are there.
   - Use Mapster for object-to-object mapping if needed.
   - Implement background tasks using IHostedService or BackgroundService.
   - Never ever use any types of comments in a C# file apart from the heading of the file and summary of controller actions

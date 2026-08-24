@@ -24,11 +24,15 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 
 ## Stack & architecture (mostly detected, confirmed, then installed)
 
-**Q5 — Stack.** Detected (csproj/package.json/pyproject). Confirms → installs the language doctrine core (`doctrine/dotnet-backend`, …) + overlay `check_commands`.
+**Q5 — Backend language core.** Detected (csproj / pyproject / package.json / go.mod). Confirmed, then → installs **one** `doctrine/backend-*.md` core + overlay `check_commands`.
+→ *Menu:* `backend-dotnet.md`, `backend-python.md`. A detected language with no core is a **base-library gap**, not a repo problem: install none, record the gap in the generated doctrine index, and raise it via `/skill-sync`. Never author a language core inside the consuming repo — see [`doctrine/AXES.md`](../doctrine/AXES.md).
 
-**Q6 — Architecture shape.** Detected (a `Features/` VSA signature, layered folders, …), confirmed. → installs the architecture doctrine + **generates the composite coder lens** (the repo's `vsa-tdd` analog: a manifest of which doctrine files every coder run loads).
+**Q6 — Backend architecture core.** Detected (a `Features/` slice signature; `domain/`+`application/`+`infrastructure/` rings; flat layered folders), **confirmed as a decision, not just a reading** — a greenfield repo is choosing, not being classified. → installs **one** `doctrine/arch-*.md` core + **generates the composite coder lens** (a manifest of which doctrine files every coder run loads).
+→ *Menu:* `arch-vsa.md` (organize by feature), `arch-clean.md` (layers, one entry point per use case), `arch-onion.md` (rings, explicit domain-services ring). The axes are independent — any architecture core composes with any language core, which is the point of [`doctrine/AXES.md`](../doctrine/AXES.md). Ask which, don't infer it from the language.
+→ A **hybrid** (e.g. slices that each hold Clean rings) is legitimate: install the outer architecture's core and record the inner discipline as an ADR, per the cores' *Relationship to* sections.
 
-**Q6b — Frontend surface.** Detected (a `src/pages/` or `src/components/` tree, a component library in `package.json`), confirmed. → installs `doctrine/frontend-architecture` + overlay facts (component library, server-state cache, design-handoff pipeline if any).
+**Q6b — Frontend surface.** Detected (a `src/pages/` or `src/components/` tree, a framework + component library in `package.json`), confirmed. → installs `doctrine/arch-frontend.md` (structure, framework-neutral) **plus exactly one** `doctrine/frontend-*.md` framework core — `frontend-react.md`, `frontend-vue.md` — + overlay facts (component library, server-state cache, design-handoff pipeline if any).
+→ Same gap rule as Q5: a detected framework with no core means install `arch-frontend.md` alone and log the gap.
 → *Donor: React + query cache + MUI, with a design-artifact handoff pipeline. Backend-only repos skip this entirely.*
 
 **Q7 — Persistence.** "What database; who owns schema migrations; what substitutes for it locally and in tests?"

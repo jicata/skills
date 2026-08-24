@@ -3,6 +3,8 @@
 **Priority:** High
 **Instruction:** You MUST follow these Vertical Slice Architecture guidelines when designing, generating, or refactoring code.
 
+**Axis:** backend architecture. **Owns:** placement — where a file lives, what may import what, when a type is promoted. **Defers to the repo's backend language core for:** naming case, type declaration syntax, file extensions, error handling, test framework. See [`AXES.md`](./AXES.md).
+
 (Extracted 2026-07 from the donor stack's `vertical-slice-architecture-specialist.md`. Generic to any feature-sliced backend; repo-specifics live in the repo's `.claude/doctrine/project-profile.md` overlay.)
 
 ## 🏗️ Core Concept
@@ -30,7 +32,7 @@ When implementing VSA, ensure the code achieves:
 3. **Business Alignment:** Code structure should perfectly mirror business capabilities and agile sprint deliverables.
 
 ## 🔗 Related Patterns & Integrations
-- **CQRS-flavoured naming:** Handle Commands and Queries as separate operations, each a `record` request model paired with its own handler (e.g., `CreatePostCommand` and `GetDocumentQuery` are distinct). Whether a message bus (MediatR/Wolverine) mediates them is a repo decision recorded in the repo's ADRs. (Donor: deliberately **no bus** — handlers are plain classes injected via `AddScoped<>` and called directly by thin controllers; the Onion/Clean mapping is handler = interactor, Command/Query = request model, engines = domain services, with a documented revisit trigger for adopting a bus.)
+- **CQRS-flavoured naming:** Handle Commands and Queries as separate operations, each an immutable request model paired with its own handler (e.g., `CreatePostCommand` and `GetDocumentQuery` are distinct). The form that request model takes — a C# `record`, a frozen dataclass, a Pydantic model — is the language core's call. Whether a message bus (MediatR/Wolverine) mediates them is a repo decision recorded in the repo's ADRs. (Donor: deliberately **no bus** — handlers are plain classes injected via `AddScoped<>` and called directly by thin controllers; the Onion/Clean mapping is handler = interactor, Command/Query = request model, engines = domain services, with a documented revisit trigger for adopting a bus.)
 - **Clean Architecture:** Apply Clean Architecture principles *within* the slice if needed (isolate domain logic from infrastructure), but do not organize the folder structure by those layers.
 
 ## 📁 Implementation Example
@@ -39,12 +41,12 @@ Structure your folders to mirror the features.
 ```text
 Features/
   ├── CreatePost/
-  │   ├── CreatePostCommand.cs
-  │   ├── CreatePostHandler.cs
-  │   └── CreatePostValidator.cs
+  │   ├── CreatePostCommand.{ext}
+  │   ├── CreatePostHandler.{ext}
+  │   └── CreatePostValidator.{ext}
   ├── ListPosts/
-  │   ├── ListPostsQuery.cs
-  │   └── ListPostsHandler.cs
+  │   ├── ListPostsQuery.{ext}
+  │   └── ListPostsHandler.{ext}
 ```
 
 ## 🧱 Intra-Slice Structure (how a slice is organised *inside*)
@@ -55,26 +57,26 @@ The Core Concept above governs the boundary *between* slices. This section gover
 
 ```text
 Features/{Slice}/
-├── {Slice}Endpoints.cs          ← endpoint registrar — the ONLY orchestration file allowed at the root
+├── {Slice}Endpoints.{ext}          ← endpoint registrar — the ONLY orchestration file allowed at the root
 ├── README.md                    ← the only other thing at the root
 ├── {OperationA}/                ← one folder PER CQRS operation
-│   ├── {OperationA}Command.cs   (or Query)
-│   ├── {OperationA}Handler.cs
-│   ├── {OperationA}Endpoint.cs
-│   ├── {OperationA}Validator.cs
-│   └── {OperationA}Response.cs  ← DTOs used by ONLY this operation live with it
+│   ├── {OperationA}Command.{ext}   (or Query)
+│   ├── {OperationA}Handler.{ext}
+│   ├── {OperationA}Endpoint.{ext}
+│   ├── {OperationA}Validator.{ext}
+│   └── {OperationA}Response.{ext}  ← DTOs used by ONLY this operation live with it
 ├── {SubDomain}/                 ← a coherent internal engine/pipeline (see "Sub-domain clustering")
-│   ├── {Orchestrator}.cs
-│   ├── {…}Client.cs, I{…}Client.cs, {…}PromptBuilder.cs   ← infrastructure for this sub-domain
-│   └── {…}Candidate.cs, {…}Result.cs                      ← DTOs owned by this sub-domain
+│   ├── {Orchestrator}.{ext}
+│   ├── {…}Client.{ext}, {…}ClientPort.{ext}, {…}PromptBuilder.{ext}   ← infrastructure for this sub-domain
+│   └── {…}Candidate.{ext}, {…}Result.{ext}                      ← DTOs owned by this sub-domain
 └── Shared/                     ← primitives used by 2+ operations/sub-domains IN THIS SLICE
-    ├── {…}Calculator.cs, {…}Reader.cs   ← pure domain + slice-local readers
-    └── {…}Dto.cs                        ← DTOs shared across operations of this slice
+    ├── {…}Calculator.{ext}, {…}Reader.{ext}   ← pure domain + slice-local readers
+    └── {…}Dto.{ext}                        ← DTOs shared across operations of this slice
 ```
 
 **The slice root holds only the endpoint registrar and the README.** Everything else lives in an operation folder, a sub-domain folder, or `Shared/`. If a source file at the slice root is neither the registrar nor the README, it is misfiled.
 
-> In stacks where folder names map to namespaces (C#), use `Shared/` — **not** `_Shared/`. A leading-underscore namespace segment (`…Slice._Shared`) trips analyzer naming rules (CA1707), and [`dotnet-backend.md`](./dotnet-backend.md) requires analyzer-clean code.
+> **Name it `Shared/`, not `_Shared/`, wherever folder names map to a language construct** — namespaces, packages, modules. A leading-underscore segment either trips analyzer naming rules or marks the package private by convention, depending on the language. Check the repo's backend language core before choosing a folder name that becomes an identifier.
 
 ### Sub-domain clustering
 
@@ -105,4 +107,4 @@ The cross-slice rules above had no explicit "what bad looks like" list; these ar
 5. **Root file count over ~8** — the death-by-a-thousand-cuts signal from the census above.
 6. **Premature `Shared/`** — moving a type to `Shared/` (or a cross-slice shared location) before a second consumer actually exists.
 7. **Cross-slice reach-in** — `Features/A/` importing from `Features/B/Shared/` or `Features/B/{SubDomain}/`. Promote the type to a shared location; do not import across the boundary.
-8. **God orchestrator** — a single handler/service past ~250–300 lines owning multiple stages that should be separate, individually-testable collaborators. This compounds the flat-root smell (the stages get dumped as sibling files) and violates the single-responsibility limits in the repo's backend doctrine ([`dotnet-backend.md`](./dotnet-backend.md) for .NET).
+8. **God orchestrator** — a single handler/service past ~250–300 lines owning multiple stages that should be separate, individually-testable collaborators. This compounds the flat-root smell (the stages get dumped as sibling files) and violates the single-responsibility limits in the repo's backend language core.

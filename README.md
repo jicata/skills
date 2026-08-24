@@ -19,7 +19,7 @@ Templates (chassis-foundation, deploy-infra, …) are instantiated **only when t
 ```
 skills/      tier-0 generic skills, installed verbatim
 agents/      subagent definitions dispatched by the autonomous orchestrators
-doctrine/    generic doctrine cores (dotnet-backend, vsa, fowler, writing-skills, …)
+doctrine/    generic doctrine cores, pluggable along axes (arch-*, backend-*, frontend-*) + axis-independent files; see doctrine/AXES.md
 templates/   conditionally-instantiated patterns (chassis-foundation, deploy-infra, project-profile, router scaffold)
 setup/       the detect-first interview that adapts the set to a repo (see setup/QUESTIONS.md)
 skill-sync/  the return path: classify repo deltas as overlay-bound / upstreamable / upstream-behind
@@ -94,6 +94,15 @@ Agents in `agents/`: **`afk-coder`** (runs `afk-execute-issue`, then `afk-addres
 | `ubiquitous-language` | Extracts a DDD glossary from the conversation, flags ambiguities, proposes canonical terms, writes to the repo's glossary. |
 | `karpathy-guidelines` | Behavioural guidelines targeting common LLM coding pitfalls. |
 
+### Visualization
+
+Both require the **Miro MCP server** to be connected — they are no-ops without it. They share one design doctrine (`miro-diagram` Part A: one altitude per diagram, colour = who does the work, size = hierarchy, no captions on a tight spine) and one body of Miro-DSL scar tissue; they differ in *when* the picture is drawn.
+
+| Skill | What it does |
+| --- | --- |
+| `miro-diagram` | **One-shot.** You already understand the system; this designs and hand-places the diagram in a single pass. Hand-placed (`layout_create`), never the auto-layouter — which produces lopsided branches and drops edge labels on the boxes. Carries the design doctrine both skills read from, plus the `layout_update` matching pitfalls (entity-encoded `+ = &`, frame auto-reflow, exact-line deletes). |
+| `flow-map` | **Incremental.** For a flow you're still recovering: the human reasons about a step, the skill reasons back *grounded in the real handler*, and only the agreed version lands as a block — so the board is a visual trail of the conversation, and every correction is where the mental model actually updated. Two altitudes: the stage map is a frame, a drilled-in substep is a **smaller** frame (size is the hierarchy signal) linked by a dashed `detail of ①` connector, because Miro frames can't nest. |
+
 ### Learning
 
 Orthogonal to the build pipeline — not a step in any flow. Imported verbatim from [mattpocock/skills](https://github.com/mattpocock/skills) (the same upstream the donor was seeded from) and kept read-only like any base file; a future `/setup` question could wire it into a repo, but nothing routes to it yet.
@@ -101,6 +110,15 @@ Orthogonal to the build pipeline — not a step in any flow. Imported verbatim f
 | Skill | What it does |
 | --- | --- |
 | `teach` | A stateful, multi-session tutor for learning any topic — not just code. Turns a directory into a teaching workspace (`MISSION.md`, curated `RESOURCES.md`, incremental `learning-records/`, self-contained HTML `lessons/` + reference cheat-sheets). Grounds every lesson in *why* you want the skill, splits knowledge / skills / wisdom, and targets storage strength over fluency via the zone of proximal development. Resource-grounded (trusted sources + communities), not codebase-grounded. (`MISSION-FORMAT.md`, `RESOURCES-FORMAT.md`, `LEARNING-RECORD-FORMAT.md`, `GLOSSARY-FORMAT.md`) |
+
+### Comprehension
+
+Both are imported from outside and kept read-only, like `teach`. They fire when an explanation *didn't* land (`wait-what`) or when a change needs one built from scratch (`explain-diff-html`). `wait-what` carries the fleet's only edit to an imported file: upstream reads the ubiquitous language from `CONTEXT.md` / `CONTEXT-MAP.md`, which this fleet doesn't use, so it was repointed at the glossary path recorded in `.claude/doctrine/project-profile.md` (default `docs/UBIQUITOUS_LANGUAGE.md`) — the same source `ubiquitous-language` writes to.
+
+| Skill | What it does |
+| --- | --- |
+| `wait-what` | **One line, manually invoked.** The last answer didn't land — stop and re-pitch it: a little context, [ASD-STE100 Simplified Technical English](https://en.wikipedia.org/wiki/Simplified_Technical_English), and the repo's own ubiquitous language from its glossary. Model-invocation disabled, so it only ever fires when you type it. |
+| `explain-diff-html` | **A diff, explained as a document.** Takes a change, branch, or PR and emits one self-contained HTML page: deep + narrow background, the intuition with toy data and HTML diagrams, a grouped code walkthrough, and five interactive multiple-choice questions that grade themselves. Written for a reader who wasn't in the room. Imported verbatim from [Geoffrey Litt's gist](https://gist.github.com/geoffreylitt/a29df1b5f9865506e8952488eac3d524). |
 
 ## Doctrine
 
@@ -120,9 +138,15 @@ Most doctrine is path-scoped or on-trigger. Marking a file "always-on" without a
 | `surface-dont-chase.md` | Ambient rule: a smell noticed in already-loaded context gets **one line and an offer to log it**, never a refactor. Captures the instinct without the scope creep. |
 | `how-to-explain.md` | How explanations are written. The reader is a senior engineer not resident in *this* system: assume the vocabulary, spend the words on the local wiring. Carries the spine (problem → why the obvious fix fails → what they're right about → plan → risk → one question), the prose moves, and a full worked exemplar. The rule the teaching briefings in `expand-issue` / `log-issue` are specializations of. |
 | `fowler-smell-baseline.md` | Curated Fowler smells for the Standards axis. Always a labelled judgement call, never blocking on its own; documented doctrine overrides. |
-| `vsa.md` | Vertical Slice Architecture — organize by feature, colocate the slice, isolate between slices. |
-| `frontend-architecture.md` | The frontend counterpart to `vsa.md`: page/component boundary, the promotion rule, server-state vs client-state ownership, and the "design artifact is the build target" extraction rule. Structural rules are framework-generic; a React section applies where the profile says React. |
-| `dotnet-backend.md` | Idiomatic modern .NET / ASP.NET Core / EF Core rules. |
+| `AXES.md` | **The composition contract.** Doctrine cores plug in along independent axes — architecture × language — so a repo composes *Python + VSA* or *.NET + Clean*. The law: **no core may name a peer on another axis**; cross-axis routing happens only in the per-repo generated coder lens. Tie-break: **architecture wins on placement, language wins on idiom, the repo's profile beats both.** |
+| `arch-vsa.md` | **Architecture axis.** Vertical Slice Architecture — organize by feature, colocate the slice, isolate between slices. Carries the intra-slice layout, the promotion rules, and the slice-root census. |
+| `arch-clean.md` | **Architecture axis.** Clean Architecture — concentric layers, dependencies inward only, ports declared by the layer that needs them, one entry point per use case. |
+| `arch-onion.md` | **Architecture axis.** Onion — the same dependency rule with an explicit stateless *domain services* ring and coarser application services. Carries the Onion-vs-Clean table, because mixing the two vocabularies is the real failure mode. |
+| `arch-frontend.md` | **Architecture axis (frontend).** Page/component boundary, folder roots, the promotion rule, server-state vs client-state ownership, and the "design artifact is the build target" extraction rule. Framework-neutral throughout. |
+| `backend-dotnet.md` | **Language axis.** Idiomatic modern .NET / ASP.NET Core / EF Core. Defers all placement to the architecture core. |
+| `backend-python.md` | **Language axis.** Idiomatic modern Python (3.11+) backends, FastAPI as reference: typing, the async-vs-threadpool choice, dependency style, error translation at the route boundary, pytest discipline. |
+| `frontend-react.md` | **Framework axis.** Server state via the query cache, effect discipline, key stability. Loads alongside `arch-frontend.md`. |
+| `frontend-vue.md` | **Framework axis.** `<script setup>`, `ref` vs `reactive`, composables, the `v-if`/`v-for` trap, and the separate `vue-tsc` type gate. Loads alongside `arch-frontend.md`. |
 | `relational-persistence.md` | Schema, migrations, indexes, and query practice behind an ORM. Spine: **the test stand-in lies** — every persistence change is judged against both the canonical store and the faster thing tests run on. Carries the natural-key rule for runtime-mutated reference data and the concurrent-context trap. |
 | `llm-prompt-craft.md` | For apps that construct prompts. A **visibility gate** (render the prompt as text and surface it — every change, no threshold) plus craft doctrine: self-contained, plain, example-driven, disposition stated, contract separated from teaching. |
 | `writing-skills.md` + `writing-skills-glossary.md` | How skills themselves are authored: **predictability** as the root virtue, with levers grouped by invocation, information hierarchy, steering, and pruning. This is the doctrine this repo is held to. |

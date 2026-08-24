@@ -11,7 +11,10 @@
 
 ```yaml
 stack: <FILL: language + framework, e.g. ".NET 8 / ASP.NET Core">
-architecture: <FILL: e.g. "VSA (Features/ folders)" | "layered" | "modular monolith">
+architecture: <FILL: prose description, e.g. "VSA (Features/ folders)" | "Clean (domain/application/infrastructure)" | "layered">
+architecture_core: <FILL: the ONE installed doctrine/arch-*.md — arch-vsa | arch-clean | arch-onion | none. Owns PLACEMENT. See doctrine/AXES.md>
+backend_core: <FILL: the ONE installed doctrine/backend-*.md — backend-dotnet | backend-python | none. Owns IDIOM. `none` means the base library has no core for this language yet — a gap to raise via /skill-sync, never to fill locally>
+frontend_core: <FILL: the ONE installed doctrine/frontend-*.md — frontend-react | frontend-vue | none. Paired with arch-frontend.md, which is framework-neutral. Omit the key entirely for a backend-only repo>
 tracker: <FILL: e.g. "GitHub issues (owner/repo)">
 check_commands: <FILL: list — the commands that must pass before a PR, e.g. ["dotnet test"]>
 mode: <FILL: greenfield | brownfield>
@@ -33,6 +36,7 @@ base_version: <FILL: version/commit of the skills base library this repo was set
 - **Every constraint is: imperative + WHY + evidence pointer.** A rule with a scar attached gets obeyed; a bare imperative gets relitigated. Evidence = a commit, incident, issue, doc, or dated observation — something a skeptical future agent can check.
 - **Edit in place, never append chronologically.** When reality changes, rewrite or delete the constraint. This file is a map, not a log.
 - **Trigger-indexed:** constraints live under the activity that should trip them, so an agent doing persistence work reads Persistence, not everything.
+- **Axis conflicts resolve one way:** the architecture core wins on **placement**, the language core wins on **idiom**, and a constraint in *this file* beats both. See `doctrine/AXES.md`.
 - **Graduate at a screen:** when a section outgrows one screen, move its body to its own doctrine file (e.g. `.claude/doctrine/<topic>.md`) and leave one index line here pointing at it.
 
 ## Security & live-data safety

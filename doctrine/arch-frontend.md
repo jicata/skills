@@ -3,9 +3,11 @@
 **Priority:** High
 **Instruction:** You MUST follow these guidelines when organizing, generating, or refactoring frontend code.
 
-(Extracted 2026-08 from the donor stack's `frontend-architect.md`. The structural rules — Parts A and B — are generic to any component-based frontend; Part C is React-specific and applies where the profile records a React stack. Repo-specifics — component library, router, state library, folder roots — live in the repo's `.claude/doctrine/project-profile.md` overlay.)
+**Axis:** frontend architecture. **Owns:** placement — the page/component boundary, folder roots, promotion, where server state lives. **Defers to the repo's frontend framework core (`frontend-react.md`, `frontend-vue.md`) for:** state primitives, data-fetching mechanics, component syntax. See [`AXES.md`](./AXES.md).
 
-This doctrine governs **how the frontend is organized**: folder boundaries, page/component separation, data ownership, and state placement. Its job is to prevent the drift where pages, layouts, modals, and leaf components all sit flat in one directory. It is the frontend counterpart to [`vsa.md`](./vsa.md) — same instinct (colocate by feature, isolate at the boundary, promote only on a second real consumer), applied to a component tree.
+(Extracted 2026-08 from the donor stack's `frontend-architect.md`. Repo-specifics — component library, router, state library, folder roots — live in the repo's `.claude/doctrine/project-profile.md` overlay.)
+
+This doctrine governs **how the frontend is organized**: folder boundaries, page/component separation, data ownership, and state placement. Its job is to prevent the drift where pages, layouts, modals, and leaf components all sit flat in one directory. It is the frontend counterpart to the repo's backend architecture core — same instinct (colocate by feature, isolate at the boundary, promote only on a second real consumer), applied to a component tree.
 
 ---
 
@@ -24,7 +26,7 @@ src/
 │       ├── {PageName}Page.{ext}          ← the route entry point
 │       ├── {PageName}Page.test.{ext}     ← colocated test
 │       ├── components/                   ← page-scoped components
-│       └── hooks/                        ← page-scoped hooks (optional)
+│       └── {composables|hooks}/           ← page-scoped stateful logic (optional; named per the framework core)
 ├── components/                           ← CROSS-page shared components only
 │   └── {Shared}/
 ├── services/                             ← API wrappers grouped by domain
@@ -32,7 +34,7 @@ src/
 └── types/                                ← shared types
 ```
 
-**Promotion rule**: a page-scoped component moves to the shared root **only when a second page actually imports it.** Never preemptively. This is the same promotion rule `vsa.md` applies to slice-local types, and it fails the same way when ignored.
+**Promotion rule**: a page-scoped component moves to the shared root **only when a second page actually imports it.** Never preemptively. This is the same promotion rule the backend architecture cores apply to boundary-local types, and it fails the same way when ignored.
 
 ### A3. One component per file
 Filename matches the default export. No multi-component files. A small helper used only by its parent may be inlined as a named function, but once it grows past ~20 lines or earns its own test, it gets its own file.
@@ -58,7 +60,7 @@ This is the distinction the rest of Part B rests on:
 - **Cross-page client state** → a context provider at the appropriate level. No prop drilling past 2 levels. A dedicated client-state library is not required until context causes *measurable* re-render pain — defer that decision.
 
 ### B2. Pages own the data
-Pages call service functions through the cache library's read/write primitives. Components receive resolved data (and loading/error state if they need it) **via props**. Components do not import from `services/` and do not call query hooks directly.
+Pages call service functions through the framework core's server-state primitives. Components receive resolved data (and loading/error state if they need it) **via props**. Components do not import from `services/` and do not call query hooks directly.
 
 Why: components become trivially testable with fixture props, the data graph stays visible at one place per route, and caching, deduping, background refetch, and stale-while-revalidate come for free.
 
@@ -73,14 +75,14 @@ Long-lived cross-cutting client state (current user, theme) may live in a contex
 
 ---
 
-## Part C: React specifics
+## Part C: framework specifics
 
-Applies where the profile records React. The donor ran React + a query-cache library + a component library with a theme.
+**Moved to the framework axis.** What used to live here — the state primitives, the server-state mechanism, and the component syntax — differs per framework and is now a separate core:
 
-- Server state is managed by the query-cache library — `useQuery` for reads, `useMutation` for writes. Raw `useEffect` + `fetch` + `useState` for server data is an anti-pattern.
-- The provider is mounted once at the app root with a single shared client instance.
-- After a mutation succeeds, call the cache's invalidate API with the factored key from B3.
-- Prefer the component library's primitives and its `sx`/styled mechanism over hand-rolled markup and stylesheet files.
+- `frontend-react.md` — where the profile records React
+- `frontend-vue.md` — where the profile records Vue
+
+Load exactly one, alongside this file. Parts A and B above are framework-neutral and apply to both.
 
 ---
 
@@ -102,8 +104,8 @@ A "placement", "extract", "move", or "refactor" task headline does **not** licen
 ## 🚫 Anti-patterns to flag
 
 1. **Flat page folders** — pages, modals, layouts, and leaf components at one level with no `components/` subfolder.
-2. **Fetching inside components** — a leaf importing from `services/`, calling `fetch()`, or calling a query hook.
-3. **Raw effects for server data** instead of the cache library.
+2. **Fetching inside components** — a leaf importing from `services/`, calling `fetch()`, or invoking a server-state primitive directly.
+3. **Raw lifecycle effects for server data** instead of the framework core's server-state mechanism.
 4. **Manual refetch after mutation** instead of invalidating keys.
 5. **Server data stuffed into local state** — duplicated state that will drift from the cache.
 6. **Multi-component files.**
@@ -111,7 +113,7 @@ A "placement", "extract", "move", or "refactor" task headline does **not** licen
 8. **Hand-rolled primitives** when the component library has them.
 9. **Hard-coded theme values** (colours, spacing, type).
 10. **Speculatively shared components** promoted without a second consumer.
-11. **Cross-page reach-in** — one page importing from another page's `components/`. Promote it to the shared root; do not import across the boundary. (Same rule, same reasoning, as `vsa.md`'s cross-slice reach-in.)
+11. **Cross-page reach-in** — one page importing from another page's `components/`. Promote it to the shared root; do not import across the boundary. (Same rule, same reasoning, as the backend architecture core's cross-boundary reach-in.)
 12. **Lift-and-shift of a designed component's look** during extraction, where a design artifact exists.
 
 ---

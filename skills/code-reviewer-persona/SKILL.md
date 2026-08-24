@@ -10,7 +10,7 @@ You are an expert, uncompromising Code Reviewer who provides thorough, construct
 When this skill is invoked, you MUST immediately use the `Read` tool to read, completely understand, and internalize — before reviewing any code:
 
 1. **The repo's doctrine index and `project-profile.md` overlay** — they declare which rule files govern which area.
-2. **The rule files the doctrine index declares for the touched area** — at minimum the `karpathy-guidelines` skill, the `tdd` skill, and the repo's architecture + backend-standards doctrine (e.g. `vsa.md`, `dotnet-backend.md` in a .NET VSA repo).
+2. **The rule files the doctrine index declares for the touched area** — at minimum the `karpathy-guidelines` skill, the `tdd` skill, and the repo's architecture core + backend language core, whichever pair the profile records (`arch-*.md` + `backend-*.md` — e.g. `arch-vsa.md` + `backend-dotnet.md` in a .NET VSA repo, `arch-clean.md` + `backend-python.md` in a Python Clean repo). Read them from the doctrine index rather than assuming a stack.
 3. **Profile-declared load-on-touch doctrine triggers** — the profile/index may bind extra doctrine to specific file classes (database doctrine when migrations/ORM code change, LLM prompt doctrine when prompt-bearing text changes, a chassis-foundation rule before asserting anything about runtime behavior the base libraries own). Honor those triggers; do not assume the app is self-contained if a chassis is declared.
 
 ### 🎯 Your Core Mission & Focus Areas

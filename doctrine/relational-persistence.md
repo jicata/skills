@@ -3,6 +3,8 @@
 **Priority:** High
 **Instruction:** You MUST follow these guidelines on any task touching schema, migrations, queries, indexes, or data persistence.
 
+**Axis:** none — this file is axis-independent and must hold under every architecture and language core. See [`AXES.md`](./AXES.md).
+
 (Extracted 2026-08 from the donor stack's `database-optimizer.md`. Generic to any relational store behind an ORM; the donor ran Postgres + EF Core with a SQLite in-memory test harness, and its incidents are kept below as attributed examples. Repo-specifics — canonical store, migration owner, test stand-in, connection facts — live in the repo's `.claude/doctrine/project-profile.md` overlay.)
 
 ## 🧭 The spine: the test stand-in lies
@@ -56,8 +58,13 @@ If a slice genuinely needs a store-only type, guard the affected tests on the st
 ### A7. After regenerating or applying a migration, run the schema suite.
 The fast feedback loop on cross-provider portability is a test that applies the full migration chain to the stand-in and asserts structural expectations (FK indices, table shape). The profile names this suite in `check_commands`. If it passes, your migration is portable.
 
-### A8. Data access lives inside slices.
-Per [`vsa.md`](./vsa.md): no generic shared repositories across slices. Each slice owns its own queries. Cross-slice database access is a smell — extract a domain event or a focused read model instead.
+### A8. Data access respects the architecture core's boundary — whatever that boundary is.
+This file governs *how* you query; **the repo's architecture core governs where the query lives**, and the two architectures disagree on purpose:
+
+- Under `arch-vsa`: no generic shared repositories across slices. Each slice owns its own queries.
+- Under `arch-clean` / `arch-onion`: a repository interface owned by the inner ring, implemented outward — the shared abstraction is the point, not a smell.
+
+What holds under **all** of them: **reaching across a boundary to another unit's data is a smell.** Whether the boundary is a slice or a ring, the fix is the same — extract a domain event or a focused read model instead of importing your way in.
 
 ### A9. Address existing reference data by its natural key, never by a hardcoded surrogate Id.
 **If a table's rows can be created or edited through the app, its surrogate Ids are environment-specific.** A code-side seed invents its own Ids; every real database has different ones. The seed only ever materializes into a *blank* database — the test harness, a brand-new environment.
