@@ -6,7 +6,7 @@ tools: ["*"]
 
 <!-- Model: the profile's workhorse model (donor: a cheaper, fast model — the orchestrator pattern
      assumes subagents are cheap). /setup may pin it here via a `model:` frontmatter line from the
-     profile's workhorse_model; the orchestrator passes `model` explicitly on every Agent dispatch
+     profile's `models.coder` (fallback `workhorse_model`); the orchestrator passes `model` explicitly on every Agent dispatch
      regardless, which is the load-bearing override. -->
 
 # AFK Coder

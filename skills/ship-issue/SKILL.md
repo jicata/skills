@@ -25,14 +25,16 @@ If no issue number, ask. Do not guess.
 2. **Never halt for human input.** Every unresolvable condition becomes a cleanup-issue entry; the loop continues to the next state.
 3. **Independent review is load-bearing.** Coder and Reviewer are separate `Agent` dispatches. Never collapsed.
 4. **GitHub is the durable state.** No local state file. Resumability via reconciliation on re-invocation.
-5. **Workhorse model end-to-end.** Both the orchestrator and the Coder/Reviewer subagents run on the profile's `workhorse_model`. Premium models are forbidden in this flow.
+5. **Per-role models, resolved from the profile.** Each role runs on the model the profile's `models` map assigns it — `orchestrator`, `coder`, `reviewer` — falling back to `workhorse_model` for any role the map omits. The **reviewer must never be weaker than the coder**: a reviewer that cannot see what the coder could not see rubber-stamps, which defeats the independent-review dispatch entirely. Spending up on the reviewer is the highest-value tier choice in this flow.
 6. **The user's main repo checkout is never touched.** All implementation, branching, pushing, and review happens inside a dedicated sibling worktree at `../<repo>-ship-<issue-number>`. The user can keep working on `master` (or any other branch) in their main checkout for the duration of the run.
 
 ## Step 0a — Model preflight (fail-fast)
 
-Identical to `/ship-feature` Step 0a. Must run on the profile's workhorse model. If the active model is not the profile's `workhorse_model`, stop with:
+Identical to `/ship-feature` Step 0a. Must run on the profile's `models.orchestrator` (fallback `workhorse_model`). If the active model differs, stop with:
 
-> /ship-issue must run on the profile's workhorse model (cost + architecture decision). Active model is `<X>`, profile says `<workhorse_model>`. Run `/model <workhorse_model>`, then re-invoke `/ship-issue <issue-number>`.
+> /ship-issue must run on the profile's orchestrator model. Active model is `<X>`, profile says `<models.orchestrator>`. Run `/model <models.orchestrator>`, then re-invoke `/ship-issue <issue-number>`.
+
+**Subagent tiers are independent of the session model** — coder and reviewer receive their tier explicitly on dispatch.
 
 ## Step 0b — Permission preflight (fail-fast)
 
@@ -127,7 +129,7 @@ Otherwise dispatch `afk-coder` to run `/afk-execute-issue <issue-number> --singl
 ```
 Agent(
   subagent_type: "afk-coder",      // or "general-purpose" with prompt prefix
-  model: "<workhorse_model>",       // MANDATORY — the profile's value
+  model: "<models.coder>",          // MANDATORY — profile models.coder (fallback workhorse_model)
   run_in_background: true,          // MANDATORY — runs in background, visible in the agent display
   description: "Implement issue #<n>",
   prompt: "Your working directory is `<WORKTREE_PATH>` — a dedicated git worktree, not the user's main repo checkout. Before any tool use, `cd <WORKTREE_PATH>` so all subsequent Bash, file edits, and git operations stay inside the worktree. Then run /afk-execute-issue <issue-number> --single. Branch directly off origin/master (no PRD base branch). Implement via TDD. Open a PR targeting master with 'Closes #<issue-number>'. Emit your structured JSON return."
@@ -150,7 +152,7 @@ Dispatch `afk-reviewer` to run `/afk-review-pr <pr_number>` (Axis A + B) as a vi
 ```
 Agent(
   subagent_type: "afk-reviewer",
-  model: "<workhorse_model>",       // MANDATORY — the profile's value
+  model: "<models.reviewer>",       // MANDATORY — profile models.reviewer (fallback workhorse_model)
   run_in_background: true,          // MANDATORY — runs in background, visible in the agent display
   description: "Review PR #<n> round <r>",
   prompt: "Your working directory is `<WORKTREE_PATH>` — the dedicated worktree for this ship-issue run. Before any tool use, `cd <WORKTREE_PATH>`. Then run /afk-review-pr <pr-number>. <If r > 1: This is round <r>; you have prior threads — arbitrate Coder pushback replies.> Emit your structured JSON return."
@@ -296,7 +298,7 @@ Body and entry format identical to `/ship-feature`'s template (see [`examples/cl
 
 ## Subagent dispatch — implementation
 
-Identical contract to `/ship-feature`. Every **first-time** `Agent` dispatch (NEXT's Coder, REVIEW round 1's Reviewer) MUST pass the profile's `workhorse_model` explicitly **and `run_in_background: true`** so it appears in the live agent display and the operator can watch it. The orchestrator drives on the harness's completion notification for each child — it does **not** poll, sleep-wait, or arm any `ScheduleWakeup` watchdog. If a child ever appears stuck, the operator sees it frozen in the display and intervenes; a slow-but-working child shows ongoing tool activity and is left alone. Prefer `subagent_type: "afk-coder"` / `"afk-reviewer"`; fall back to `"general-purpose"` with a prompt prefix referencing the agent definition file if the harness doesn't have named subagent types.
+Identical contract to `/ship-feature`. Every **first-time** `Agent` dispatch (NEXT's Coder, REVIEW round 1's Reviewer) MUST pass the role's model from the profile's `models` map explicitly — `models.coder` for the Coder, `models.reviewer` for the Reviewer — **and `run_in_background: true`** so it appears in the live agent display and the operator can watch it. The orchestrator drives on the harness's completion notification for each child — it does **not** poll, sleep-wait, or arm any `ScheduleWakeup` watchdog. If a child ever appears stuck, the operator sees it frozen in the display and intervenes; a slow-but-working child shows ongoing tool activity and is left alone. Prefer `subagent_type: "afk-coder"` / `"afk-reviewer"`; fall back to `"general-purpose"` with a prompt prefix referencing the agent definition file if the harness doesn't have named subagent types.
 
 **Both Coder and Reviewer are round-persistent, not round-fresh.** Once a Coder or Reviewer agent exists for a PR, every later round resumes it via `SendMessage` to its agent id — never a new `Agent(...)` call — so it keeps the context it already built instead of cold-reading the PR from scratch each round. "Coder and Reviewer must be separate dispatches" (Critical Rule 9) means separate *from each other*, not a fresh spawn *per round*. Track both agent ids in working memory (`coder_agent_id`, `reviewer_agent_id`) the moment each is first dispatched.
 

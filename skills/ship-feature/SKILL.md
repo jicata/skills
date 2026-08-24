@@ -25,21 +25,21 @@ If no PRD number, ask. Do not guess.
 2. **Never halt for human input.** Every unresolvable condition becomes a cleanup-issue entry; the loop continues.
 3. **Independent review is load-bearing.** The Coder and Reviewer subagents are different agents. Do not collapse them.
 4. **GitHub is the durable state.** No local state file. Resumability via reconciliation from GitHub on re-invocation.
-5. **Workhorse model end-to-end.** Both the orchestrator and the Coder/Reviewer subagents run on the profile's `workhorse_model` (donor: a cheaper, fast model). Premium models are forbidden from this flow — overkill for orchestration routing and prohibitive for multi-round subagent loops.
+5. **Per-role models, resolved from the profile.** Each role runs on the model the profile's `models` map assigns it — `orchestrator`, `coder`, `reviewer` — falling back to `workhorse_model` for any role the map omits. The **reviewer must never be weaker than the coder**: a reviewer that cannot see what the coder could not see rubber-stamps, which defeats the independent-review dispatch entirely. Spending up on the reviewer is the highest-value tier choice in this flow.
 6. **The user's main repo checkout is never touched.** All implementation, branching, pushing, reviewing, and final master-merge prep happens inside dedicated sibling worktrees at `../<repo>-ship-prd-<prd-number>` (sequential mode) or `../<repo>-ship-prd-<prd-number>-slot<k>` for `k in 1..N` (parallel mode). The worktrees own the PRD base branch and child branches for their lifetime; the user can keep working on `master` (or any other branch) in their main checkout for the duration of the run.
 7. **Parallelism is opt-in via `--parallel <N>` and DAG-gated.** Without the flag, the run is fully sequential and identical to prior behavior. With the flag, child issues are dispatched concurrently only when their `Blocked-by:` predecessors have merged; merges are always serialized — either via GitHub's merge queue on the PRD base branch (preferred, auto-detected at Step 0c) or via an orchestrator-side working-memory mutex (fallback, when merge queue isn't available — e.g., private repos on free GitHub plans). The scheduler is best-effort: any slot failure logs to cleanup and other slots keep flowing.
 
 ## Step 0a — Model preflight (fail-fast)
 
-The orchestrator must run on the profile's workhorse model, not a premium model. Before any other step:
+The orchestrator must run on the model the profile assigns to the **orchestrator role**. Before any other step:
 
-1. Read `workhorse_model` from the project profile (`.claude/doctrine/project-profile.md`).
+1. Read `models.orchestrator` from the project profile (`.claude/doctrine/project-profile.md`), falling back to `workhorse_model` if the `models` map is absent or omits the role.
 2. Inspect the active model. The harness exposes the current model in the session header.
-3. If the active model is **anything other than the profile's workhorse model** (any variant of that model family is acceptable; premium and mini tiers are not), stop immediately and tell the user:
+3. If the active model is **anything other than that** (any variant of the same model family is acceptable), stop immediately and tell the user:
 
-   > /ship-feature must run on the profile's workhorse model (cost + architecture decision). Active model is `<X>`, profile says `<workhorse_model>`. Run `/model <workhorse_model>`, then re-invoke `/ship-feature <prd-number>`.
+   > /ship-feature must run on the profile's orchestrator model. Active model is `<X>`, profile says `<models.orchestrator>`. Run `/model <models.orchestrator>`, then re-invoke `/ship-feature <prd-number>`.
 
-4. Do NOT attempt to switch models silently or proceed on a non-workhorse model.
+4. Do NOT attempt to switch models silently. **Subagent tiers are not constrained by the session model** — the orchestrator passes `model` explicitly on every dispatch, so the coder and reviewer run on their own assigned tiers regardless of what this session is set to.
 
 This guard exists for two reasons:
 - **Cost** — multi-round Coder↔Reviewer loops on a premium model burn an order of magnitude more than the orchestration value justifies
@@ -585,7 +585,7 @@ To dispatch `afk-coder` and `afk-reviewer`, use the `Agent` tool. Each dispatch 
 
 ### Model enforcement — MANDATORY
 
-**Every Agent dispatch from /ship-feature MUST pass `model: "<workhorse_model>"` (the profile's value) explicitly.** Non-negotiable:
+**Every Agent dispatch from /ship-feature MUST pass `model:` explicitly, resolved from the profile's `models` map by role** — `models.coder` for coder dispatches, `models.reviewer` for reviewer dispatches, falling back to `workhorse_model` for any role the map omits. Non-negotiable:
 
 - The orchestrator itself already runs on the workhorse model (enforced by Step 0a model preflight)
 - The `afk-coder.md` and `afk-reviewer.md` agent definitions may pin the model in frontmatter, but the harness can let the parent's model leak through to subagents in some configurations
@@ -596,7 +596,7 @@ If the harness rejects the `model` parameter on a particular `subagent_type`, fa
 
 ### Subagent type — handle harness fallback
 
-Prefer `subagent_type: "afk-coder"` / `"afk-reviewer"` if the harness has registered the agent definitions as named subagent types. If those types are not available, fall back to `subagent_type: "general-purpose"` and prepend the prompt with `"Read .claude/agents/afk-coder.md (or afk-reviewer.md) first — that file governs your behavior."` Either way, **always pass the profile's workhorse model explicitly**.
+Prefer `subagent_type: "afk-coder"` / `"afk-reviewer"` if the harness has registered the agent definitions as named subagent types. If those types are not available, fall back to `subagent_type: "general-purpose"` and prepend the prompt with `"Read .claude/agents/afk-coder.md (or afk-reviewer.md) first — that file governs your behavior."` Either way, **always pass the role's model explicitly** — `models.coder` for a coder dispatch, `models.reviewer` for a reviewer dispatch.
 
 **Every Agent prompt must begin with the worktree-CWD preamble** so the subagent operates inside the dedicated worktree, not the user's main checkout.
 
@@ -615,7 +615,7 @@ Prefer `subagent_type: "afk-coder"` / `"afk-reviewer"` if the harness has regist
 ```
 Agent(
   subagent_type: "afk-coder",      // or "general-purpose" with prompt prefix
-  model: "<workhorse_model>",       // MANDATORY — the profile's value
+  model: "<models.coder>",          // MANDATORY — profile models.coder (fallback workhorse_model)
   run_in_background: true,          // MANDATORY (both modes) — runs in background, visible in the agent display
   description: "Implement next child of PRD #<n>",
   prompt: "<sequential worktree-CWD preamble>. Then run /afk-execute-issue <prd-number>. Pick the next eligible child, implement it via TDD, branch off <base-branch>, open a PR targeting <base-branch>. Emit your structured JSON return at the end of your turn."
@@ -627,7 +627,7 @@ Agent(
 ```
 Agent(
   subagent_type: "afk-coder",
-  model: "<workhorse_model>",        // MANDATORY — the profile's value
+  model: "<models.coder>",           // MANDATORY — profile models.coder (fallback workhorse_model)
   run_in_background: true,           // MANDATORY in parallel mode
   description: "Implement child #<c> of PRD #<n> in slot <k>",
   prompt: "<parallel worktree-CWD preamble for slot <k>>. Then run /afk-execute-issue <prd-number> --child <c>. The orchestrator has already claimed child #<c> for this slot — do not re-pick. Branch off <base-branch> (use `git checkout -B <child-branch> origin/<base-branch>` inside this worktree), implement via TDD, open a PR targeting <base-branch>. Emit your structured JSON return."
@@ -641,7 +641,7 @@ Re-use the same Coder subagent across rounds via `SendMessage` if the harness su
 ```
 Agent(
   subagent_type: "afk-coder",
-  model: "<workhorse_model>",       // MANDATORY — the profile's value
+  model: "<models.coder>",          // MANDATORY — profile models.coder (fallback workhorse_model)
   run_in_background: true,          // MANDATORY (both modes) — runs in background, visible in the agent display
   description: "Address review feedback on PR #<n>",
   prompt: "<worktree-CWD preamble for this PR's worktree (sequential: $WORKTREE_PATH; parallel: $SLOT_WT_<k>)>. Then run /afk-address-pr <pr-number>. This is round <r> on this PR. Address every unresolved thread; push back via reply on out-of-scope concerns. Emit your structured JSON return."
@@ -655,7 +655,7 @@ Spin up a fresh Reviewer per new PR; persist within the PR via `SendMessage` or 
 ```
 Agent(
   subagent_type: "afk-reviewer",
-  model: "<workhorse_model>",       // MANDATORY — the profile's value
+  model: "<models.reviewer>",       // MANDATORY — profile models.reviewer (fallback workhorse_model)
   run_in_background: true,          // MANDATORY (both modes) — runs in background, visible in the agent display
   description: "Review PR #<n> round <r>",
   prompt: "<worktree-CWD preamble for this PR's worktree>. Then run /afk-review-pr <pr-number>. <If follow-up: This is round <r>; you have prior threads on this PR — arbitrate any Coder pushback replies.> Emit your structured JSON return."

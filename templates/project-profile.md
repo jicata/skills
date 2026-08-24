@@ -26,6 +26,10 @@ axis_c: <FILL: off | advisory | enforcing — how much authority CI check-runs h
 review_identity: <FILL: self | app — who authors reviews. `self` (default; omit the key entirely for it) means the PR author's own account, which GitHub restricts to COMMENT-only reviews. `app` means a GitHub App installation, which can post native APPROVE / REQUEST_CHANGES. Consumed by skills/_shared/review-protocol.md; see setup/github-app.md>
 review_app_token_cmd: <FILL: only when review_identity is app — a command printing a short-lived installation access token to stdout. Holds a key PATH, never a key. Omit entirely under `self`>
 coder_lens: <FILL: the generated composite lens skill(s) a coder run must load, as a routing map from file type to skill — e.g. {default: coder-lens} or {backend: vsa-tdd, frontend: frontend-tdd}. REQUIRED whenever the pipeline is installed: execute-issue, afk-execute-issue and the afk-coder agent all resolve "the repo's composite coder lens" by reading THIS key. Without it they have no way to learn the lens's name and fall back to guessing from skill descriptions>
+models: <FILL: per-role model tiers — the orchestrator role gates the session model (ship-* Step 0a), the other two are passed explicitly on dispatch and are INDEPENDENT of the session model.
+  orchestrator: <FILL: e.g. opus — runs the state machine and makes concession/arbitration calls>
+  coder: <FILL: e.g. sonnet — high-volume implementation against a written plan; the cheap seat>
+  reviewer: <FILL: e.g. opus — MUST NOT be weaker than coder; a reviewer that cannot see what the coder missed rubber-stamps>
 workhorse_model: <FILL: the cheap/fast model the autonomous ship-* pipeline runs orchestrator + coder/reviewer subagents on, e.g. "sonnet" — consumed by ship-feature/ship-issue model preflight and every Agent dispatch; omit if the pipeline isn't installed>
 glossary: <FILL: path, e.g. docs/UBIQUITOUS_LANGUAGE.md | none>
 smell_routing: <FILL: where ambient architectural smells get logged, e.g. "file a tracker issue" | a bucket-issue pointer — consumed by doctrine/surface-dont-chase.md>
