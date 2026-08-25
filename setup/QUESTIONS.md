@@ -47,6 +47,11 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 ## Process appetite (genuine decisions — always asked, never assumed)
 
 **Q9 — Tracker + orchestration tier.** "GitHub issues? Do you want the full PRD pipeline (write-a-prd → prd-to-issues → expand/execute/review/merge + autonomous ship-feature/ship-issue), or the light tier (log-issue + ship-issue only)?"
+
+**Q9a — Is `origin` a repo you can actually write to?** Detected (`git remote -v`, plus `gh repo view --json viewerPermission`), stated for confirmation. The whole pipeline hardcodes `origin` and assumes push access; a repo cloned from a template, a vendor upstream, or someone else's project has none, and every issue-filing and PR-opening skill fails on first use.
+→ *no write access:* fork it and adopt the **standard fork layout** — rename the source remote to `upstream` and make the fork `origin`. Renaming rather than adding a third remote is what matters: a bare `git push` then goes to the writable repo, so the safe path is the default instead of a rule everyone must remember. Record the fork as `tracker` and add a profile constraint that `upstream` is never written to.
+→ **GitHub disables Issues on a new fork by default.** Enable them (`gh repo edit <fork> --enable-issues`) *during setup*, or the first `gh issue create` fails and the failure looks like a permissions bug rather than a settings one.
+→ Also resolve and record the **default branch** (`gh repo view --json defaultBranchRef`). The ship-* skills write `master` throughout and substitute the real branch; a repo defaulting to `main` needs that substitution to be explicit rather than assumed.
 → installs the chosen pipeline tier; the router is generated to match.
 
 **Q10 — Documentation locations.** The doc philosophy is NOT a choice — the base ships lean-only: the durable canon is **glossary + ADRs + architecture/concept map**, everything else is a temporary artifact living on its work item (see `doctrine/documentation-first.md`). The question is just: "Where do (or should) the three canon artifacts live? Is there a living build-status map, or should setup seed one?"

@@ -36,6 +36,23 @@ Requires: Node 18+, and permission to install Apps on the target account. On an 
 
 > The manifest conversion is the **only** time GitHub returns the private key. If the script fails after that exchange, don't re-run it — generate a fresh key from the App's settings page instead.
 
+## Reusing an App you already have
+
+An App is owned by an account and installed on **selected repositories**, so a second repo does not need a second App — it needs the existing installation extended to cover it. This is the common case once you have set one up.
+
+**Adding a repo to an existing installation is a browser action.** `gh api user/installations` returns **403** — the CLI's OAuth token is not authorized to a GitHub App — so this cannot be scripted with `gh`:
+
+<https://github.com/settings/installations/INSTALLATION_ID> → **Repository access** → add the repo → Save.
+
+Then reuse the same App ID, key path, and token command; only the repo list changed. **Verify before writing `review_identity: app`**, per §5:
+
+```bash
+TOK=$(<the profile's review_app_token_cmd>)
+GH_TOKEN="$TOK" gh api installation/repositories --jq '.repositories[].full_name'
+```
+
+The new repo must appear. If it does not, the installation was not extended and every review will fail at token exchange rather than degrading cleanly to `self`.
+
 ## Manual path
 
 Use this if the scripted flow can't run (no Node, no browser on the box, or an org policy that needs the App created by hand).
