@@ -1,6 +1,6 @@
 ---
 name: ship-issue
-description: Top-level autonomous orchestrator that ships a single bug or enhancement end-to-end. Dispatches afk-coder to implement and address feedback, dispatches afk-reviewer for independent review, applies per-thread concession after 3 rejects (Axis-B only), forces merge after 7 rounds with all-blocker concession. Light-flow counterpart to /ship-feature — one issue, one PR off master, no PRD scaffolding. Never halts; lazy-creates a cleanup issue only if anything is conceded or force-merged. Runs orchestrator and subagents on the profile's configured workhorse model. Use when the user runs /ship-issue <issue-number> on a single bug/enhancement issue (typically authored by /log-issue).
+description: Top-level autonomous orchestrator that ships a single bug or enhancement end-to-end. Dispatches afk-coder to implement and address feedback, dispatches afk-reviewer for independent review, applies per-thread concession after 3 rejects (Axis-B only), forces merge after 7 rounds with all-blocker concession. Light-flow counterpart to /ship-feature — one issue, one PR off the default branch, no PRD scaffolding. Never halts; lazy-creates a cleanup issue only if anything is conceded or force-merged. Runs each role on the profile's configured per-role model (models.orchestrator / models.coder / models.reviewer). Use when the user runs /ship-issue <issue-number> on a single bug/enhancement issue (typically authored by /log-issue).
 ---
 
 # Ship Issue
@@ -9,7 +9,7 @@ description: Top-level autonomous orchestrator that ships a single bug or enhanc
 
 Autonomous orchestrator for shipping a single bug or enhancement end-to-end. Light-flow parallel to `/ship-feature`. The state machine is the same coder↔reviewer loop with the same 3-reject / 7-round bounds, scaled down to a single issue / single PR / direct-to-master.
 
-`/ship-feature` ships PRDs (many issues, many PRs, a base branch, a finalize step). `/ship-issue` ships single issues (one PR off master, no base branch, no finalize).
+`/ship-feature` ships PRDs (many issues, many PRs, a base branch, a finalize step). `/ship-issue` ships single issues (one PR off the default branch, no base branch, no finalize).
 
 ## Invocation
 
@@ -18,6 +18,10 @@ Autonomous orchestrator for shipping a single bug or enhancement end-to-end. Lig
 `/ship-issue <issue-number> --dry-run` — walk the state machine and print planned actions without dispatching subagents or mutating GitHub.
 
 If no issue number, ask. Do not guess.
+
+**Default branch.** Wherever this skill writes `master`, use the repo's **actual default branch** — resolve it once at Step 1 (`gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`) and substitute it everywhere below, including the worktree base and the PR target. JSON `result` names stay verbatim regardless. The same substitution rule governs `/afk-execute-issue`; this skill is the entry point, so resolving it here is what makes the whole run consistent.
+
+**Push remote.** Likewise `origin` means **the writable remote for this repo**, which the profile's `tracker` names. In a fork layout `origin` is your fork and the source repo is `upstream` — never fetch a base branch from, or push to, a remote you do not own.
 
 ## Critical principles (read first)
 
@@ -101,11 +105,12 @@ Cases:
    WORKTREE_PATH="$(dirname "$REPO_ROOT")/${REPO_BASE}-ship-<issue-number>"
    ```
 2. If a worktree already exists at that path (prior crashed run, or active resume), **reuse it**. Verify with `git worktree list --porcelain` matching on the path. Do not delete or recreate — the resumption logic relies on GitHub state as authoritative; the worktree just holds the local checkout.
-3. Otherwise create it detached at `origin/master` (detached HEAD so this worktree never claims the `master` branch — the user's main repo keeps that):
+3. Otherwise create it detached at `origin/<default-branch>` (detached HEAD so this worktree never claims the default branch — the user's main repo keeps that):
    ```bash
+   DEFAULT_BRANCH="$(gh repo view --json defaultBranchRef --jq .defaultBranchRef.name)"
    git fetch origin
    git worktree prune
-   git worktree add --detach "$WORKTREE_PATH" origin/master
+   git worktree add --detach "$WORKTREE_PATH" "origin/$DEFAULT_BRANCH"
    ```
 4. **All subsequent Agent dispatches and any local git/gh operations the orchestrator runs must use `$WORKTREE_PATH` as their working directory.** The orchestrator passes the path into each Agent prompt; agents `cd` into it before any tool use.
 
@@ -132,7 +137,7 @@ Agent(
   model: "<models.coder>",          // MANDATORY — profile models.coder (fallback workhorse_model)
   run_in_background: true,          // MANDATORY — runs in background, visible in the agent display
   description: "Implement issue #<n>",
-  prompt: "Your working directory is `<WORKTREE_PATH>` — a dedicated git worktree, not the user's main repo checkout. Before any tool use, `cd <WORKTREE_PATH>` so all subsequent Bash, file edits, and git operations stay inside the worktree. Then run /afk-execute-issue <issue-number> --single. Branch directly off origin/master (no PRD base branch). Implement via TDD. Open a PR targeting master with 'Closes #<issue-number>'. Emit your structured JSON return."
+  prompt: "Your working directory is `<WORKTREE_PATH>` — a dedicated git worktree, not the user's main repo checkout. Before any tool use, `cd <WORKTREE_PATH>` so all subsequent Bash, file edits, and git operations stay inside the worktree. Then run /afk-execute-issue <issue-number> --single. Branch directly off origin/<default-branch> (no PRD base branch) — resolve it with `gh repo view --json defaultBranchRef`. Implement via TDD. Open a PR targeting that same default branch with 'Closes #<issue-number>'. Emit your structured JSON return."
 )
 ```
 
@@ -214,7 +219,7 @@ Otherwise:
 /afk-merge-pr <pr_number> --single
 ```
 
-The `--single` flag tells `/afk-merge-pr` the PR targeting master is intentional (light-flow), so the `structural_bug_master_target` guard does not trip.
+The `--single` flag tells `/afk-merge-pr` the PR targeting the default branch is intentional (light-flow), so the `structural_bug_master_target` guard does not trip.
 
 Parse the return:
 - `result: merged` → set `outcome = clean` (or `axis_b_residue` / `axis_a_residue` / `force_merged` if concessions were applied), GO TO DONE
@@ -337,7 +342,7 @@ The inline `/afk-merge-pr` and `/afk-concede-thread` steps (run in the orchestra
 | Aspect | `/ship-feature` | `/ship-issue` |
 |---|---|---|
 | Input | PRD issue with children | Single bug/enhancement issue |
-| Branching | Per-PRD base branch | Direct off master |
+| Branching | Per-PRD base branch | Direct off the default branch |
 | Loop | NEXT_CHILD → REVIEW → ADDRESS → MERGE_CHILD → FINALIZE_PRD | NEXT → REVIEW → ADDRESS → MERGE → DONE |
 | Cleanup issue | Always created lazily | Created lazily **only on residue** |
 | Finalization | PRD branch → master PR | None — PR merges into master directly |
