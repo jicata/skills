@@ -37,6 +37,11 @@ Six artifacts, all routers, file lists, or config — never prose. The last two 
 
 ## 5. Record and close
 
-- Verify the loading path end to end: `CLAUDE.md` exists and is under ~50 lines; every `.claude/rules/*.md` has `paths:`; every glob matches at least one real file; every doctrine file is reachable from a rule, the index, or `CLAUDE.md`.
+- Verify the loading path end to end. **Only two things are harness-loaded — `CLAUDE.md`, and a `.claude/rules/*.md` whose `paths:` match an open file. Everything else is a pointer some agent has to choose to follow**, so "reachable from the doctrine index" is *not* a passing result: the index is itself only reachable by a pointer. Check, in order:
+  1. `CLAUDE.md` exists and is under ~50 lines.
+  2. Every `.claude/rules/*.md` carries `paths:`, and every glob matches at least one real file.
+  3. **Every installed doctrine file is named by a rule, by an installed skill, or by `CLAUDE.md`** — being listed only in the doctrine index means it is inert. A file with no such route is either given one or not installed.
+  4. **Nothing is labelled "always on" without a `CLAUDE.md` line behind it.** If a doctrine file must apply unconditionally and is short enough, **inline its imperative into `CLAUDE.md`** and let the file carry the reasoning; if it is too long for the budget, bind it to a `paths:` rule instead and stop calling it always-on. A doctrine index that claims always-on for files `CLAUDE.md` never names is the single easiest way to ship a loading path that looks complete and loads nothing.
+  5. Every skill the router names exists, and every installed non-orchestrator-internal skill is named by the router.
 - Write `base_version` (the base repo's current commit SHA) into the profile's YAML.
 - State the closing expectation verbatim: **"This is the skeleton, not the skin. The most valuable rules are scars from incidents no interview can foresee — they accrete in `project-profile.md` under its editing rules (edit in place, why + evidence pointer, delete what's wrong) and flow back to the base library via `/skill-sync`."**

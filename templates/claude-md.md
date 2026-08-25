@@ -2,8 +2,15 @@
      This is the ONLY file Claude Code loads into every session automatically, so it is the only
      place "always-on" is a fact rather than a wish. Keep it under ~50 lines: the docs warn that
      oversized always-on context costs tokens every session AND measurably reduces adherence.
-     Anything path-specific belongs in `templates/path-rule.md` instead. Fill every <FILL: …>
-     slot; delete this comment. -->
+     Anything path-specific belongs in `templates/path-rule.md` instead.
+
+     WHAT EARNS A LINE HERE: a constraint that is (a) catastrophic or behaviour-shaping, (b) not
+     discoverable from the code, and (c) needed regardless of which file is open. A short
+     BEHAVIOURAL doctrine rule — "surface a smell, never chase it" — earns its line by being
+     INLINED as one sentence plus a pointer, because a doctrine file nothing loads is inert no
+     matter what the doctrine index calls it. Long doctrine does not go here: bind it to a
+     `paths:` rule and let the rule carry its sharpest imperatives.
+     Fill every <FILL: …> slot; delete this comment. -->
 
 # <FILL: repo name>
 
