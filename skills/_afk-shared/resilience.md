@@ -5,7 +5,7 @@ Single source of truth for the resilience mechanics shared by the autonomous shi
 1. **Non-interactive, time-boxed shell** — prevent the wedge at the operation that can hang (§1). This carries the load.
 2. **Heartbeat progress log** — an *optional*, passive progress trace (§2). Not a kill trigger.
 
-Hang **detection** is deliberately not an orchestrator mechanism. Coder, Reviewer, and Axis-C all run as **visible** background `Agent` dispatches; the operator watches the live agent display and judges *slow* (forward tool activity) from *stuck* (frozen on one call) directly, nudging if ever needed. There is intentionally **no** `ScheduleWakeup` / timed-re-invocation watchdog — see "Why there is no watchdog" below.
+Hang **detection** is deliberately not an orchestrator mechanism. Coder and Reviewer both run as **visible** background `Agent` dispatches; the operator watches the live agent display and judges *slow* (forward tool activity) from *stuck* (frozen on one call) directly, nudging if ever needed. There is intentionally **no** `ScheduleWakeup` / timed-re-invocation watchdog — see "Why there is no watchdog" below.
 
 Loaded by the afk-* child skills (`afk-execute-issue`, `afk-address-pr`, `afk-review-pr`, `afk-merge-pr`, `afk-concede-thread`) and by the `/ship-feature` and `/ship-issue` orchestrators. When this file and a skill disagree on a resilience mechanic, **this file wins**.
 
@@ -23,10 +23,9 @@ An earlier version of this doc defined a §3 "supervised dispatch + progress wat
 
 - It re-fired the orchestrator's own input (the `/ship-*` command) as the wakeup prompt, so a tick mid-run **cold-re-entered the skill from the top** while a subagent was still working — duplicate dispatch and visible command spam.
 - Its state (`stall_strikes`, `last_mtime`, …) lived only in conversation context, so it **died silently on context compaction** — exactly during the long runs it was meant to protect.
-- It never even covered Axis-C, which ran via `Monitor` (no heartbeat) outside the watchdog entirely — the very case that motivated it.
 - A fixed elapsed-time budget is a poor wedge detector: it cannot tell a slow-but-working child from a stuck one, so it eventually kills healthy work.
 
-The replacement is simpler and strictly better for an **attended** flow (the operator is watching the run): **§1 prevents operation-level hangs**, every long-running step (Coder, Reviewer, Axis-C) is a **visible `Agent` dispatch** the operator can cycle to and read live, and the harness's own completion notification advances the state machine. The operator's eyes are a richer slow-vs-stuck detector than any heartbeat line, and they don't evaporate on compaction. A genuinely lost completion notification (rare) is recovered by the operator nudging — not by a self-firing loop.
+The replacement is simpler and strictly better for an **attended** flow (the operator is watching the run): **§1 prevents operation-level hangs**, every long-running step (Coder, Reviewer) is a **visible `Agent` dispatch** the operator can cycle to and read live, and the harness's own completion notification advances the state machine. The operator's eyes are a richer slow-vs-stuck detector than any heartbeat line, and they don't evaporate on compaction. A genuinely lost completion notification (rare) is recovered by the operator nudging — not by a self-firing loop.
 
 ---
 

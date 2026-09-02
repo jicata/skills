@@ -154,6 +154,19 @@ The reader was injected with the *same* scoped context the handler holds. The un
 
 ---
 
+### B8. `First`/`FirstOrDefault` on a table needs an `OrderBy` — or a primary-key predicate
+Without an explicit `ORDER BY`, the canonical store does not guarantee which row `First`/`FirstOrDefault` returns — the planner's choice can change with table statistics, an `ANALYZE`, a plan flip from seq-scan to index-scan, vacuum activity, or plain row churn. It is stable right up until it isn't, and the stand-in usually hides this (see the spine at the top of this file): a small in-memory/embedded table tends to return rows in insertion order regardless of the query, so the same code is green in CI and nondeterministic against the canonical store.
+
+- **Safe**: the predicate filters on the primary key — at most one row can ever match, so ordering is moot.
+- **Unsafe**: any other predicate, unless paired with an explicit `OrderBy` encoding the intended selection rule.
+- **Prefer `Single`/`SingleOrDefault`** when the invariant is genuinely "exactly one row" — it documents the intent and fails loudly if the invariant is ever violated, instead of silently returning a plausible-looking wrong row.
+
+> **Donor scar (Brochures #1022 / #1056):** a full-suite run against the canonical store reproduced one genuine behavioural failure that never showed up against the stand-in: `Categories.FirstAsync(c => c.ParentCategoryId != null)` with no ordering picked a different category under the canonical store than under the stand-in, turning a 200 into a 400. The predicate could match more than one row — nothing about the code enforced uniqueness. The donor's triage found its 20 existing call sites all filtered on the primary key already; the rule exists to stop the next one.
+
+**Enforcement (donor pattern):** a source-scanning guard test that lists every `First`/`FirstOrDefault(Async)?` call site on the ORM's entity sets and fails unless each is a primary-key predicate, carries an explicit `OrderBy`, or sits on a reviewed allow-list with a justification. The repo's profile records where its guard lives, if it has one.
+
+**Reviewer red flag:** `First`/`FirstOrDefault(Async)?` on an entity set whose predicate is not the primary key and has no `OrderBy`.
+
 ## 🚫 Anti-patterns (flag in review)
 
 1. Disabling or working around the design-time migration guard (A2).
@@ -164,6 +177,7 @@ The reader was injected with the *same* scoped context the handler holds. The un
 6. Server data fetched in a loop / unprojected full-entity reads in a hot path (B3).
 7. A blocking index creation on a large table (B4).
 8. Concurrent queries on one scoped context (B7).
+9. `First`/`FirstOrDefault` on an entity set with a non-primary-key predicate and no `OrderBy` (B8).
 
 ## 🗣️ Communication style
 

@@ -11,7 +11,7 @@ A discipline for hard bugs. Skip phases only when explicitly justified.
 
 Where a report has not yet been sorted into observation and theory, do that first, per [`../_shared/report-interrogation.md`](../_shared/report-interrogation.md): the concrete instance and the scope answer are what Phase 1 builds its loop from.
 
-When exploring the codebase, follow the repo's documented read order (glossary → architecture map → ADRs → the code and tests), per its documentation doctrine. ⚠️ If the profile (`.claude/doctrine/project-profile.md`) declares chassis-like base libraries, any hypothesis in their territory must cite their source — in the donor stack, app-repo-alone reasoning was the most-repeated diagnostic failure.
+When exploring the codebase, follow the repo's documented read order (glossary → architecture map → the governing doctrine files and any ADRs the repo keeps → the code and tests), per its documentation doctrine. ⚠️ If the profile (`.claude/doctrine/project-profile.md`) declares chassis-like base libraries, any hypothesis in their territory must cite their source — in the donor stack, app-repo-alone reasoning was the most-repeated diagnostic failure.
 
 ## Phase 1 — Build a feedback loop
 

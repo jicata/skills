@@ -59,16 +59,18 @@ Threads authored by `/review-pr` start with `Claude comment 🤖` — prioritize
 
 ### Step 3 — Check out the branch in its worktree
 
-`/execute-issue` left an isolated worktree for this branch under `.worktrees/<headRefName>` (gitignored). **Reuse it** so concurrent `/address-pr` runs never clash on the main working tree. If it's gone (e.g. a fresh clone), recreate it. **The main working tree is never switched or stashed.**
+`/execute-issue` left an isolated worktree for this branch at the profile's `worktree_root` — by default `.worktrees/<headRefName>` (gitignored) inside the repo, or the sibling `../<repo>-<headRefName>` when the profile says `sibling`. **Reuse it** so concurrent `/address-pr` runs never clash on the main working tree. If it's gone (e.g. a fresh clone), recreate it. **The main working tree is never switched or stashed.**
 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel)
+# worktree_root per the profile: default .worktrees/ inside the repo; `sibling` = ../<repo-basename>-<branch>
+WT_ROOT="$REPO_ROOT/.worktrees/"; [ "<worktree_root>" = "sibling" ] && WT_ROOT="$(dirname "$REPO_ROOT")/$(basename "$REPO_ROOT")-"
 BR=<headRefName>
-WT="$REPO_ROOT/.worktrees/$BR"
+WT="${WT_ROOT}$BR"
 
 git -C "$REPO_ROOT" fetch origin
 
-if git -C "$REPO_ROOT" worktree list --porcelain | grep -q "/.worktrees/$BR$"; then
+if git -C "$REPO_ROOT" worktree list --porcelain | grep -q "/$(basename "$WT")$"; then
   cd "$WT"
   git pull --ff-only
 else
@@ -134,7 +136,7 @@ Stop. Do not chain into `/review-pr` or `/merge-pr` yourself.
 6. **Never touch files unrelated to the cited review threads.** Drive-by improvements get flagged on the next review pass as scope creep.
 7. **Never chain into `/review-pr` or `/merge-pr`.** Stop after pushing and hand off — the user drives the next verb.
 8. **Never push partial progress.** Fix every unresolved thread, then make one commit and one push. Partial pushes trigger redundant review passes and are the primary cause of multi-round review churn.
-9. **Always work in the branch's worktree.** Reuse `.worktrees/<headRefName>` (Step 3); never switch or stash the main working tree. Leave the worktree in place on exit — `/merge-pr` removes it after merging.
+9. **Always work in the branch's worktree.** Reuse the branch's worktree at the profile's `worktree_root` (Step 3); never switch or stash the main working tree. Leave the worktree in place on exit — `/merge-pr` removes it after merging.
 
 ## Edge Cases
 

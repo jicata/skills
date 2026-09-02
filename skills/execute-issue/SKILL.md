@@ -69,7 +69,9 @@ On **no** → report "left `<base-branch>` unmerged; finalize skipped" and stop.
 2. **Pre-flight default-branch sync** — surface conflicts on the PRD side, in a transient base worktree (same pattern as Step 3's 1b):
    ```bash
    REPO_ROOT=$(git rev-parse --show-toplevel); BASE=<base-branch>; DEFAULT=<default-branch>
-   BASE_WT="$REPO_ROOT/.worktrees/$BASE"
+# worktree_root per the profile: default .worktrees/ inside the repo; `sibling` = ../<repo-basename>-<branch>
+WT_ROOT="$REPO_ROOT/.worktrees/"; [ "<worktree_root>" = "sibling" ] && WT_ROOT="$(dirname "$REPO_ROOT")/$(basename "$REPO_ROOT")-"
+   BASE_WT="${WT_ROOT}$BASE"
    git -C "$REPO_ROOT" fetch origin
    git -C "$REPO_ROOT" worktree add "$BASE_WT" $BASE 2>/dev/null \
      || git -C "$REPO_ROOT" worktree add "$BASE_WT" -b $BASE origin/$BASE
@@ -99,7 +101,7 @@ On **no** → report "left `<base-branch>` unmerged; finalize skipped" and stop.
 
 ### Step 3 — Establish the base branch, feature branch, and an isolated worktree
 
-This skill runs each child in its **own git worktree** under `.worktrees/<feature-branch>` (gitignored), so multiple `/execute-issue` agents can run concurrently without fighting over the shared working tree or a single `git stash`. **The main working tree is never switched, stashed, or touched** — all of your changes live inside the worktree.
+This skill runs each child in its **own git worktree** at the profile's `worktree_root` — by default `.worktrees/<feature-branch>` (gitignored) inside the repo, or the sibling `../<repo>-<feature-branch>` when the profile says `sibling` — so multiple `/execute-issue` agents can run concurrently without fighting over the shared working tree or a single `git stash`. **The main working tree is never switched, stashed, or touched** — all of your changes live inside the worktree.
 
 Derive the base branch name from the PRD title:
 - Strip leading `PRD:` (case-insensitive), trim
@@ -117,10 +119,12 @@ A previous run may have crashed, leaving a worktree behind with uncommitted work
 set -e # Halt immediately if any command fails
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
+# worktree_root per the profile: default .worktrees/ inside the repo; `sibling` = ../<repo-basename>-<branch>
+WT_ROOT="$REPO_ROOT/.worktrees/"; [ "<worktree_root>" = "sibling" ] && WT_ROOT="$(dirname "$REPO_ROOT")/$(basename "$REPO_ROOT")-"
 BASE=<base-branch>
 FEATURE=<child-number>-<slug>
 DEFAULT=<default-branch>
-WT="$REPO_ROOT/.worktrees/$FEATURE"
+WT="${WT_ROOT}$FEATURE"
 
 git -C "$REPO_ROOT" fetch origin
 
@@ -141,7 +145,7 @@ fi
 #     transient base worktree (the main tree is never checked out).
 BEHIND=$(git -C "$REPO_ROOT" rev-list --count origin/$BASE..origin/$DEFAULT)
 if [ "$BEHIND" -gt 0 ]; then
-  BASE_WT="$REPO_ROOT/.worktrees/$BASE"
+  BASE_WT="${WT_ROOT}$BASE"
   git -C "$REPO_ROOT" worktree add "$BASE_WT" $BASE 2>/dev/null \
     || git -C "$REPO_ROOT" worktree add "$BASE_WT" -b $BASE origin/$BASE
   git -C "$BASE_WT" pull --ff-only origin $BASE
@@ -151,7 +155,7 @@ if [ "$BEHIND" -gt 0 ]; then
 fi
 
 # 2. Create (or reuse) the isolated worktree for this feature branch.
-if git -C "$REPO_ROOT" worktree list --porcelain | grep -q "/.worktrees/$FEATURE$"; then
+if git -C "$REPO_ROOT" worktree list --porcelain | grep -q "/$(basename "$WT")$"; then
   echo "Reusing existing worktree at $WT (resuming an interrupted run)."
 else
   git -C "$REPO_ROOT" worktree prune               # clear any stale registration
@@ -294,7 +298,7 @@ Do not attempt to review, address, or merge your own work.
 9. **Never self-review.** This skill does not spawn review subagents and does not approve its own PRs. `/review-pr` is a separate step the user runs manually.
 10. **Never exceed the child issue's scope.** The PRD is your map, but the child issue is your strict boundary. Do not modify files, delete assets, or update domain language for features outside your specific Acceptance Criteria.
 11. **Halt on Git Failures.** If branch creation, checkout, or pulling fails unexpectedly, you MUST halt and report the error to the user. Do not proceed to write code on the wrong branch.
-12. **Always work in the per-child worktree.** Operate entirely inside `.worktrees/<feature-branch>`. Never switch, stash, or commit on the main working tree — that is what allows several `/execute-issue` agents to run at once. Leave the worktree in place when you finish (`/address-pr` reuses it; `/merge-pr` removes it after merge). If `git worktree add` reports the branch is already checked out, stop and report — never force a second worktree onto the same branch.
+12. **Always work in the per-child worktree.** Operate entirely inside the child's worktree (`$WT`, at the profile's `worktree_root`). Never switch, stash, or commit on the main working tree — that is what allows several `/execute-issue` agents to run at once. Leave the worktree in place when you finish (`/address-pr` reuses it; `/merge-pr` removes it after merge). If `git worktree add` reports the branch is already checked out, stop and report — never force a second worktree onto the same branch.
 
 ## Edge Cases
 
@@ -309,7 +313,7 @@ Do not attempt to review, address, or merge your own work.
 - **Feature branch already exists but no PR** → resume on it; investigate what's there before overwriting
 - **Worktree already exists for this feature branch** → reuse it (the Step 3 script does this) and follow Step 3.5 to resume; do not delete and recreate it
 - **`git worktree add` says the branch is already checked out** → another agent (or the main tree from a pre-worktree run) holds it; stop and report. To free a stale main-tree checkout, the user runs `git checkout <base>` in the main tree first
-- **`.worktrees/<slug>` dir exists but isn't a registered worktree** (manual delete / crash) → the Step 3 script runs `git worktree prune` then recreates it; if the dir is non-empty and unregistered, remove it manually before retrying
+- **The worktree dir exists but isn't a registered worktree** (manual delete / crash) → the Step 3 script runs `git worktree prune` then recreates it; if the dir is non-empty and unregistered, remove it manually before retrying
 - **Child issue has no Acceptance Criteria section** → flag as a PRD process failure (the `/prd-to-issues` template requires it); review against user stories instead and note the gap in the PR body
 - **Tests fail after your changes that were passing before** → you broke something outside the slice; do not "fix" by updating the failing test to match your new behavior — investigate and fix the regression, or report it if it's outside the slice's scope
 - **Documentation update would require major rewrites beyond this slice** → do the minimum needed for this slice, open a separate issue for the larger doc overhaul, reference it in the PR body

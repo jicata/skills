@@ -17,4 +17,6 @@ Do not act on it until I confirm we have reached a shared understanding.
 
 When the grilling resolves and the user is about to take the design somewhere downstream, suggest the repo's next-step skill per its pipeline routing (the project profile's pipeline section or the repo's `ask-*` router) — typically a single-issue logger for a one-PR fix, a PRD writer for multi-slice work, or direct implementation if a plan already exists.
 
+If the profile declares `design_pipeline` and the resolved plan touches the frontend, also point at its `classify` skill — the issue and PRD writers invoke it themselves, so the advisory matters most when the user plans to implement directly.
+
 If the session sprawls instead of resolving — questions that can't even be phrased until other answers land, decisions blocked on research or errands — the effort is bigger than one sitting: suggest escalating to `/wayfinder`.

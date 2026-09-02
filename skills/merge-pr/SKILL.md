@@ -61,6 +61,12 @@ Check **all** of the following. If any fails, stop and report — do not merge.
 3. Every `reviewThreads.nodes[].isResolved == true` — no unresolved threads. If any are unresolved, stop and suggest `/address-pr <n>`.
 4. `baseRefName` starts with `prd-` — PRs from `/execute-issue` must target a base branch. If `baseRefName` is the default branch, stop and report a structural bug upstream; do not merge past it.
 
+### Step 2.5 — Profile-declared merge-time gate and pre-merge steps
+
+Applies only if the profile's Merge gates section (or its `design_pipeline` doctrine) declares a merge-time command that CI does not already run — donor: a frontend `npm run build` that the CI workflow never invokes, so a Vite-only failure would otherwise land green. Run it on the PR's worktree when the PR touches the declared path. Red → stop and report `build_failed`; this is not a standards opinion and is never conceded or forced past. If the profile declares nothing, skip.
+
+Then, still before the squash, run any **pre-merge steps** the `design_pipeline` doctrine declares on the PR head (donor: promoting accepted design baselines so they ride in the squash commit). Best-effort: report, never block the merge on them.
+
 ### Step 3 — Identify the linked issue(s)
 
 Parse the PR body for `Fixes #N`, `Closes #N`, `Resolves #N` (case-insensitive, any of these keywords). Collect **every** matched issue number — a PR may close multiple issues.
@@ -83,7 +89,7 @@ Expected: `state == "MERGED"`, `mergedAt` populated. If the merge failed (confli
 
 ### Step 4.5 — Drop the local branch
 
-`gh pr merge --delete-branch` deletes the **remote** branch. Also remove the PR's review worktree if one exists (`git worktree remove .worktrees/<headRefName>` — sibling skills rely on this happening here), then drop any stale local branch left behind:
+`gh pr merge --delete-branch` deletes the **remote** branch. Also remove the PR's review worktree if one exists (`git worktree remove <worktree_root>/<headRefName>` — `.worktrees/<headRefName>` by default, `../<repo>-<headRefName>` under `sibling`; sibling skills rely on this happening here), then drop any stale local branch left behind:
 
 ```bash
 git branch -D <headRefName> 2>/dev/null || true
@@ -107,6 +113,10 @@ gh issue close <issue-number> \
 ```
 
 If closing an issue fails (permission error, API flake), retry once. If it still fails, report the failure — the merge itself remains valid, but the user needs to close the issue manually.
+
+### Step 5.5 — Profile-declared post-merge steps
+
+Applies only if the profile's `design_pipeline` doctrine declares post-merge procedures — donor: promoting accepted design baselines and refreshing a code-sourced design mirror after a frontend merge. Run them exactly as that doctrine writes them, on the base branch, best-effort: report the outcome, never roll back or block the merge on it. If the profile declares nothing, skip.
 
 ### Step 6 — Report
 

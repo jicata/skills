@@ -122,6 +122,12 @@ Standard merge gate (skip if `--force`). **Resolve the verdict per [`../_shared/
 
 Staleness is **evaluated but not enforced** under `--force`: if the marker SHA ≠ `headRefOid`, set `stale_review_forced: true`, add a line to the Step 4 🚨 comment naming both SHAs, and proceed. `--force` is the pipeline's guarantee that the loop always terminates — a gate it cannot clear would deadlock the orchestrator, which is worse than merging conceded work whose last commit went ungraded. In practice concession resolves threads without pushing code, so the SHAs normally still match.
 
+## Step 2.5 — Profile-declared merge-time gate (non-concedable) and pre-merge steps
+
+Applies only if the profile's Merge gates section (or its `design_pipeline` doctrine) declares a merge-time command that CI does not already run — donor: a frontend `npm run build` the CI workflow never invokes. Run it on the PR head when the PR touches the declared path. Red → return `build_failed`; the orchestrator routes back to `/afk-address-pr` exactly like `merge_conflict`. `--force` does not bypass it: a broken build breaks every downstream consumer and is almost always a one-line fix. If the profile declares nothing, set `build_gate: "skipped"`.
+
+Then, still before the squash, run any **pre-merge steps** the `design_pipeline` doctrine declares on the PR head (donor: promoting accepted design baselines so they ride in the squash commit). Best-effort: note the outcome, never block or return a failure for them.
+
 ## Step 3 — Identify linked issue(s)
 
 Parse PR body for `Fixes #N` / `Closes #N` / `Resolves #N`. Collect all matched issue numbers.
@@ -206,13 +212,17 @@ On exit 0 set `postman_pushed: true` (name any overwrite warnings in `notes`). O
 
 (The `postman_*` field names are retained verbatim — they are the orchestrator contract; read them as "wire-contract artifact publish" flags in repos whose artifact isn't Postman.)
 
+## Step 6.6 — Profile-declared post-merge steps
+
+Applies only if the profile's `design_pipeline` doctrine declares post-merge procedures (donor: refreshing a code-sourced design mirror after a frontend merge). **Skip in `--auto` mode** — the merge is queued, not landed. Otherwise run them as that doctrine writes them, on the base branch, best-effort: set `mirror_refresh: "done" | "skipped" | "failed"` in the return and continue — never roll back or block.
+
 ## Step 7 — Emit structured return
 
 ```json
 {
   "skill": "afk-merge-pr",
   "mode": "prd" | "single",
-  "result": "merged" | "merge_queued" | "merge_conflict" | "merge_queue_disabled" | "branch_protection" | "changes_requested" | "review_stale" | "not_approved" | "not_reviewed" | "unresolved_threads" | "structural_bug_master_target" | "structural_bug_wrong_base" | "pr_not_open" | "dirty_tree_foreign" | "missing_pr",
+  "result": "merged" | "merge_queued" | "merge_conflict" | "build_failed" | "merge_queue_disabled" | "branch_protection" | "changes_requested" | "review_stale" | "not_approved" | "not_reviewed" | "unresolved_threads" | "structural_bug_master_target" | "structural_bug_wrong_base" | "pr_not_open" | "dirty_tree_foreign" | "missing_pr",
   "auto_mode": <bool>,
   "queued_at": "<iso>" | null,
   "pr_number": <n>,
@@ -250,6 +260,7 @@ On exit 0 set `postman_pushed: true` (name any overwrite warnings in `notes`). O
 - **PR already merged** → emit `result: merged`, populate `merge_commit` from existing state, still close any open linked issues
 - **Approval exists but a later commit landed** → `review_stale`; orchestrator routes back to REVIEW, not to ADDRESS — the code may well be fine, it just hasn't been graded
 - **Review body has the `Claude comment 🤖` prefix but no verdict marker** → pre-protocol review; treat as `COMMENT` → `not_approved`. One fresh review pass clears it
+- **Red profile-declared merge gate (Step 2.5)** → return `build_failed`; orchestrator routes back to `/afk-address-pr`, exactly like `merge_conflict`. Never conceded, never force-merged past.
 - **Merge conflict with base** → return `merge_conflict`; orchestrator routes back to `/afk-address-pr` for rebase
 - **PR closes multiple issues** → close all, each with its own comment
 - **Linked issue belongs to different repo** → skip, note in return
