@@ -43,16 +43,18 @@ Also note `headRefName` — Step 1.5 needs it.
 
 **This step runs on every invocation, including follow-up passes.** Without it, every "Read file in full" later in the skill reads stale content and produces false judgments — most painfully on follow-up passes where Step 9a compares the current state of the PR against threads from a prior pass.
 
-Review **inside the PR's worktree** (`.worktrees/<headRefName>`, the one `/execute-issue`/`/address-pr` created), never by checking the branch out in the main working tree — the branch is already held by the worktree (`gh pr checkout` into the main tree would fail "already checked out"), and reviewing in the worktree means your own main-tree state (branch, uncommitted work) is irrelevant. If the worktree is missing (you're reviewing on a machine that never ran `/execute-issue`), recreate it from `origin`.
+Review **inside the PR's worktree** (at the profile's `worktree_root`: `.worktrees/<headRefName>` by default, `../<repo>-<headRefName>` under `sibling` — the one `/execute-issue`/`/address-pr` created), never by checking the branch out in the main working tree — the branch is already held by the worktree (`gh pr checkout` into the main tree would fail "already checked out"), and reviewing in the worktree means your own main-tree state (branch, uncommitted work) is irrelevant. If the worktree is missing (you're reviewing on a machine that never ran `/execute-issue`), recreate it from `origin`.
 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel)
+# worktree_root per the profile: default .worktrees/ inside the repo; `sibling` = ../<repo-basename>-<branch>
+WT_ROOT="$REPO_ROOT/.worktrees/"; [ "<worktree_root>" = "sibling" ] && WT_ROOT="$(dirname "$REPO_ROOT")/$(basename "$REPO_ROOT")-"
 BR=<headRefName>
-WT="$REPO_ROOT/.worktrees/$BR"
+WT="${WT_ROOT}$BR"
 
 git -C "$REPO_ROOT" fetch origin
 
-if git -C "$REPO_ROOT" worktree list --porcelain | grep -q "/.worktrees/$BR$"; then
+if git -C "$REPO_ROOT" worktree list --porcelain | grep -q "/$(basename "$WT")$"; then
   cd "$WT"
 else
   git -C "$REPO_ROOT" worktree prune
@@ -373,7 +375,7 @@ After posting, output a concise summary in chat. **If the review ran degraded (p
 7. **Praise what works.** Review summaries that contain only criticism are a training signal to write more defensively, not more correctly.
 8. **Confirm ambiguity back to the user** instead of guessing. If an acceptance criterion is unclear, flag it in the review body rather than deciding unilaterally.
 9. **One review per pass, fully batched.** Post every finding in a single review API call — never split a pass into multiple reviews. Drip-feeding comments forces extra address rounds.
-10. **Always sync the PR worktree (Step 1.5) before any file reads, and read from it.** This applies to initial *and* follow-up passes. Reviewing in `.worktrees/<headRefName>` — never a main-tree `gh pr checkout` — is what keeps `/review-pr` concurrency-safe and independent of your main-tree state. Skipping the sync produces phantom "still not addressed" replies on threads the author already fixed.
+10. **Always sync the PR worktree (Step 1.5) before any file reads, and read from it.** This applies to initial *and* follow-up passes. Reviewing in the PR's worktree — never a main-tree `gh pr checkout` — is what keeps `/review-pr` concurrency-safe and independent of your main-tree state. Skipping the sync produces phantom "still not addressed" replies on threads the author already fixed.
 11. **Axis B comments anchor to changed lines only.** Untouched pre-existing tech debt is out of scope, even if it violates a rule loaded in Step 4. Exception: if the PR's changes push an enclosing unit's metric over a rule threshold, flag the new line with `[caused by this PR]`. The PR's scope is the diff — do not expand it.
 
 ## Edge Cases

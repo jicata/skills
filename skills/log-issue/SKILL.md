@@ -93,6 +93,8 @@ Answer clarifying questions and re-present the gate. This is decided by the user
 
 ## Step 5 — File it
 
+**If the profile declares `design_pipeline`** and the proposal touches the frontend, invoke its `classify` skill first with a one-paragraph summary of the change, and put the confirmed verdict in the issue per its `doctrine`. Backend-only work skips this. Escalating to the PRD flow instead? Do not classify here — the PRD writer classifies with full PRD context.
+
 Pick the template by final classification.
 
 ### Bug template

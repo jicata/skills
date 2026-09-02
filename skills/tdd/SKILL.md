@@ -7,7 +7,7 @@ description: Test-driven development with the red-green loop. Use when building 
 
 TDD is the red → green loop. This skill is the reference that makes that loop produce tests worth keeping: what a good test is, where tests go, the anti-patterns, and the rules of the loop. Every section applies on every cycle — consult them before and during the loop, not after.
 
-When exploring the codebase, read the repo's glossary (per `.claude/doctrine/project-profile.md`) so test names and interface vocabulary match the project's domain language, and respect its non-superseded ADRs in the area you're touching.
+When exploring the codebase, read the repo's glossary (per `.claude/doctrine/project-profile.md`) so test names and interface vocabulary match the project's domain language, and respect the profile's recorded constraints (and any non-superseded ADRs, where the repo keeps them) for the area you're touching.
 
 ## What a good test is
 

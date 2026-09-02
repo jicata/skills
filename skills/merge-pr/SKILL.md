@@ -83,7 +83,7 @@ Expected: `state == "MERGED"`, `mergedAt` populated. If the merge failed (confli
 
 ### Step 4.5 — Drop the local branch
 
-`gh pr merge --delete-branch` deletes the **remote** branch. Also remove the PR's review worktree if one exists (`git worktree remove .worktrees/<headRefName>` — sibling skills rely on this happening here), then drop any stale local branch left behind:
+`gh pr merge --delete-branch` deletes the **remote** branch. Also remove the PR's review worktree if one exists (`git worktree remove <worktree_root>/<headRefName>` — `.worktrees/<headRefName>` by default, `../<repo>-<headRefName>` under `sibling`; sibling skills rely on this happening here), then drop any stale local branch left behind:
 
 ```bash
 git branch -D <headRefName> 2>/dev/null || true

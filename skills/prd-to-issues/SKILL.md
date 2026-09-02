@@ -139,11 +139,13 @@ Reference by number from the parent PRD:
 
 ## FE work
 
-**FE work:** <yes/no — per the repo's stack (profile)>
+**FE work:** <yes/no — per the repo's stack (profile). If the profile declares `design_pipeline`, carry the PRD's per-component verdict onto the slice that owns each component, per its `doctrine`>
 
 </issue-template>
 
 Do NOT close or modify the parent PRD issue.
+
+**If the profile declares `design_pipeline`**, walk the FE child issues through its handoff intake after creation, per its `doctrine` — the classification skill has already named the components; this is where each handoff gets attached to the child that owns it.
 
 ### 6. Wrap up
 

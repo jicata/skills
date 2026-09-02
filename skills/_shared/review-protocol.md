@@ -19,7 +19,7 @@ Under `self`, a repo therefore only ever accumulates `COMMENTED` reviews and `re
 
 **Absent-key default vs. recommended setting are different things.** `/setup` recommends `app` (Q12b) because it makes the audit trail honest. The *schema* default stays `self` so that every repo configured before this protocol existed, and every repo where App installation is restricted, reads correctly with no edit. Never treat a missing key as misconfiguration.
 
-To set up `app` mode, see [`setup/github-app.md`](../../setup/github-app.md) — scripted via `setup/create-review-app.js`.
+To set up `app` mode, see `setup/github-app.md` **in the base skill library** — scripted via its `setup/create-review-app.js`. Those live in the base repo, not in consuming repos: `setup/` is not installed.
 
 ## 2. The verdict marker — written identically in both modes
 
