@@ -80,6 +80,11 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 → **Recommend, never force.** Org repos frequently restrict App installation to owners; a repo with human reviewers may not want a bot approving at all; and `app` mode adds a private key to manage. A "no" here costs nothing but the audit trail.
 → *Donor: `self` — 400 PRs, every `reviewDecision` null, every review `COMMENTED`.*
 
+**Q12c — Production merge disposition.** Ask whenever the pipeline is installed. Detect first: does a merge to the default branch fire anything — a release workflow, a deploy, an image publish? State what you found, then: "When an autonomous run finishes, should it merge to `<default-branch>` itself, stop at an approved PR for you to test, or ask each time?"
+→ `ship_merge_default: merge | gate | ask` (omit for `ask`). A per-run `--merge` / `--no-merge` flag always overrides it.
+→ Recommend `gate` when a default-branch merge is a release — the human tests the integrated change before it ships, and `--merge` on a re-invoke finalizes. Recommend `merge` when the default branch releases nothing on its own.
+→ *Donor: `ask` with gating as the non-interactive default — release-please cuts a release on every merge to master.*
+
 **Q13 — LLM surface.** "Does this app construct prompts / call models?" → *yes:* install `llm-prompt-craft` doctrine (prompt-visibility gate).
 
 **Q14 — Wire-contract tooling.** "How do humans exercise the API — Postman? Is the collection repo-owned and synced?" → *yes:* install the postman-collection skill pattern (repo-owned JSON as source of truth).
