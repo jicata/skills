@@ -1,6 +1,6 @@
 ---
 name: ship-issue
-description: Top-level autonomous orchestrator that ships a single bug or enhancement end-to-end. Dispatches afk-coder to implement and address feedback, dispatches afk-reviewer for independent review, applies per-thread concession after 3 rejects (Axis-B only), forces merge after 7 rounds with all-blocker concession. Light-flow counterpart to /ship-feature — one issue, one PR off the default branch, no PRD scaffolding. Never halts; lazy-creates a cleanup issue only if anything is conceded or force-merged. Runs each role on the profile's configured per-role model (models.orchestrator / models.coder / models.reviewer). Use when the user runs /ship-issue <issue-number> on a single bug/enhancement issue (typically authored by /log-issue).
+description: Top-level autonomous orchestrator that ships a single bug or enhancement end-to-end. Dispatches afk-coder to implement and address feedback, dispatches afk-reviewer for independent review, applies per-thread concession after 3 rejects (Axis-B only). At kickoff it resolves whether to merge to the default branch at the end — from a `--merge`/`--no-merge` flag, the profile's `ship_merge_default`, or by asking the user once. When not merging, it converges the PR to reviewer-approved and STOPS at the production gate for the human to test; re-invoking with --merge completes the merge (and restores the round-7 force-merge). Emits a human-facing validation block on every terminal path. Light-flow counterpart to /ship-feature — one issue, one PR off the default branch, no PRD scaffolding. Never halts mid-loop; lazy-creates a cleanup issue only on residue. Runs each role on the profile's configured per-role model (models.orchestrator / models.coder / models.reviewer). Use when the user runs /ship-issue <issue-number> on a single bug/enhancement issue (typically authored by /log-issue).
 ---
 
 # Ship Issue
@@ -17,20 +17,34 @@ Autonomous orchestrator for shipping a single bug or enhancement end-to-end. Lig
 
 `/ship-issue <issue-number> --dry-run` — walk the state machine and print planned actions without dispatching subagents or mutating GitHub.
 
+`/ship-issue <issue-number> --merge` — pre-answer the merge question (Step 0): merge all the way to the default branch at the end, no prompt. `--no-merge` pre-answers the other way (converge and stop at the gate).
+
 If no issue number, ask. Do not guess.
 
 **Default branch.** Wherever this skill writes `master`, use the repo's **actual default branch** — resolve it once at Step 1 (`gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`) and substitute it everywhere below, including the worktree base and the PR target. JSON `result` names stay verbatim regardless. The same substitution rule governs `/afk-execute-issue`; this skill is the entry point, so resolving it here is what makes the whole run consistent.
 
 **Push remote.** Likewise `origin` means **the writable remote for this repo**, which the profile's `tracker` names. In a fork layout `origin` is your fork and the source repo is `upstream` — never fetch a base branch from, or push to, a remote you do not own.
 
+## Step 0 — Merge disposition (resolve FIRST, before any other step)
+
+**The very first action of the skill.** Before Step 0a, before any preflight, before touching git or dispatching an agent, fix one boolean, `merge_at_end`:
+
+- `--merge` passed → `true`. `--no-merge` passed → `false`. No prompt either way.
+- Neither flag → read the profile's `ship_merge_default`:
+  - `merge` → `true`; `gate` → `false`; no prompt.
+  - `ask`, or the key is absent → **ask once, in prose:** *"Merge to `<default-branch>` at the end when it's green? (y/N)"* — `y` → `true`; anything else, an empty answer, or a non-interactive session → `false`. Then run autonomously; never ask again.
+
+Decided here and only here — the human knows a given issue's disposition at kickoff. Throughout this skill, "`--merge` mode" means `merge_at_end == true` and "default mode" means `false`, whatever the source. In default mode the run converges the PR to reviewer-approved and **stops at the production gate**; `/ship-issue <issue-number> --merge` after the human has tested completes it. A repo where the default branch does not release anything may set `ship_merge_default: merge` and never see the gate.
+
 ## Critical principles (read first)
 
-1. **The PR is never abandoned.** It merges clean, with conceded threads, or via forced merge after concession. Residue is logged to a lazily-created cleanup issue.
-2. **Never halt for human input.** Every unresolvable condition becomes a cleanup-issue entry; the loop continues to the next state.
+1. **The PR is never abandoned.** In `--merge` mode it merges clean, with conceded threads, or via forced merge after concession. In default mode it converges to reviewer-approved and is **handed to the human at the production gate** — left open, not abandoned. Residue is logged to a lazily-created cleanup issue.
+2. **Never halt for human input — mid-loop.** Every unresolvable condition *between states* becomes a cleanup-issue entry; the loop continues to the next state. This governs mid-flight behaviour, not the terminal state — see principle 7.
 3. **Independent review is load-bearing.** Coder and Reviewer are separate `Agent` dispatches. Never collapsed.
 4. **GitHub is the durable state.** No local state file. Resumability via reconciliation on re-invocation.
 5. **Per-role models, resolved from the profile.** Each role runs on the model the profile's `models` map assigns it — `orchestrator`, `coder`, `reviewer` — falling back to `workhorse_model` for any role the map omits. The **reviewer must never be weaker than the coder**: a reviewer that cannot see what the coder could not see rubber-stamps, which defeats the independent-review dispatch entirely. Spending up on the reviewer is the highest-value tier choice in this flow.
 6. **The user's main repo checkout is never touched.** All implementation, branching, pushing, and review happens inside a dedicated sibling worktree at `../<repo>-ship-<issue-number>`. The user can keep working on `master` (or any other branch) in their main checkout for the duration of the run.
+7. **The production merge is gated by default.** The loop runs autonomously to a reviewer-approved PR, then **stops** unless `--merge` mode is on. The autonomous work is complete at that point; crossing onto the default branch — a release, wherever merges trigger release automation — is reserved for an explicit human go, and `--merge` is that go given up front. The gate removes exactly two behaviours: the terminal merge and the round-7 **force** (Axis-A force-concession + forced merge). Everything else — including routine 3-reject Axis-B concession, which is how the PR reaches "approved" — runs identically in both modes.
 
 ## Step 0a — Model preflight (warn, never block)
 
@@ -93,7 +107,8 @@ gh issue list --label ship-cleanup --search "Issue #<issue-number> in:title" --j
 
 Cases:
 - **Merged PR exists** for this issue → stop; report; suggest the user re-open the issue if more work is needed.
-- **Open PR exists** → adopt it; resume at REVIEW with `round_count = max(existing review rounds, 1)`.
+- **Open PR exists, `--merge` mode, and the PR already passes the merge gate** of `.claude/skills/_shared/review-protocol.md` §4 — the governing marker is `APPROVE` at `reviewed_sha == headRefOid`, no unresolved thread, no blocking native `CHANGES_REQUESTED` (the completion re-invoke after a human tested a gated PR) → adopt it and GO TO MERGE directly. Do not spend a reviewer pass re-approving what is already approved.
+- **Open PR exists** (any other case) → adopt it; resume at REVIEW with `round_count = max(existing review rounds, 1)`. The run flows to the terminal merge in `--merge` mode and to the gate in default mode.
 - **No PR** → enter the loop fresh at NEXT (will dispatch coder to create one).
 
 ### Worktree setup (isolation from the user's main checkout)
@@ -114,6 +129,7 @@ Cases:
    git worktree prune
    git worktree add --detach "$WORKTREE_PATH" "origin/$DEFAULT_BRANCH"
    ```
+3b. **If the profile sets `worktree_carry`**, carry gitignored local config (keys, credentials, `.env`, local settings overlays) into the freshly created worktree, immediately after the `git worktree add` above, per [`.claude/skills/_afk-shared/worktree-carry.md`](../_afk-shared/worktree-carry.md). Skip when step 2 reused an existing worktree.
 4. **All subsequent Agent dispatches and any local git/gh operations the orchestrator runs must use `$WORKTREE_PATH` as their working directory.** The orchestrator passes the path into each Agent prompt; agents `cd` into it before any tool use.
 
 The classic "dirty tree → stop" check is intentionally removed: the user's main repo dirtiness is no longer load-bearing because we are not touching it. The afk-* subskills retain their own `dirty_tree_foreign` guard which will fire on the worktree itself if it is unexpectedly dirty.
@@ -123,7 +139,8 @@ The classic "dirty tree → stop" check is intentionally removed: the user's mai
 Track in working memory (no state file):
 - `issue_number`, `pr_number` (or `null` until coder creates), `cleanup_issue_number` (or `null` until lazy-created)
 - `round_count`, `thread_reject_counts: {<thread_id>: <count>}`
-- `outcome` enum: `clean` | `axis_b_residue` | `axis_a_residue` | `force_merged` | `unmergeable`
+- `outcome` enum: `clean` | `axis_b_residue` | `axis_a_residue` | `force_merged` | `unmergeable` | `awaiting_approval` (default-mode terminal: PR converged — or handed over unconverged at round 7 — and left open at the production gate) | `blocked_integration_ci` (`--merge` mode under `axis_c: enforcing`, terminal CI red or unobserved — PR left open)
+- `integration_ci` (`n/a` | `pass` | `fixed` | `red` | `red-preexisting` | `unknown`), `ci_fix_attempts` (starts at 0, never reset)
 
 State machine:
 
@@ -187,10 +204,11 @@ Before dispatching Coder:
    - On `result: refused_axis_a_no_force`, leave thread (normal mode never auto-concedes Axis-A)
 
 2. **Round limit.** If `round_count >= 7`:
-   - Force-concede every remaining unresolved thread:
+   - **`--merge` mode:** force-concede every remaining unresolved thread:
      - Axis-B: `/afk-concede-thread <pr> <id> "round limit reached"`
      - Axis-A: `/afk-concede-thread <pr> <id> "round limit reached" --force-axis-a`
-   - Set `outcome = force_merged`, GO TO MERGE with `--force`
+     - Set `outcome = force_merged`, GO TO MERGE with `--force`
+   - **Default mode:** do **not** force-concede — there is no ship to justify manufacturing an approval. Log the still-open threads to the cleanup issue, set `outcome = awaiting_approval` (unconverged, with the open-thread count), GO TO MERGE, which stops at the gate. The human decides whether to push the PR further or merge on their own judgement.
 
 3. Otherwise resume the Coder on this PR. **The same Coder subagent persists across every round on a given PR** — the NEXT step's `Agent(...)` dispatch is the only *fresh* spawn; every ADDRESS round after it must resume that same agent via `SendMessage(to: <coder_agent_id>, ...)` so it keeps the implementation context it already built (which files it touched, why, prior thread history), not a cold re-read. Only spin up a new Coder `Agent(...)` if none exists yet for this PR (e.g. resuming a run where the orchestrator's own memory of the agent id was lost — reconstruct via the PR's commit/push history rather than guessing):
 
@@ -210,7 +228,28 @@ Parse the return:
 - `result: push_failure` → mark `outcome = unmergeable`, GO TO DONE
 - `result: dirty_tree_foreign` → halt; bug
 
+**Default mode never force-merges.** Every "force-concede + force-merge" / "GO TO MERGE with `--force`" instruction above (the `regression` and `rebase_conflict` paths) is a `--merge`-mode action. In default mode, log the triggering condition to the cleanup issue, set `outcome = awaiting_approval` with the condition noted, and GO TO MERGE — which stops at the gate. `unmergeable` (push genuinely impossible) is the one outcome that ends at DONE without the gate in either mode.
+
 ### MERGE
+
+**Terminal integration CI — watch → attribute → fix-or-log (both modes, before the mode branch).** The Reviewer read Axis C at review time; the default branch may have moved since, or a re-run may have flipped the suite. Re-confirm at the terminal, in the worktree on the PR branch. Governed by the profile's `axis_c` (`.claude/skills/_shared/axis-c.md`): under `off`, skip this block and set `integration_ci = n/a`.
+
+- **Watch.** Read the PR head's check-runs exactly as `afk-review-pr` Step 6.5 does — poll every 30s until every run is `completed`, capped at 15 minutes, each call per `resilience.md` §1. All `success` → `integration_ci = pass`, go to the mode branch. Still pending at the cap → log `[ci-integration-unknown]`, set `integration_ci = unknown`, go to the mode branch. Never treat pending as green; never hang.
+- **Attribute** (any `failure` / `timed_out`) against the same-named check on the default branch's HEAD: also red there → pre-existing, log `[ci-fail-integration pre-existing]`, set `integration_ci = red-preexisting`, do not try to fix it. Green there, red on the PR → attributable.
+- **Fix (attributable only), capped.** Resume the persistent Coder (`SendMessage` to `coder_agent_id`) with the failing check names, extracted assertions and run URLs: "diagnose on the PR branch, fix, push." Re-watch after each push. **Cap: 3 attempts per PR across the whole run** — `ci_fix_attempts` is never reset, so re-entering MERGE after a stale-approval re-review does not buy three more. Green → `integration_ci = fixed`. Exhausted → log `[ci-fail-integration attributable-unfixed]`, set `integration_ci = red`. A Coder fixing its own regression is the loop working — report it, no ceremony.
+
+Under `advisory` the watch still runs and every state is reported, but nothing below blocks on it — that is what advisory means. Under `enforcing` the `--merge` branch refuses red and unknown.
+
+**Default mode — stop at the production gate.** Do **not** merge; this is the whole point of the mode. Report `integration_ci` in the final report — the human is the gate, but they are told the CI state before they invest in testing.
+
+1. **The approval must be at the head.** Evaluate the review-protocol §4 gate read-only. If it returns `review_stale` (a push landed after the last `APPROVE`), run one more REVIEW at the current head before stopping — report "reviewer-approved" only when the gate would pass right now. Any other non-pass result on a PR this run believed converged is reported as found, never papered over.
+2. If `outcome` is not already `awaiting_approval` (the clean-approve arrival rather than round 7), set it now.
+3. Append the validation-steps block (`.claude/skills/_afk-shared/validation-steps.md`) to the **PR body**, preserving the existing body.
+4. GO TO DONE. The worktree and branch stay in place so the human can check the branch out and test.
+
+The final report tells the human to test and then re-invoke `/ship-issue <issue-number> --merge`.
+
+**`--merge` mode — ship it.** **Integration-CI release gate first (under `axis_c: enforcing`):** proceed only if `integration_ci` is `pass` or `fixed`. On `red`, `red-preexisting` or `unknown`, do **not** merge — the cleanup entry is already logged; set `outcome = blocked_integration_ci`, leave the PR open, GO TO DONE. Never merge onto the default branch on a red or unobserved suite. Then run the merge:
 
 If forced:
 ```
@@ -236,13 +275,22 @@ Parse the return:
 
 ### DONE
 
-1. Worktree cleanup:
-   - If `outcome` is `clean` / `axis_b_residue` / `axis_a_residue` / `force_merged` → remove the worktree now, since the PR is merged and no local state needs preserving:
+1. Worktree **and local branch** cleanup:
+   - If `outcome` is `clean` / `axis_b_residue` / `axis_a_residue` / `force_merged` → the PR is merged and no local state needs preserving. Remove the worktree, then delete the local branch it held:
      ```bash
      git worktree remove --force "$WORKTREE_PATH"
      git worktree prune
+     git branch -D "$(gh pr view <pr_number> --json headRefName --jq .headRefName)"
      ```
-   - If `outcome` is `unmergeable` → **leave the worktree in place** so the user can inspect local state. Mention the path in the final report.
+     **Delete the branch too — this is not optional bookkeeping.** Removing a worktree leaves its branch behind, and a **squash**-merged branch is never an ancestor of the default branch: `git branch --merged` never lists it, so the usual cleanup idiom is blind to it forever. Skipping this is how a repo silently accumulates dozens of dead local branches.
+
+     **`-D`, never `-d`** — `-d` refuses a squashed branch every time (the same reason `/merge-pr` uses `-D`). The safety therefore comes from **the gate, not from git**: run this only on an outcome where `gh` confirmed the merge, and only after the `git worktree remove` above succeeded. If removal failed, skip the branch deletion — a branch still checked out somewhere is the one case where `-D` would destroy the only copy.
+   - If `outcome` is `awaiting_approval` or `blocked_integration_ci` → **leave the worktree and its branch in place** — the PR is unmerged and the human will check out its branch to test or to look at what failed. Mention the path in the final report.
+   - If `outcome` is `unmergeable` → attempt removal **without `--force`**, and keep the worktree on refusal:
+     ```bash
+     git worktree remove "$WORKTREE_PATH" 2>/dev/null && git worktree prune
+     ```
+     Plain `remove` refuses whenever the tree holds modifications or untracked files, so git itself arbitrates: a worktree with real state is kept, while an **empty shell** — the aborted-run case of a detached, clean, zero-commit worktree with nothing to inspect — is reaped by the run that created it. **Never `--force` on this path, and never delete the branch here**: the PR did not merge, so the branch may hold the only copy of unpushed commits. If removal is refused, mention the path in the final report.
 2. Generate the final report (Step 3).
 
 ### ABORT
@@ -258,10 +306,16 @@ gh issue comment <issue-number> --body "$(cat <<EOF
 🤖 /ship-issue autonomous run complete.
 
 ## Outcome
-<one of: clean-merge | merged-with-axis-b-residue | merged-with-axis-a-residue 🚨 | force-merged | unmergeable>
+<one of: awaiting-approval (default — converged, NOT merged) | awaiting-approval-unconverged 🚨 (round 7, threads open) | clean-merge | merged-with-axis-b-residue | merged-with-axis-a-residue 🚨 | force-merged | blocked-integration-ci (terminal CI red/unobserved — NOT merged, PR open, logged) | unmergeable>
 
 ## PR
 #<pr-number> (<state>)
+
+## Integration CI
+<n/a (axis_c off) | green | auto-fixed (<checks>) | red (<checks>, logged) | pending (logged) | pre-existing red on <default-branch> (<checks>, logged)>
+
+## Next step
+<On `awaiting_approval`: "Test the PR (branch <branch>, worktree below), then run `/ship-issue <issue-number> --merge` to ship." On `blocked_integration_ci`: "CI is red/unobserved on the open PR (failing checks on the cleanup issue) — NOT merged. Fix the checks on <branch>, then re-invoke `/ship-issue <issue-number> --merge`." On a merged outcome: "Merged to <default-branch>." On `unmergeable`: what blocked it and where to look.>
 
 ## Cleanup issue
 <link, or "none">
@@ -283,12 +337,12 @@ gh issue comment <issue-number> --body "$(cat <<EOF
 <round_count>
 
 ## Worktree
-<"removed", or the absolute path on `unmergeable` so the user can inspect>
+<"removed", or the absolute path on `awaiting_approval` / `unmergeable` so the user can test or inspect>
 EOF
 )"
 ```
 
-Chat output mirrors this.
+On **every** terminal outcome, append the validation-steps block (`.claude/skills/_afk-shared/validation-steps.md`) to this comment — on a merged outcome it is the post-merge spot-check; on any outcome that leaves the PR open it is the pre-merge test recipe. Chat output mirrors all of this.
 
 ## Cleanup issue (lazy-create on residue only)
 
@@ -298,8 +352,10 @@ Unlike `/ship-feature`, this skill creates a cleanup issue **only if at least on
 - A regression was logged
 - AC was missing
 - `unmergeable` outcome
+- A red or pending terminal integration CI was logged (`[ci-fail-integration …]` / `[ci-integration-unknown]`), including the `blocked_integration_ci` outcome
+- Default-mode round 7 reached with threads still open (`awaiting_approval` unconverged) — the open threads are logged so they are not lost when the human takes over
 
-If none of those, **no cleanup issue is created** and the final report notes `Cleanup issue: none`.
+The clean default-mode gate (`awaiting_approval`, everything converged) is **not** residue. If none of the above apply, **no cleanup issue is created** and the final report notes `Cleanup issue: none`.
 
 When the helper does fire, mirror `/ship-feature`'s `upsert_cleanup_issue` with issue-scoped titling:
 
@@ -321,30 +377,33 @@ The inline `/afk-merge-pr` and `/afk-concede-thread` steps (run in the orchestra
 
 ## Critical Rules
 
-1. **Never halt for human input.** Every condition is auto-resolvable, force-concedable, or a cleanup-issue entry.
-2. **Never abandon the PR.** Every PR merges (clean, conceded, or forced) unless push itself is impossible, a human natively requested changes, or the merge gate disagrees with a fresh approval (`unmergeable` — the PR stays open).
-3. **Never auto-concede Axis-A** in normal mode. Only the forced-merge path (round 7) uses `--force-axis-a`.
+1. **Never halt for human input mid-loop.** Every *mid-flight* condition is auto-resolvable, force-concedable, or a cleanup-issue entry. The default-mode terminal gate is not a mid-loop halt — it is completion (Rule 13).
+2. **Never abandon the PR.** In `--merge` mode every PR merges (clean, conceded, or forced) unless push itself is impossible, a human natively requested changes, or the merge gate disagrees with a fresh approval (`unmergeable` — the PR stays open). In default mode the PR is converged and **left open at the gate for the human** — handed over, not abandoned.
+3. **Never auto-concede Axis-A** in normal mode. Only the `--merge`-mode forced-merge path (round 7) uses `--force-axis-a`. Default mode never force-concedes at all.
 4. **Never create a cleanup issue speculatively.** Lazy-create on first residue only.
 5. **Never bypass branch protection.**
-6. **Always run preflight Steps 0a/0b/0c/0d before anything else.** 0a (model) and 0d (review identity) warn and continue; the others fail fast. Step 0c (read `resilience.md`) is mandatory — it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs.
+6. **Step 0 (merge disposition) runs first, then preflight Steps 0a/0b/0c/0d before anything else.** 0a (model) and 0d (review identity) warn and continue; the others fail fast. Step 0c (read `resilience.md`) is mandatory — it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs.
 7. **Always reconcile from GitHub on re-invocation.** An open PR for the issue is adopted, not duplicated.
 8. **Always emit final report to chat AND issue comment.**
 9. **Coder and Reviewer must be separate `Agent` dispatches, run in the background** (`run_in_background: true`) so both are visible in the agent display. Independence is the design. Drive on completion notifications; never poll or arm a wakeup. If a child wedges, the operator sees it frozen in the display and intervenes.
 10. **Per-role models.** The orchestrator is expected on `models.orchestrator` (Step 0a warns on mismatch, never blocks); every dispatch passes the role's model (`models.coder` / `models.reviewer`) explicitly. The reviewer is never weaker than the coder.
 11. **Never adopt a PR for a different issue.** Reconciliation searches by `Fixes #<issue-number>`; if the only open PR doesn't match, treat as no PR.
 12. **Refuse PRD children.** Issues with `## Parent PRD` are explicitly redirected to `/ship-feature`.
+13. **The production merge is gated by default; `--merge` is the opt-in.** Default runs converge the PR and stop; the merge happens only in `--merge` mode. The gate removes exactly two behaviours — the terminal merge and the round-7 force — and nothing else.
+14. **Always re-read CI at the terminal, in both modes** (unless `axis_c: off`). Watch bounded, attribute red against the default branch's HEAD, fix attributable failures via the Coder (capped at 3 per PR across the run), log the rest. Under `enforcing`, `--merge` merges only on `pass` / `fixed`; red or unobserved never merges. This bounded foreground `gh api` loop is not the forbidden polling of background agents — it is the same read the Reviewer already does.
 
 ## Edge Cases
 
 - **Issue already has a merged PR** → stop; report; user must re-open or file a new issue.
 - **Issue is a PRD child** → refuse; redirect to `/ship-feature`.
 - **Coder opens PR targeting the wrong branch** → coder bug (the `--single` flag in `/afk-execute-issue` is load-bearing); abort with diagnostic.
-- **Round 7 hit with Axis-A blockers still open** → force-concede with `--force-axis-a`, force-merge with cleanup linkage. The 🚨 marker on the cleanup entry makes Axis-A residue visible.
+- **Round 7 hit with Axis-A blockers still open** → `--merge` mode: force-concede with `--force-axis-a`, force-merge with cleanup linkage; the 🚨 marker on the cleanup entry makes Axis-A residue visible. Default mode: stop at the gate as `awaiting_approval` unconverged, open threads logged, nothing force-conceded.
+- **`--merge` re-invoke on an already-approved open PR** → reconciliation short-circuits to MERGE; no fresh review pass.
 - **Master branch protection blocks the merge** → cleanup entry, `outcome = unmergeable`, leave the PR open for human action.
-- **`--dry-run`** → walk the state machine and print intended actions; no `Agent` dispatches, no `gh` mutations, no `git` mutations (including no `git worktree add` / `git worktree remove`), no check-command runs. Print the worktree path that *would* be used.
+- **`--dry-run`** → walk the state machine and print intended actions; no `Agent` dispatches, no `gh` mutations, no `git` mutations (including no `git worktree add` / `git worktree remove` and no `git branch -D`), no check-command runs. Print the worktree path that *would* be used and the terminal it would reach — default mode: "stop at the approved PR (no merge)"; `--merge` mode: "merge to <default-branch>".
 - **Worktree already exists at the target path** → reuse it; do not delete or recreate. GitHub state remains the source of truth for resumption.
 - **Worktree creation fails** (e.g., path occupied by a non-worktree directory) → log a cleanup-issue entry, mark `outcome = unmergeable`, stop. The user can manually `git worktree remove` or rename the colliding directory and re-invoke.
-- **`unmergeable` outcome** → the worktree is intentionally left in place so the user can inspect/recover local state. The final report includes the path. The user removes it manually with `git worktree remove --force <path> && git worktree prune` once done.
+- **`unmergeable` outcome** → DONE first tries a non-`--force` removal, so an empty shell (detached, clean, no commits — the aborted-run case) is reaped by the run that made it. A worktree holding modifications or untracked files is refused by git and intentionally left in place so the user can inspect/recover local state; the final report includes the path, and the branch is never deleted on this path. The user removes it manually with `git worktree remove --force <path> && git worktree prune` once done.
 - **Issue body references a missing module or non-existent feature** → coder will detect this during Explore; `result: regression` or `ac_missing` will be logged; orchestrator continues.
 
 ## Relationship to /ship-feature
@@ -356,6 +415,7 @@ The inline `/afk-merge-pr` and `/afk-concede-thread` steps (run in the orchestra
 | Loop | NEXT_CHILD → REVIEW → ADDRESS → MERGE_CHILD → FINALIZE_PRD | NEXT → REVIEW → ADDRESS → MERGE → DONE |
 | Cleanup issue | Always created lazily | Created lazily **only on residue** |
 | Finalization | PRD branch → master PR | None — PR merges into master directly |
+| Production merge | Gated by default; `--merge` merges the base→master PR | Gated by default; `--merge` merges the PR |
 | Bounds | 3 rejects / 7 rounds | Same |
 | Agents | `afk-coder` + `afk-reviewer` | Same |
 | Authoring | `/write-a-prd` → `/prd-to-issues` | `/log-issue` |

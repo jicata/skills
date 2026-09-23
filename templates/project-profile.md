@@ -30,6 +30,11 @@ review_app_token_cmd: <FILL: only when review_identity is app — a command prin
 review_app_slug: <FILL: only when review_identity is app — the App's slug; its bot login is `<slug>[bot]`. The merge gate lets a newer verdict marker at the current head supersede THIS bot's native CHANGES_REQUESTED (a stale block left behind when a later round degraded to COMMENT); a human's or any other bot's CHANGES_REQUESTED always blocks. Absent ⇒ no bot is ever superseded. Consumed by skills/_shared/review-protocol.md §4. Omit entirely under `self`>
 coder_lens: <FILL: the generated composite lens skill(s) a coder run must load, as a routing map from file type to skill — e.g. {default: coder-lens} or {backend: vsa-tdd, frontend: frontend-tdd}. REQUIRED whenever the pipeline is installed: execute-issue, afk-execute-issue and the afk-coder agent all resolve "the repo's composite coder lens" by reading THIS key. Without it they have no way to learn the lens's name and fall back to guessing from skill descriptions>
 worktree_root: <FILL: where the manual pipeline (execute-issue / address-pr / review-pr / merge-pr) puts per-branch worktrees. Default `.worktrees` — a gitignored directory inside the repo. Set to `sibling` to use `../<repo-basename>-<branch>` instead, the convention the ship-* orchestrators already use; pick sibling when in-repo directories are scanned by the repo's own tooling (test discovery, linters, design mirrors). Omit for the default>
+worktree_carry: <FILL: none | ignored | [<repo-relative path>, …] — gitignored local config (keys, credentials, `.env`, local settings overlays) hardlinked into every worktree the pipeline creates, since `git worktree add` checks out tracked content only. `ignored` carries everything ignored-and-present minus bulky generated categories (preferred where local secrets keep appearing — nobody has to remember to list a new one); a list carries exactly those paths. Default none (omit the key). See skills/_afk-shared/worktree-carry.md>
+worktree_carry_exclude: <FILL: only under `worktree_carry: ignored` — extra path/glob patterns for repo-specific generated output to keep out (a codegen target, a local tool cache), added to the built-in list. Never a secret. Omit when the built-ins suffice>
+ship_merge_default: <FILL: ask | merge | gate — what /ship-feature and /ship-issue do at the end when neither `--merge` nor `--no-merge` was passed. `gate` stops at a reviewer-approved PR (ship-issue) or an open base→default-branch PR (ship-feature) for a human to test; `merge` completes the merge; `ask` (default; omit the key for it) asks once at kickoff, non-interactive = gate. Pick `gate` where a default-branch merge fires a release. Consumed by ship-* Step 0>
+pr_title_convention: <FILL: conventional | none — `conventional` when release tooling (release-please, semantic-release, …) parses squash subjects, so every pipeline-opened PR gets a Conventional Commits title and merge-pr / afk-merge-pr verify it before the squash. Default `none` (omit the key). See skills/_afk-shared/conventional-pr-title.md>
+fe_contract_home: <FILL: none | <path> — set when a frontend someone ELSE builds (a consumer app, another team's repo) calls this repo's API. /write-a-prd Step 4.6 then hands that frontend a self-contained FE-handoff contract (routes, verbs, concrete JSON, status codes, failure states) at PRD time, living under this path as a wire-contract doc that every wire-affecting slice updates. Setting the key is the repo declaring that doc location — a binding spec for another team, which is why it may stand outside the lean canon of doctrine/documentation-first.md. Distinct from design_pipeline, which is this repo's OWN frontend. Omit for none>
 design_pipeline: <FILL: none | {classify: <skill name>, doctrine: <path>} — set only when the repo runs a design-handoff pipeline for frontend work. `classify` is the skill /log-issue, /write-a-prd and /prd-to-issues invoke to decide whether a change needs a per-component design handoff; `doctrine` is the file that owns the procedure. Omit for none>
 models: <FILL: per-role model tiers — the orchestrator role is checked against the session model (ship-* Step 0a warns on a mismatch, never stops), the other two are passed explicitly on dispatch and are INDEPENDENT of the session model.
   orchestrator: <FILL: e.g. opus — runs the state machine and makes concession/arbitration calls>
@@ -69,7 +74,18 @@ base_version: <FILL: version/commit of the skills base library this repo was set
 
 ## Testing
 
-<!-- How endpoints/units are tested; what is DELIBERATELY out of scope so agents don't re-flag it (Q11, Q12). -->
+<!-- How endpoints/units are tested; what is DELIBERATELY out of scope so agents don't re-flag it (Q11, Q12).
+     Also the test LANES, when the suite has more than one: which lane `check_commands` runs as the fast
+     pre-push gate, which lanes CI runs in parallel with review, any local-run exception (e.g. "diffs touching
+     persistence run the integration lane once locally"), and any lane nothing runs automatically. Two rules
+     every lane map carries:
+     - The fast local gate selects exactly the tests CI's fast job selects — same filter, same split. A gate
+       that selects differently produces failures CI never sees and misses ones it will.
+     - A new test category that fails loudly without its prerequisites (a rig, a credential, a gitignored
+       fixture) is added to CI's filter AND this lane map in the same change. Donor scar (ADF, 2026-08): a
+       new live-service category updated CI's filter only; coders kept running the old filter, hit the
+       missing-prerequisite guard, and logged a false regression that cost a cleanup cycle. -->
+
 
 <FILL>
 
@@ -84,6 +100,8 @@ base_version: <FILL: version/commit of the skills base library this repo was set
 > **EXAMPLE (donor: the donor stack) — delete:** Local `dotnet test` is the merge gate; CI does not gate .NET builds. WHY: a deliberate, deferred decision — not an oversight. Evidence: Q12 interview, 2026-07. An agent raising "CI doesn't run the .NET suite" as a blocker is noise; suppress it.
 
 > **EXAMPLE — delete:** Review identity is `self`, so every skill review posts as `COMMENTED` and `reviewDecision` is permanently `null`. The binding verdict is the `**Verdict:**` marker in the review body, per `skills/_shared/review-protocol.md`. WHY: GitHub rejects APPROVE/REQUEST_CHANGES from the PR author. Evidence: 400 PRs, zero non-null `reviewDecision`.
+
+> **EXAMPLE (donor: the donor stack) — delete:** Merge-time gate (merge-pr / afk-merge-pr Step 2.5): a PR landing on the default branch that touches `<migrations dir>/` runs `<verify command>` first — it restores a captured read-only copy of live dev data into a throwaway emulator, applies the migration the way deploy does, and re-applies it as a no-op. Exit `0` pass, `1` fail, `2`/`3` unverified; fail and unverified both block and are never conceded or forced. Evidence posted to the PR is the status line, file names and row counts only. Never on a child PR — the base→default-branch PR is where a PRD's migrations are seen as a set, in order. WHY: deploy runs the migration against live data and an applied migration cannot be edited afterwards; CI applies migrations to an *empty* database, so a data migration whose `WHERE` matches nothing exits 0, reports green, and ships a no-op. Evidence: the donor's migration-gate doctrine, 2026-09.
 
 ## Deploy & environments
 

@@ -1,13 +1,13 @@
 ---
 name: ship-feature
-description: Top-level autonomous orchestrator that ships an entire PRD end-to-end. Loops through every child issue of the PRD, dispatches the afk-coder subagent to implement and address feedback, dispatches the afk-reviewer subagent for independent review, applies per-thread concession after 3 rejects (Axis-B only), forces merge after 7 rounds with all-blocker concession, then opens and merges a PRD→master PR. Never halts; logs every residual concern to a single per-PRD ship-cleanup GitHub issue. Opt-in `--parallel <N>` mode runs up to N children concurrently, gated on a `Blocked-by:` DAG parsed from PRD child issues, with one git worktree per slot and merges serialized through GitHub's merge queue on the PRD base branch. Runs each role on the profile's configured per-role model (models.orchestrator / models.coder / models.reviewer). Use when the user runs /ship-feature <prd-number> to autonomously ship a feature.
+description: Top-level autonomous orchestrator that ships an entire PRD end-to-end. Loops through every child issue of the PRD, dispatches the afk-coder subagent to implement and address feedback, dispatches the afk-reviewer subagent for independent review, applies per-thread concession after 3 rejects (Axis-B only), forces merge after 7 rounds with all-blocker concession — merging each child into the PRD base branch. At kickoff it resolves whether to complete the base→default-branch merge at the end — from a `--merge`/`--no-merge` flag, the profile's `ship_merge_default`, or by asking the user once. When not merging, it OPENS the base→default-branch PR and STOPS at that production gate for the human to test the integrated feature; re-invoking with --merge finalizes. Emits a human-facing validation block on every terminal path. Never halts mid-loop; logs every residual concern to a single per-PRD ship-cleanup GitHub issue. Opt-in `--parallel <N>` mode runs up to N children concurrently, gated on a `Blocked-by:` DAG parsed from PRD child issues, with one git worktree per slot and merges serialized through GitHub's merge queue on the PRD base branch. Runs each role on the profile's configured per-role model (models.orchestrator / models.coder / models.reviewer). Use when the user runs /ship-feature <prd-number> to autonomously ship a feature.
 ---
 
 # Ship Feature
 
 (Extracted 2026-07 from the donor stack. Pipeline-generic; repo facts — check commands, per-role models, wire-contract tooling — live in the repo's `.claude/doctrine/project-profile.md` overlay. `master` throughout denotes the repo's **default branch** — substitute `main` etc. per `gh repo view --json defaultBranchRef`.)
 
-Autonomous orchestrator for shipping an entire PRD end-to-end. Replaces the manual sequence `/execute-issue → /review-pr → /address-pr → /review-pr → … → /merge-pr` with a self-driving loop that ships every child of a PRD and finalizes the PRD branch into master.
+Autonomous orchestrator for shipping an entire PRD end-to-end. Replaces the manual sequence `/execute-issue → /review-pr → /address-pr → /review-pr → … → /merge-pr` with a self-driving loop that ships every child of a PRD into the base branch and then opens the base→master PR. By default it **stops** at that production gate for a human to test the integrated feature; the base→master merge itself is opt-in via `--merge` (Step 0, principle 8).
 
 ## Invocation
 
@@ -17,21 +17,35 @@ Autonomous orchestrator for shipping an entire PRD end-to-end. Replaces the manu
 
 `/ship-feature <prd-number> --parallel <N>` — opt into concurrent execution of up to N children (recommended ceiling: 3). Requires GitHub merge queue enabled on the PRD base branch (Step 0c). Combine with `--dry-run` to print the scheduler trace (which children would be dispatched in which order, when each unblocks, when each would merge) without doing any work. **The parallel scheduler is opt-in; without `--parallel`, the run is strictly sequential and identical to prior behavior.**
 
+`/ship-feature <prd-number> --merge` — pre-answer the merge question (Step 0): complete the **base→master merge** at the end, no prompt. `--no-merge` pre-answers the other way (open the base→master PR and stop). Combinable with `--parallel <N>`.
+
 If no PRD number, ask. Do not guess.
+
+## Step 0 — Merge disposition (resolve FIRST, before any other step)
+
+**The very first action of the skill.** Before Step 0a, before any preflight, before touching git, creating a worktree, or dispatching an agent, fix one boolean, `merge_at_end`:
+
+- `--merge` passed → `true`. `--no-merge` passed → `false`. No prompt either way.
+- Neither flag → read the profile's `ship_merge_default`:
+  - `merge` → `true`; `gate` → `false`; no prompt.
+  - `ask`, or the key is absent → **ask once, in prose:** *"Merge the base branch into `<default-branch>` at the end when all children are green? (y/N)"* — `y` → `true`; anything else, an empty answer, or a non-interactive session → `false`. Then run autonomously; never ask again.
+
+Decided here and only here. Throughout this skill, "`--merge` mode" means `merge_at_end == true` and "default mode" means `false`, whatever the source. The disposition gates **only** the base→master finalize: the child loop is identical either way, and children still merge into the base branch autonomously (including the round-7 forced merge), because the base branch is not production. In default mode FINALIZE_PRD opens the base→master PR and stops; `/ship-feature <prd-number> --merge` after the human has tested the integrated base branch finalizes it.
 
 ## Critical principles (read first)
 
-1. **A child is never skipped.** Every PR is merged — clean, with conceded threads, or with a forced merge after concession. Residual concerns are logged to the cleanup issue.
-2. **Never halt for human input.** Every unresolvable condition becomes a cleanup-issue entry; the loop continues.
+1. **A child is never skipped.** Every child PR is merged into the PRD base branch — clean, with conceded threads, or with a forced merge after concession — in **both** modes. Residual concerns are logged to the cleanup issue.
+2. **Never halt for human input — mid-loop.** Every unresolvable condition *between states* becomes a cleanup-issue entry; the loop continues. This governs mid-flight behaviour, not the terminal base→master gate — see principle 8.
 3. **Independent review is load-bearing.** The Coder and Reviewer subagents are different agents. Do not collapse them.
 4. **GitHub is the durable state.** No local state file. Resumability via reconciliation from GitHub on re-invocation.
 5. **Per-role models, resolved from the profile.** Each role runs on the model the profile's `models` map assigns it — `orchestrator`, `coder`, `reviewer` — falling back to `workhorse_model` for any role the map omits. The **reviewer must never be weaker than the coder**: a reviewer that cannot see what the coder could not see rubber-stamps, which defeats the independent-review dispatch entirely. Spending up on the reviewer is the highest-value tier choice in this flow.
 6. **The user's main repo checkout is never touched.** All implementation, branching, pushing, reviewing, and final master-merge prep happens inside dedicated sibling worktrees at `../<repo>-ship-prd-<prd-number>` (sequential mode) or `../<repo>-ship-prd-<prd-number>-slot<k>` for `k in 1..N` (parallel mode). The worktrees own the PRD base branch and child branches for their lifetime; the user can keep working on `master` (or any other branch) in their main checkout for the duration of the run.
 7. **Parallelism is opt-in via `--parallel <N>` and DAG-gated.** Without the flag, the run is fully sequential and identical to prior behavior. With the flag, child issues are dispatched concurrently only when their `Blocked-by:` predecessors have merged; merges are always serialized — either via GitHub's merge queue on the PRD base branch (preferred, auto-detected at Step 0c) or via an orchestrator-side working-memory mutex (fallback, when merge queue isn't available — e.g., private repos on free GitHub plans). The scheduler is best-effort: any slot failure logs to cleanup and other slots keep flowing.
+8. **The base→master merge is gated by default.** The child loop ships every child into the base branch autonomously; FINALIZE_PRD then **opens the base→master PR and stops** unless `--merge` mode is on. The autonomous work is complete at that point — the whole feature sits integrated on the base branch, ready to test as one artifact. Crossing onto the default branch — a release, wherever merges trigger release automation — is the one action reserved for an explicit human go. The gate changes **only** the FINALIZE_PRD tail; it touches nothing in the child loop.
 
 ## Step 0a — Model preflight (warn, never block)
 
-The orchestrator is expected on the model the profile assigns to the **orchestrator role**. Before any other step:
+The orchestrator is expected on the model the profile assigns to the **orchestrator role**. After Step 0 and before any other step:
 
 1. Read `models.orchestrator` from the project profile (`.claude/doctrine/project-profile.md`), falling back to `workhorse_model` if the `models` map is absent or omits the role.
 2. Inspect the active model. The harness exposes the current model in the session header.
@@ -175,6 +189,7 @@ Single worktree, identical to prior behavior.
      git worktree add "$WORKTREE_PATH" -b <base-branch> origin/master
      ( cd "$WORKTREE_PATH" && git push -u origin <base-branch> )
      ```
+4a. **If the profile sets `worktree_carry`**, carry gitignored local config (keys, credentials, `.env`, local settings overlays) into the freshly created worktree per [`.claude/skills/_afk-shared/worktree-carry.md`](../_afk-shared/worktree-carry.md). Skip when step 3 reused an existing worktree.
 4b. **Sync the base branch forward from master** (see "Base-branch master sync" below) — run it here, in the base worktree, before any child branch is cut from `<base-branch>`. Skip only when the base branch was just created off `origin/master` in 4 (it is already current).
 5. **All subsequent Agent dispatches and any local git/gh operations the orchestrator runs must use `$WORKTREE_PATH` as their working directory.** The orchestrator passes the path into each Agent prompt; agents `cd` into it before any tool use. The orchestrator itself uses `( cd "$WORKTREE_PATH" && <cmd> )` for every git op.
 
@@ -197,6 +212,8 @@ N+1 worktrees total: one "base" worktree owning `<base-branch>` for orchestrator
    ```bash
    if ! git worktree list --porcelain | grep -q "$SLOT_WT_k"; then
      git worktree add --detach "$SLOT_WT_k" origin/<base-branch>
+     # only if the profile sets worktree_carry — every slot's agents need the same local config:
+     # carry_gitignored_runtime_files "$REPO_ROOT" "$SLOT_WT_k" <mode> <args...>
    fi
    ```
    When the slot scheduler claims a child issue for slot `k`, the orchestrator (or the Coder via its dispatch prompt) checks out the child branch inside `$SLOT_WT_k`:
@@ -448,12 +465,14 @@ Parse the structured return:
 
 When `NEXT_CHILD` reports `no_children` and there are no open child PRs left:
 
-1. Open PR from `<base-branch>` → `master`:
+1. Open (or adopt) the PR from `<base-branch>` → `master`. **Idempotent** — on a `--merge` completion re-invoke the PR already exists from the prior default-mode run, so reconcile first and reuse it; never open a second:
    ```bash
+   gh pr list --base master --head <base-branch> --state open --json number --limit 1
+   # one exists → adopt its number as <prd-pr-num>; else create:
    gh pr create \
      --base master \
      --head <base-branch> \
-     --title "PRD #<prd-number>: <PRD title>" \
+     --title "<PRD #<prd-number>: <PRD title> — or conventional under the profile's pr_title_convention, per _afk-shared/conventional-pr-title.md>" \
      --body "$(cat <<EOF
    Closes #<prd-number>
 
@@ -471,6 +490,24 @@ When `NEXT_CHILD` reports `no_children` and there are no open child PRs left:
    EOF
    )"
    ```
+
+   Then append the validation-steps block (`.claude/skills/_afk-shared/validation-steps.md`) to the PR body, preserving the existing body — the recipe the human uses to validate the integrated base branch before approving the merge.
+
+1a. **Integration CI — watch → attribute → fix-or-log (both modes, before the gate).** The base→master PR is the first CI run of all children *together* against the current default branch — a run no child ever saw, since each was green against an older base tip, in isolation. Cross-child breakage (one child renames what another calls) and base-drift breakage surface **only here**; per-child Axis C structurally cannot catch them. Run it in the base worktree on `<base-branch>`, governed by the profile's `axis_c` (`.claude/skills/_shared/axis-c.md`) — under `off`, skip and set `integration_ci = n/a`.
+
+   i. **Watch.** Read the PR head's check-runs exactly as `afk-review-pr` Step 6.5 does — poll every 30s until every run is `completed`, capped at 15 minutes, each call per `resilience.md` §1. All `success` → `integration_ci = pass`, go to 1b. Still pending at the cap → log `[ci-integration-unknown]` with the pending check names, set `integration_ci = unknown`, go to 1b. Never treat pending as green; never hang.
+
+   ii. **Attribute** each `failure` / `timed_out` against the same-named check on `origin/master` HEAD: also red there → pre-existing, not this PRD's doing, never fixed here; green there, red on the PR → attributable (a child, or the integration of children, produced it).
+
+   iii. **Fix (attributable only), capped.** Resume a surviving Coder (`SendMessage`), or dispatch a fresh one (`Agent(model: "<models.coder>", run_in_background: true)`) in the base worktree, with the failing check names, extracted assertions and run URLs: "diagnose on `<base-branch>`, fix, push — this is integration breakage across children that each passed alone." Re-run (i) after each push. **Cap: 3 attempts across the whole run** (`ci_fix_attempts`, never reset within a run). Green → `integration_ci = fixed`. Exhausted → log `[ci-fail-integration attributable-unfixed]`, set `integration_ci = red`.
+
+   iv. Only pre-existing failures → log `[ci-fail-integration pre-existing]` naming the checks, set `integration_ci = red-preexisting`.
+
+   A Coder fixing breakage its own children made is the loop working — record `integration_ci = fixed (<checks>)` in the final report, no ceremony. Under `advisory` the watch runs and reports but blocks nothing.
+
+1b. **Production gate — default mode stops here.** In default mode the whole feature is integrated on `<base-branch>` and the base→master PR is open with its validation block. Set `finalization = awaiting-approval`, **do not** run steps 2–3c (no master merge, no PRD close, no label delete, no canonical wire-contract publish — all production actions), and GO TO DONE. The `prd-<n>` label and the PRD issue stay as they are, so the still-integrating work stays grouped and the PRD stays open until it actually lands. The final report tells the human to test `<base-branch>` and re-invoke `/ship-feature <prd-number> --merge`. It also reports `integration_ci` from 1a, so the human knows the integration's CI state before investing in manual testing — this path never blocks on CI; any red or pending state is already a cleanup entry.
+
+   **Only in `--merge` mode** (given up front, or on the completion re-invoke) do steps 2–3c run — and, under `axis_c: enforcing`, only if `integration_ci` is `pass` or `fixed`. On `red`, `red-preexisting` or `unknown`, do **not** merge: set `finalization = finalize-blocked-ci`, leave the base→master PR open, GO TO DONE. Never merge onto the default branch on a red or unobserved integration suite.
 
 2. Attempt the master merge with **manual hunk-by-hunk resolution first**, fallback `-X theirs`. **All git operations happen inside the worktree on `<base-branch>`; `master` is never checked out — it stays as the `origin/master` remote ref.**
    ```bash
@@ -528,7 +565,28 @@ When `NEXT_CHILD` reports `no_children` and there are no open child PRs left:
      git worktree prune
      ```
      Slot worktrees may already be detached at `origin/<base-branch>` (released slots) or holding a stale child branch (unmergeable slot); `--force` covers both.
-   - If any children are `unmergeable`, or `[finalize-blocked]` was logged, or the PRD→master PR is still open → **leave all worktrees in place** so the user can inspect/recover local state. Mention every worktree's absolute path in the final report, grouped by sequential vs parallel.
+   - **Local branch sweep — same clean conditions, immediately after the worktree removal above.** Every child that reached `result: merged` left a local branch behind, and so did `<base-branch>`:
+     ```bash
+     for pr in <every merged child PR number>; do
+       git branch -D "$(gh pr view $pr --json headRefName --jq .headRefName)"
+     done
+     git branch -D <base-branch>
+     ```
+     **Here, not at MERGE_CHILD.** In sequential mode the just-merged child branch is still checked out in `$WORKTREE_PATH` until the next child is claimed, so an in-loop `git branch -D` is refused; the worktrees are gone by this point, so the sweep succeeds.
+
+     **`-D`, never `-d`, and the gate is what makes it safe.** Child PRs are **squash**-merged into `<base-branch>`, so none of these branches is ever an ancestor of anything — `-d` refuses every time and `git branch --merged` never lists them, which is exactly how they accumulate unnoticed. Sweep only branches whose PR `gh` confirmed merged, only after the worktrees were removed, only under the clean conditions above. Skip any branch whose worktree removal failed.
+
+     > **Donor scar (ADF, 2026-08):** both ship skills removed the worktree at DONE but never the branch; 25 dead local branches had accumulated before anyone looked, invisible to `git branch --merged`.
+   - If any children are `unmergeable`, or `[finalize-blocked]` was logged, or the PRD→master PR is still open — **including the default-mode `awaiting-approval` gate, where the PR is intentionally left open for the human to check out and test `<base-branch>`** → **leave all worktrees and every local branch in place** so the user can inspect/recover/test local state. Mention every worktree's absolute path in the final report, grouped by sequential vs parallel.
+
+     One exception inside this path: a slot worktree that is **detached, clean, and holds no commits** (a released or never-claimed slot) has nothing to inspect. Reap those with a non-`--force` removal, which git refuses the moment a tree holds modifications or untracked files:
+     ```bash
+     for k in $(seq 1 <N>); do
+       git worktree remove "$SLOT_WT_k" 2>/dev/null || true
+     done
+     git worktree prune
+     ```
+     **Never `--force` on this path and never sweep branches here** — an unmerged child branch may hold the only copy of its commits.
 2. Generate the final report (next step).
 
 ## Step 4 — Final report
@@ -544,8 +602,12 @@ gh issue comment <prd-number> --body "$(cat <<EOF
 - Children shipped with Axis-B residue: <count>
 - Children shipped with Axis-A residue 🚨: <count>
 - Children unmergeable (push/branch-protection failures): <count>
-- PRD finalization: <merged-into-master | conflicts logged | blocked>
-- Wire-contract publish: <n/a | untouched | pushed | already in sync | failed — residue logged>
+- PRD finalization: <awaiting-approval (base→master PR open, NOT merged) | merged-into-master | conflicts logged | blocked | finalize-blocked-ci (integration CI red/unobserved — NOT merged, PR open, logged)>
+- Integration CI (base→master PR): <n/a (axis_c off) | green | auto-fixed (<checks>) | red (<checks>, logged) | pending (logged) | pre-existing red on master (<checks>, logged)>
+- Wire-contract publish: <n/a | untouched | pushed | already in sync | failed — residue logged | held — publishes on --merge>
+
+## Next step
+<On `awaiting-approval`: "Test the integrated feature on `<base-branch>` (worktree below), then run `/ship-feature <prd-number> --merge` to finalize into master." On `finalize-blocked-ci`: "Integration CI is red/unobserved on the open base→master PR (failing checks on the cleanup issue) — NOT merged. Fix the checks on `<base-branch>`, then re-invoke `/ship-feature <prd-number> --merge`." On `merged-into-master`: "Shipped to master." On any other blocked finalize: what blocked it and where the cleanup entry is.>
 
 ## Cleanup issue
 <link, or "none">
@@ -583,7 +645,7 @@ EOF
 )"
 ```
 
-Chat output mirrors this.
+On **every** finalization outcome, append the validation-steps block (`.claude/skills/_afk-shared/validation-steps.md`) to this comment — on `merged-into-master` it is the post-merge spot-check; on any outcome that leaves the base→master PR open it is the pre-merge test recipe for the integrated `<base-branch>`. Chat output mirrors all of this.
 
 ## Subagent dispatch — implementation
 
@@ -669,13 +731,13 @@ Agent(
 
 ## Critical Rules
 
-1. **Never halt for human input.** Every condition is either auto-resolvable, a forced concession, or a cleanup-issue entry.
-2. **Never skip a child.** Every PR is merged — clean, conceded, or forced. The only `unmergeable` exceptions are when the push itself fails (auth/branch-protection on the orchestrator path), a human's native `CHANGES_REQUESTED`, and a merge gate that disagrees with a fresh approval.
+1. **Never halt for human input mid-loop.** Every *mid-flight* condition is either auto-resolvable, a forced concession, or a cleanup-issue entry. The default-mode base→master gate is not a mid-loop halt — it is completion of the autonomous work (Rule 17).
+2. **Never skip a child.** Every child PR is merged into the base branch — clean, conceded, or forced — in both modes. The only `unmergeable` exceptions are when the push itself fails (auth/branch-protection on the orchestrator path), a human's native `CHANGES_REQUESTED`, and a merge gate that disagrees with a fresh approval.
 3. **Never auto-concede Axis-A** in normal mode. Forced-merge path only.
 4. **Always lazy-create the cleanup issue** on first concern, never up-front.
 5. **Always emit final report to chat AND PRD issue comment.**
 6. **Never bypass branch protection.**
-7. **Always run preflight Steps 0a/0b (and 0c in parallel mode) before anything else.** Step 0a and Step 0b's review-identity probe warn and continue rather than failing fast — but any gap between configured and executed mode must be stated up front **and** repeated in the final report's Execution conformance block, never left silent. Step 0b includes the resilience preflight: read `resilience.md` (it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs) before first dispatch.
+7. **Step 0 (merge disposition) runs first, then preflight Steps 0a/0b (and 0c in parallel mode) before anything else.** Step 0a and Step 0b's review-identity probe warn and continue rather than failing fast — but any gap between configured and executed mode must be stated up front **and** repeated in the final report's Execution conformance block, never left silent. Step 0b includes the resilience preflight: read `resilience.md` (it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs) before first dispatch.
 8. **Always reconcile from GitHub on re-invocation.** Open PRs targeting the PRD base branch are picked up and resumed.
 9. **Never create more than one ship-cleanup issue per PRD.** Helper deduplicates by title search.
 10. **Coder and Reviewer must be separate agent dispatches.** Independence is the design.
@@ -685,6 +747,8 @@ Agent(
 14. **Parallel mode: slot affinity is mandatory.** Once slot `k` claims a PR, every subsequent dispatch for that PR runs in slot `k` until the PR is merged or marked unmergeable. Migrating a PR across slots loses local context (uncommitted progress, build artifacts) and breaks the dirty-tree guard.
 15. **Every Coder/Reviewer/Address dispatch — both modes — uses `run_in_background: true`** so it is visible in the agent display. The orchestrator drives on harness completion notifications; it never polls, sleep-waits, or arms a `ScheduleWakeup` watchdog. If a child wedges inside a tool call, the operator sees it frozen in the display (no forward tool activity) and intervenes — there is no auto-kill.
 16. **Parallel mode: cleanup-issue concurrency is comment-append-only.** Body edits race across slots and silently lose entries; appending structured comments is the only safe pattern. (Mechanic implemented in the afk-* subskills, not here — but ship-feature must not attempt body edits to the cleanup issue from inside the parallel scheduler.)
+17. **The base→master merge is gated by default; `--merge` is the opt-in.** FINALIZE_PRD opens the base→master PR and stops unless `--merge` mode is on. The gate suppresses **only** the finalize tail (master merge + PRD close + `prd-<n>` label delete + canonical wire-contract publish); the child loop is untouched. On a `--merge` completion re-invoke, FINALIZE_PRD adopts the already-open base→master PR (never opens a second) and runs the tail.
+18. **Always follow the integration PR's CI (FINALIZE_PRD 1a), in both modes** (unless `axis_c: off`). The base→master PR is the only CI run of all children together — it catches cross-child and base-drift breakage per-child Axis C cannot. Watch bounded, attribute red against `origin/master` HEAD, fix attributable failures via the Coder (capped at 3 across the run), log the rest. Under `enforcing`, `--merge` merges only on `pass` / `fixed`; red or unobserved → `finalize-blocked-ci`, PR left open. This bounded foreground `gh api` loop is not a Rule-15 violation — Rule 15 forbids watchdog-polling background agents, and this is the same capped read the Reviewer already does.
 
 ## Edge Cases
 
@@ -693,8 +757,10 @@ Agent(
 - **Round 7 hit on a child with Axis-A blockers still open** → force-concede with `--force-axis-a`, force-merge with cleanup linkage; the 🚨 marker on the cleanup entry makes Axis-A residue visible
 - **Master branch protection blocks the final PRD→master merge** → leave PR open, log to cleanup, report; leave the worktree in place so the user can inspect
 - **Cleanup issue manually closed mid-run** → re-create on next concern (fresh title), log the gap
-- **`--dry-run`** → walk the state machine and print intended actions; no `Agent` dispatches, no `gh` mutations, no `git` mutations (including no `git worktree add` / `git worktree remove`), no check-command runs. Print the worktree path that *would* be used. **With `--parallel <N>`, also print the DAG (nodes + edges + initial ready_set) and a simulated tick-by-tick scheduler trace** showing which child each slot claims at each tick under ideal-completion assumptions — the goal is to expose schedule shape, not predict timing.
+- **`--dry-run`** → walk the state machine and print intended actions; no `Agent` dispatches, no `gh` mutations, no `git` mutations (including no `git worktree add` / `git worktree remove` and no `git branch -D`), no check-command runs. Print the worktree path that *would* be used and the finalization terminal — default mode: "open the base→master PR and STOP (no merge)"; `--merge` mode: "open and merge the base→master PR". **With `--parallel <N>`, also print the DAG (nodes + edges + initial ready_set) and a simulated tick-by-tick scheduler trace** showing which child each slot claims at each tick under ideal-completion assumptions — the goal is to expose schedule shape, not predict timing.
 - **Worktree already exists at the target path** → reuse it; do not delete or recreate. GitHub state remains the source of truth for resumption; the worktree just holds the local checkout.
+- **`--merge` completion re-invoke after a default-mode run** → every child is already merged into the base branch and the base→master PR is open. Reconciliation flows NEXT_CHILD → `no_children` → FINALIZE_PRD, which **adopts the open PR** and runs the finalize tail. The retained worktree is reused.
+- **Default-mode run finishes at `awaiting-approval`** → base→master PR open with its validation block, PRD issue open, `prd-<n>` label intact, canonical wire-contract publish held, worktree(s) retained. None of this is residue — no cleanup entry for a clean gate.
 - **Worktree creation fails** (e.g., path occupied by a non-worktree directory, or `<base-branch>` already checked out elsewhere) → log a `[worktree-setup-failed]` cleanup-issue entry, stop. The user can manually `git worktree remove` or rename the colliding directory and re-invoke.
 - **User's main repo has `<base-branch>` checked out** → `git worktree add` will refuse to claim a branch already checked out. Log `[worktree-base-branch-claimed]` and stop with a message asking the user to switch their main checkout to a different branch and re-invoke.
 - **`--parallel <N>` with `N == 1`** → degenerate parallel mode; degrade to sequential (no slot worktree overhead, no DAG required). Print a notice and proceed sequentially.

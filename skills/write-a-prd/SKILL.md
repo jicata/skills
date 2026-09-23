@@ -43,6 +43,9 @@ Check with the user that these modules match their expectations. Check with the 
 
    **If the profile declares `design_pipeline`** and the sketch includes FE work, invoke its `classify` skill here with the FE-touching modules from Step 4, and record its confirmed verdict in the `## FE work` section per its `doctrine`. Where a triage or issue-authoring skill escalated into this PRD, it deliberately deferred classification to here so the full PRD context is available — classify now.
 
+4.6. **Hand off the FE contract when a consumer's FE work is implied** — only if the profile sets `fe_contract_home`. `design_pipeline` covers *this* repo's own frontend; this step covers a frontend **someone else builds** against this repo's API (a consumer app, another team's repo). If the PRD adds or changes anything that frontend will ultimately call — the same route / shape / status trigger as Step 2.5, seen from the delivery side — author a self-contained **FE-handoff contract** before slicing: the whole chain from the consumer's frontend to this service (through any consumer backend in between), with routes, verbs, request/response bodies as concrete JSON, status codes, failure states, and any wire JSON the frontend must carry but not construct.
+
+   **Attach it to the PRD up front** (a PRD comment is fine as the immediate handoff) so the frontend can build in parallel with slicing. Its **canonical home is a living contract doc under `fe_contract_home`** — a wire contract, so every wire-affecting slice updates it, and it cannot drift while slices are planned and built. Link the `## FE work` section to it. This hands the consumer the contract, not the plan — building their frontend stays out of scope. **Done when** the contract is attached to the PRD, or the `## FE work` section states no consumer frontend surface is touched.
 5. Once you have a complete understanding of the problem and solution, use the template below to write the PRD. The PRD should be submitted as a GitHub issue. Prefix the issue title with "PRD:".
 
 <prd-template>
@@ -109,6 +112,8 @@ The cross-cutting inputs `/prd-to-issues` needs to author a per-slice `## QA Cha
 ## FE work
 
 **FE work:** <yes/no — per the repo's stack (profile)>
+
+<If Step 4.6 produced an FE-handoff contract: a link to it under `fe_contract_home`, or "no consumer frontend surface touched".>
 
 ## Out of Scope
 

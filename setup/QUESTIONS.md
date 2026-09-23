@@ -18,6 +18,7 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 **Q3 — External contract truth.** "Does another system consume this app's API — or is any public route ported from a system whose behavior is the real source of truth? Where does that consumer's source live, and which branch is its integration ref?"
 → *yes:* install `doctrine/port-from-consumer-contract.md`; record each consumer in the profile's `consumer_repos` key (local path + integration ref + probe order — client route constants first, then the DTOs it serializes, then its validators, then its UI); inline the trip-wire into the generated `CLAUDE.md` as one line ("before proposing any route, shape, or status contract, read the consumer at its integration ref — `.claude/doctrine/port-from-consumer-contract.md`"). The CLAUDE.md line is not optional: the rule fires at PRD/grilling time, when no file is open, so a path-scoped rule alone never loads in time. Optionally add a `paths:` rule over the repo's controllers/DTOs for the code-time half.
 → *no consumer repo reachable yet:* still install it if the app has a public surface — "no consumer client exists yet" is a result the doctrine asks you to record, not a reason to skip it.
+→ *a consumer's frontend, built outside this repo, calls this API:* ask where the FE-handoff contracts should live and record `fe_contract_home` — `/write-a-prd` then hands that frontend its contract at PRD time instead of letting it learn shapes from merged code.
 → *Donor: yes — one consumer app's API client + validators + admin UI is the wire-contract authority. Three incidents: a port frozen against the internal `.proto` (corrective PRD), a greenfield admin lane shaped without looking (three issues frozen, reversal PRD), and a tier-1-looking consumer check that was stale at every line.*
 
 **Q4 — Live-environment safety.** "Can agents in this repo reach live/shared databases or environments? Which must be treated read-only, and what ceremony applies to schema/data changes?"
@@ -61,6 +62,11 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 → Also resolve and record the **default branch** (`gh repo view --json defaultBranchRef`). The ship-* skills write `master` throughout and substitute the real branch; a repo defaulting to `main` needs that substitution to be explicit rather than assumed.
 → installs the chosen pipeline tier; the router is generated to match.
 
+**Q9b — Local config in worktrees.** Detected, when the pipeline is installed: run `git clean -ndX` and look for ignored files the app or its tooling reads at runtime — `.env`, key/credential files, local settings overlays. State what you found. The pipeline works in fresh `git worktree add` checkouts, which contain tracked files only, so each of those is missing there and fails like a code bug.
+→ found runtime files → `worktree_carry: ignored` (recommended — a secret added later is carried without anyone listing it), plus `worktree_carry_exclude` for any bulky generated output the built-in list misses; or an explicit path list if the ignored set is mostly large local state.
+→ nothing runtime-relevant → omit the key.
+→ *Donor: `ignored` — a sync-tool key, cloud credentials and a local settings overlay, after two children of one PRD logged failed publishes for a key the worktree did not have.*
+
 **Q10 — Documentation locations.** The doc philosophy is NOT a choice — the base ships lean-only: the durable canon is **glossary + ADRs + architecture/concept map**, everything else is a temporary artifact living on its work item (see `doctrine/documentation-first.md`). The question is just: "Where do (or should) the three canon artifacts live? Is there a living build-status map, or should setup seed one?"
 → records the three paths in the profile; seeds missing canon files.
 → *Donor: historically ran a fuller matrix (feature READMEs, flow docs) and has since slimmed toward the canon — the base never inherits the fuller matrix.*
@@ -79,6 +85,12 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 → Either way the binding verdict is the review-body marker, per `skills/_shared/review-protocol.md`. The identity only decides whether GitHub *also* records it natively.
 → **Recommend, never force.** Org repos frequently restrict App installation to owners; a repo with human reviewers may not want a bot approving at all; and `app` mode adds a private key to manage. A "no" here costs nothing but the audit trail.
 → *Donor: `self` — 400 PRs, every `reviewDecision` null, every review `COMMENTED`.*
+
+**Q12c — Production merge disposition.** Ask whenever the pipeline is installed. Detect first: does a merge to the default branch fire anything — a release workflow, a deploy, an image publish? State what you found, then: "When an autonomous run finishes, should it merge to `<default-branch>` itself, stop at an approved PR for you to test, or ask each time?"
+→ `ship_merge_default: merge | gate | ask` (omit for `ask`). A per-run `--merge` / `--no-merge` flag always overrides it.
+→ Recommend `gate` when a default-branch merge is a release — the human tests the integrated change before it ships, and `--merge` on a re-invoke finalizes. Recommend `merge` when the default branch releases nothing on its own.
+→ *Donor: `ask` with gating as the non-interactive default — release-please cuts a release on every merge to master.*
+→ Same detection, second fact: if the release tooling derives versions or changelogs from commit subjects (release-please, semantic-release, a Conventional Commits `commit-msg` hook), record `pr_title_convention: conventional` for confirmation — squash-merged PR titles become those subjects, and a non-conventional one is silently dropped from the release. Detected, not asked.
 
 **Q13 — LLM surface.** "Does this app construct prompts / call models?" → *yes:* install `llm-prompt-craft` doctrine (prompt-visibility gate).
 

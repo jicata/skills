@@ -47,7 +47,7 @@ Repo facts this skill keys off — canon doc locations, chassis, local stand-in,
 
 ## Step 2 — Resolve the open decisions
 
-Where the investigation returned open questions, ask them — one at a time, in prose, with concrete options derived from the findings and your recommendation attached.
+Where the investigation returned open questions, ask them one at a time, each as a full **decision brief** per [`../_shared/decision-brief.md`](../_shared/decision-brief.md): what is being decided and why it came up, the mechanism in play, each branch with what it concretely means and costs (real modules, routes, migrations — from the findings), your recommendation and what would change your mind, then the question. Stop and wait. In prose — never an option picker.
 
 Skip this entirely where the investigation returned none. Most trivial fixes are fully determined and need no grilling; the trigger is an unresolved branch, not a report type.
 
@@ -207,6 +207,8 @@ The coder that `/ship-issue` dispatches reads this before implementing, instead 
 - **Change-impact model** — what ripples, which edits are safe versus dangerous, what the tests catch and what they miss.
 
 The exit bar is that the reader could review the resulting PR, or maintain this slice, as if they had written it.
+
+**Register.** It is a written briefing, so it follows the controlled register in [`doctrine/how-to-explain.md`](../../doctrine/how-to-explain.md) — ASD-STE100 Simplified Technical English, the project's real terms kept in the body, the situation report's traced instance carried through as the mandatory worked example, **no analogies and no plain-role casting**, and a **glossary tail** closing the comment: every project noun, acronym, bare identifier and workflow assumption it leans on, one line each, in first-appearance order. The same register as `/expand-issue`'s walkthrough — the coder reads both the same way.
 
 ```bash
 gh issue comment <n> --repo <owner/repo> --body-file <scratch>

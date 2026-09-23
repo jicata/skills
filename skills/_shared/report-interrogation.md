@@ -50,6 +50,8 @@ One question at a time, in prose, waiting for the answer before the next. Batchi
 
 Attach your recommended answer to each — the reporter corrects a guess far faster than they compose an answer from nothing, and a wrong guess is cheap.
 
+That covers **fact** questions — which record, always or sometimes, when it last worked. A question that is a **decision** — two workable branches with different costs, where the reporter's choice sets the direction — is not asked this way. It gets the full five-part brief in [`decision-brief.md`](decision-brief.md): what is being decided and why now, the mechanism, each branch with its concrete costs, your recommendation and what would change your mind, then the one question. Never an option picker.
+
 ## Completion criterion
 
 Every claim in the report is sorted into observation or quarantined theory; each open axis is either answered, or recorded as an unknown with a destination. Then the investigation gets aimed.

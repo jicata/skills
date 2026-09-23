@@ -65,6 +65,8 @@ Check **all** of the following. If any fails, stop and report — do not merge.
 
 Applies only if the profile's Merge gates section (or its `design_pipeline` doctrine) declares a merge-time command that CI does not already run — donor: a frontend `npm run build` that the CI workflow never invokes, so a Vite-only failure would otherwise land green. Run it on the PR's worktree when the PR touches the declared path. Red → stop and report `build_failed`; this is not a standards opinion and is never conceded or forced past. If the profile declares nothing, skip.
 
+The same hook carries non-build gates — the worked example is a live-data migration verification (restore a captured read-only copy of live data into a throwaway store, apply the migration as deploy would, re-apply as a no-op) before a default-branch merge. Its status comes from the command's exit code, an unverified run blocks like a failure, and the PR evidence never includes raw output, which can echo real rows. See `/afk-merge-pr` Step 2.5.
+
 Then, still before the squash, run any **pre-merge steps** the `design_pipeline` doctrine declares on the PR head (donor: promoting accepted design baselines so they ride in the squash commit). Best-effort: report, never block the merge on them.
 
 ### Step 3 — Identify the linked issue(s)
@@ -72,6 +74,10 @@ Then, still before the squash, run any **pre-merge steps** the `design_pipeline`
 Parse the PR body for `Fixes #N`, `Closes #N`, `Resolves #N` (case-insensitive, any of these keywords). Collect **every** matched issue number — a PR may close multiple issues.
 
 If none are found, report: "PR #<n> does not reference a linked issue via `Fixes #<n>` in its body." Proceed with the merge regardless — the PR may have been opened manually — but note the missing link in the final report.
+
+### Step 3.5 — Conventional-title gate (only under `pr_title_convention: conventional`)
+
+On a squash the PR title becomes the commit subject the repo's release tooling parses. If the profile sets `pr_title_convention: conventional`, verify the title per `.claude/skills/_afk-shared/conventional-pr-title.md` and rewrite a non-matching one with `gh pr edit <pr-number> --title …` before merging. Otherwise skip.
 
 ### Step 4 — Squash-merge and delete the branch
 

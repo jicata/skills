@@ -129,6 +129,8 @@ Staleness is **evaluated but not enforced** under `--force`: if the marker SHA �
 
 Applies only if the profile's Merge gates section (or its `design_pipeline` doctrine) declares a merge-time command that CI does not already run — donor: a frontend `npm run build` the CI workflow never invokes. Run it on the PR head when the PR touches the declared path. Red → return `build_failed`; the orchestrator routes back to `/afk-address-pr` exactly like `merge_conflict`. `--force` does not bypass it: a broken build breaks every downstream consumer and is almost always a one-line fix. If the profile declares nothing, set `build_gate: "skipped"`.
 
+A second donor shape, for a gate that is not a build: **live-data migration verification.** When a PR landing on the default branch touches the migrations directory, the declared command restores a captured, read-only copy of live data into a throwaway store, applies the migration exactly as deploy would, and re-applies it to prove it is a no-op. Four properties make it a gate rather than a check: it is **non-concedable** (`--force` does not pass it — a migration applied to live data cannot be edited afterwards); its status comes from the command's **exit code**, never from grepping its output; an **unverified** run (capture failed, tool error, the diff itself could not be read) blocks exactly like a failure, never degrades to "not applicable"; and the evidence posted to the PR carries the status line, file names and row counts, **never raw output** — migration errors echo the offending rows, which are real data. Declared per the profile's Merge gates section like any other merge-time command.
+
 Then, still before the squash, run any **pre-merge steps** the `design_pipeline` doctrine declares on the PR head (donor: promoting accepted design baselines so they ride in the squash commit). Best-effort: note the outcome, never block or return a failure for them.
 
 ## Step 3 — Identify linked issue(s)
@@ -148,6 +150,10 @@ gh pr comment <pr-number> --body "Claude comment 🤖
 
 This PR is being merged via the autonomous orchestrator (/ship-feature or /ship-issue) after concession of remaining blocker threads. See cleanup issue #<cleanup-issue-number> for the list of deferred concerns to address before next release."
 ```
+
+## Step 4.6 — Conventional-title gate (only under `pr_title_convention: conventional`)
+
+On a squash the PR title becomes the commit subject the repo's release tooling parses — directly for `--single`, via the preserved child squash commit for a child → base merge. If the profile sets `pr_title_convention: conventional`, verify the title per `.claude/skills/_afk-shared/conventional-pr-title.md` and rewrite a non-matching one (`gh pr edit <pr-number> --title …`) before merging. This runs under `--force` too: a forced merge is still a release input. Otherwise skip.
 
 ## Step 5 — Squash-merge and delete the branch
 

@@ -147,6 +147,8 @@ Do NOT close or modify the parent PRD issue.
 
 **If the profile declares `design_pipeline`**, walk the FE child issues through its handoff intake after creation, per its `doctrine` — the classification skill has already named the components; this is where each handoff gets attached to the child that owns it.
 
+**If the PRD carries an FE-handoff contract** (`/write-a-prd` Step 4.6, under the profile's `fe_contract_home`), make creating and maintaining it explicit slice work: the first slice that changes the consumer-facing surface lands the living contract doc (from the PRD attachment), and every later slice whose acceptance criteria touch a route, verb, field, or status code carries an AC to update it in the same PR.
+
 ### 6. Wrap up
 
 After all issues are created, print the execution order derived from the `Blocked by` DAG (blockers before dependents), then tell the user:
