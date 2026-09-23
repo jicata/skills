@@ -37,7 +37,7 @@ A **flow** is a path through the skills. Most work travels the main flow; on-ram
 2. `/write-a-prd` — interview → module design → files a `PRD:` issue.
 3. `/prd-to-issues` — slices the PRD into child issues with `Blocked by` edges. Prints the execution order.
 4. Build — two lanes: HITL (default): `/expand-issue` → `/execute-issue` → `/review-pr` → `/address-pr` → `/merge-pr`, running ahead on expands while the coder builds. Autonomous: `/ship-feature <prd>` loops coder + reviewer subagents over every child.
-5. Finalize — `/execute-issue` (all-merged path) or `/ship-feature` merges the base branch to master and closes the PRD.
+5. Finalize — `/execute-issue` (all-merged path), or `/ship-feature`: by default it opens the base→master PR and stops at that production gate with a test recipe; after testing, `/ship-feature <prd> --merge` merges it and closes the PRD. (`/ship-issue` gates the same way; `--merge` up front skips the stop.)
 </example>
 
 ## On-ramps
