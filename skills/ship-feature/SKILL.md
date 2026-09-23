@@ -583,7 +583,7 @@ EOF
 )"
 ```
 
-Chat output mirrors this.
+On **every** finalization outcome, append the validation-steps block (`.claude/skills/_afk-shared/validation-steps.md`) to this comment — on `merged-into-master` it is the post-merge spot-check; on any outcome that leaves the base→master PR open it is the pre-merge test recipe for the integrated `<base-branch>`. Chat output mirrors all of this.
 
 ## Subagent dispatch — implementation
 

@@ -288,7 +288,7 @@ EOF
 )"
 ```
 
-Chat output mirrors this.
+On **every** terminal outcome, append the validation-steps block (`.claude/skills/_afk-shared/validation-steps.md`) to this comment — on a merged outcome it is the post-merge spot-check; on any outcome that leaves the PR open it is the pre-merge test recipe. Chat output mirrors all of this.
 
 ## Cleanup issue (lazy-create on residue only)
 
