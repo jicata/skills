@@ -10,7 +10,7 @@ The one rule that keeps N repos upgradeable:
 
 - **Base files install verbatim and are read-only by convention.** A repo never edits an installed base skill. Upgrades are file copies.
 - **Each repo gets a writable overlay** — a `project-profile.md` the interview writes and every later session maintains: YAML facts up top (stack, architecture, tracker, check commands, chassis, mode), **trigger-indexed** constraint sections below (keyed by activity: persistence, testing, deploy…). Constraints are edited in place, never appended chronologically; every constraint carries its **why + an evidence pointer** — a rule with a scar attached gets obeyed, a bare imperative gets relitigated. When a section outgrows a screen, it graduates into its own doctrine file and leaves an index line behind.
-- **Only manifests are ever generated per repo** — never wisdom. Five of them: the composite coder lens (a file list), the doctrine index (a table), the repo's `ask-*` router (derived from what setup actually installed, so it can't lie on day 1), a short `CLAUDE.md`, and a set of path-scoped `.claude/rules/`. The last two are what make loading *real*: `CLAUDE.md` is the only file Claude Code reads into every session, and a rule with `paths:` frontmatter loads its doctrine automatically the moment a matching file is opened. Both are routers into doctrine, never copies of it.
+- **Only manifests are ever generated per repo** — never wisdom. Five of them: the composite coder lens (a file list), the doctrine index (a table), the repo's `ask-*` router (derived from what setup actually installed, so it can't lie on day 1), a short `CLAUDE.md`, and a set of path-scoped `.claude/rules/`. The last two are what make loading *real*: `CLAUDE.md` is the only file Claude Code reads into every session, and a rule with `paths:` frontmatter loads its doctrine automatically the moment a matching file is read. Both are routers into doctrine, never copies of it.
 
 Templates (chassis-foundation, deploy-infra, …) are instantiated **only when the interview surfaces the condition** — nothing here assumes every project has a chassis, a GitOps pipeline, or a legacy oracle.
 
@@ -127,7 +127,7 @@ Doctrine files are **not** auto-loaded by Claude Code. Three mechanisms put them
 | Tier | Mechanism | Cost |
 | --- | --- | --- |
 | **always-on** | named in the generated `CLAUDE.md` | every session — reserve for the catastrophic few |
-| **path-scoped** | a generated `.claude/rules/*.md` with `paths:` frontmatter | only when a matching file is opened |
+| **path-scoped** | a generated `.claude/rules/*.md` with `paths:` frontmatter | only after a Read of a matching file — not Glob, not a Write of a new file |
 | **on-trigger** | the generated doctrine index, read by a skill | only when that skill runs |
 
 Most doctrine is path-scoped or on-trigger. Marking a file "always-on" without a `CLAUDE.md` line behind it is a wish, not a fact.
