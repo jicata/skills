@@ -208,6 +208,8 @@ The coder that `/ship-issue` dispatches reads this before implementing, instead 
 
 The exit bar is that the reader could review the resulting PR, or maintain this slice, as if they had written it.
 
+**Register.** It is a written briefing, so it follows the controlled register in [`doctrine/how-to-explain.md`](../../doctrine/how-to-explain.md) — ASD-STE100 Simplified Technical English, the project's real terms kept in the body, the situation report's traced instance carried through as the mandatory worked example, **no analogies and no plain-role casting**, and a **glossary tail** closing the comment: every project noun, acronym, bare identifier and workflow assumption it leans on, one line each, in first-appearance order. The same register as `/expand-issue`'s walkthrough — the coder reads both the same way.
+
 ```bash
 gh issue comment <n> --repo <owner/repo> --body-file <scratch>
 ```
