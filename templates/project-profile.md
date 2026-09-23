@@ -20,6 +20,7 @@ check_commands: <FILL: list — the commands that must pass before a PR, e.g. ["
 mode: <FILL: greenfield | brownfield>
 chassis: <FILL: none | paths — if not none, templates/chassis-foundation was instantiated; keep the paths mirrored here>
 legacy_oracle: <FILL: none | pointer to the reference implementation new code must behaviorally match>
+live_state_sources: <FILL: none | list — each live store holding behaviour-shaping state this repo must never transcribe: {what: e.g. "stored prompt instructions", pull: the read-only command that fetches current state, env: the environment it reads}. Consumed by doctrine/pull-live-state-first.md (Q4b). Omit for none>
 consumer_repos: <FILL: none | list — each system that consumes this app's public surface: {name, path: local checkout, ref: the integration branch to read at (never the working tree), probe: where its client route constants / DTOs / validators / UI live}. Consumed by doctrine/port-from-consumer-contract.md (Q3). Omit for none>
 doc_appetite: <FILL: full | lean>
 pipeline_tier: <FILL: full | light>

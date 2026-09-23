@@ -24,6 +24,11 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 → hard safety constraints at the top of the overlay (these are the rules that must never be lost in a compaction).
 → *Donor: live Spanner `shared-app-db` is READ-ONLY; Flyway promotes to live → seeds must be idempotent; editing an old migration = drop/recreate a DB → always ask.*
 
+**Q4b — Live mutable state.** "Does behaviour-shaping state live outside the repo in a store agents can read with one command — prompt instructions on a model gateway, feature-flag rules, remote config? What is the read-only pull command, and which environment does it read?"
+→ *yes:* install `doctrine/pull-live-state-first.md`; record each store in the profile's `live_state_sources` key (what it holds, the pull command, the environment it reads); inline its one-line form into `CLAUDE.md` — the trigger is a question ("what does the store say for X?"), not a file, so no `paths:` rule can carry it. If the repo already holds a transcription of the store (a `docs/prompts/` mirror, a fixture of the flag rules), say so now: it is a deletion candidate, and the first pull will likely show it stale.
+→ *no pull command exists yet:* recommend writing one before anything else — without it every agent reasons from whatever copy is nearest.
+→ *Donor: stored prompt instructions on an AI gateway, pulled by a committed read-only script. An audit found half the committed transcriptions stale — one 31 lines behind, one naming no instruction id — and the mirror directory was deleted.*
+
 ## Stack & architecture (mostly detected, confirmed, then installed)
 
 **Q5 — Backend language core.** Detected (csproj / pyproject / package.json / go.mod). Confirmed, then → installs **one** `doctrine/backend-*.md` core + overlay `check_commands`.
