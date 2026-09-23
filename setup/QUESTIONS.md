@@ -12,6 +12,7 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 
 **Q2 — Deployment reality.** "Does the path from merged code to a running system leave this repo? Where does deployment actually happen — GitOps repos, gateways, IaC?"
 → *yes:* instantiate `templates/deploy-infra`: the pipeline diagram, the sibling-repo pointers, the "a route the gateway doesn't know is a dead endpoint" trigger.
+→ follow-up: **"Which service of the same stack already ships through this pipeline and works?"** That is the reference sibling the template's *Conform to the fleet* section diffs against. None yet is a valid answer — record it, so the first deploy is known to be the one without a reference.
 → *Donor: CI ends at Artifactory; deploy = image-bump PR in `platform-gitops` + ArgoCD; Ocelot gateway routes must match app prefixes.*
 
 **Q3 — External contract truth.** "Does another system consume this app's API — or is any public route ported from a system whose behavior is the real source of truth? Where does that consumer's source live, and which branch is its integration ref?"

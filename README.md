@@ -162,7 +162,7 @@ Prose is filled in here and nowhere else — instantiated by setup from intervie
 | `project-profile.md` | **always** | `.claude/doctrine/project-profile.md` — the overlay. The repo's only writable skill surface. |
 | `router.md` | always | `.claude/skills/ask-<name>/SKILL.md` — the router, generated from what was *actually* installed. |
 | `chassis-foundation.md` | Q1 — the app sits on base/chassis libraries that own runtime behaviour | `.claude/doctrine/chassis-foundation.md`, reached **both** ways — a line in `CLAUDE.md` (this is the one whose absence caused two production incidents, so it earns always-on budget) **and** a path-scoped rule over the app's own source, so it arrives whenever an agent is about to reason about runtime behaviour: what the chassis owns, the division of labour, reviewer red flags, and the "read the chassis before asserting runtime behaviour" trigger list. |
-| `deploy-infra.md` | Q2 — the path to production leaves this repo | `.claude/doctrine/deploy-infra-foundation.md`, on-trigger via the doctrine index (it bites at ship time, not while editing a file, so it maps to no path): the pipeline, sibling-repo pointers, and the "a route the gateway doesn't know is a dead endpoint" trigger. |
+| `deploy-infra.md` | Q2 — the path to production leaves this repo | `.claude/doctrine/deploy-infra-foundation.md`, on-trigger via the doctrine index (it bites at ship time, not while editing a file, so it maps to no path): the pipeline, sibling-repo pointers, the "a route the gateway doesn't know is a dead endpoint" trigger, and the **conform-to-the-fleet** law — author infra config by rendering it and a named working sibling's, then diffing; every remaining line is a justified delta or a bug. |
 
 ---
 
