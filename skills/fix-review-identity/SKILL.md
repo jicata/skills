@@ -32,7 +32,12 @@ From `.claude/doctrine/project-profile.md`: `review_identity` and `review_app_to
 
 Run `review_app_token_cmd`, capturing stderr. Discard any token immediately; never print it.
 
-Success → skip to Step 4. Failure → classify per protocol §7.1: `not_configured`, `helper_missing`, `key_missing`, `auth_failed`, `not_installed`, `forbidden`, `token_error`.
+```bash
+ERR="$(mktemp)"; TOK="$(<review_app_token_cmd> 2>"$ERR")"; rc=$?; unset TOK
+head -n1 "$ERR"; rm -f "$ERR"
+```
+
+`rc == 0` → skip to Step 4. Failure → classify per protocol §7.1: `not_configured`, `helper_missing`, `key_missing`, `auth_failed`, `not_installed`, `forbidden`, `token_error`.
 
 ## Step 3 — Repair by cause
 
@@ -54,6 +59,9 @@ const signingInput = `${b64({ alg: 'RS256', typ: 'JWT' })}.${b64({ iat: now - 60
 const signature = crypto.createSign('RSA-SHA256').update(signingInput).sign(pem).toString('base64url');
 const jwt = `${signingInput}.${signature}`;
 
+// `--jwt`: print the App JWT instead (for App-level endpoints: `app`, `app/installations[/<id>]`).
+if (process.argv.includes('--jwt')) { process.stdout.write(jwt); process.exit(0); }
+
 fetch(`https://api.github.com/app/installations/${installationId}/access_tokens`, {
   method: 'POST',
   headers: { Authorization: `Bearer ${jwt}`, Accept: 'application/vnd.github+json' },
@@ -68,6 +76,8 @@ fetch(`https://api.github.com/app/installations/${installationId}/access_tokens`
 
 (`iat` is backdated 60s for clock skew; `exp` must be within 10 minutes.)
 
+**Two token kinds, two endpoint families — do not mix them.** Wherever this skill says "mint a JWT", run `review_app_token_cmd` with `--jwt` appended (the helper above prints the App JWT and exits). The JWT authenticates as the **App** and is the only credential `app` and `app/installations[/<id>]` accept. The plain command prints an **installation token**, which is the only credential `installation/repositories` and repo endpoints accept. An older helper without the `--jwt` branch silently prints an installation token (`ghs_…`) instead, and every App-level call then 401s — treat that as `helper_missing` and rewrite the helper (see Step 4).
+
 ### `key_missing` — search before asking
 
 The key is often present under a different name or path, especially after a machine move. **Search, then verify by use** — a file named like a key proves nothing:
@@ -76,7 +86,7 @@ The key is often present under a different name or path, especially after a mach
 ls ~/.ssh/*.pem ~/.claude/*.pem ~/Downloads/*.private-key.pem 2>/dev/null
 ```
 
-For each candidate, mint a JWT with the profile's `GH_APP_ID` and call `gh api app`. The one that authenticates is the right key — matching by filename is a guess, matching by successful auth is proof.
+For each candidate, mint a JWT with the profile's `GH_APP_ID` and call `GH_TOKEN="<jwt>" gh api app` (the JWT, never the installation token). The one that authenticates is the right key — matching by filename is a guess, matching by successful auth is proof.
 
 - **A candidate authenticates** → update the path in `review_app_token_cmd`. Do **not** copy or move the key; point at where it already lives.
 - **None do** → the key is genuinely gone. GitHub cannot re-issue it and there is no API to create one, so the human must generate a fresh key: App settings → **Private keys → Generate a private key**, save outside any repo, then re-run this skill. Print the direct URL (`https://github.com/settings/apps/<slug>/permissions` links it) and say plainly that the old key should be deleted on that page once replaced.
@@ -86,7 +96,7 @@ For each candidate, mint a JWT with the profile's `GH_APP_ID` and call `gh api a
 The App exists but isn't installed on this repo, or the installation ID is wrong. Mint a JWT and list installations:
 
 ```bash
-gh api app/installations --jq '.[] | "\(.id) \(.account.login) \(.repository_selection)"'
+GH_TOKEN="<jwt>" gh api app/installations --jq '.[] | "\(.id) \(.account.login) \(.repository_selection)"'
 ```
 
 - **An installation exists** → the recorded ID is simply wrong. Correct it in `review_app_token_cmd`. No human input needed.
@@ -98,7 +108,7 @@ Permissions changed and the installation needs re-approval. Print the installati
 
 ### `auth_failed` — the key and the App ID disagree
 
-Test the configured key against the configured `GH_APP_ID`. If `gh api app` fails, run the `key_missing` search to find which App the key *does* belong to, and report the mismatch concretely — name both the App ID in the profile and the App the key authenticates as, rather than reporting a bare 401.
+Test the configured key against the configured `GH_APP_ID`. If `GH_TOKEN="<jwt>" gh api app` fails, run the `key_missing` search to find which App the key *does* belong to, and report the mismatch concretely — name both the App ID in the profile and the App the key authenticates as, rather than reporting a bare 401.
 
 ### `not_configured` — declared `app` with nothing behind it
 
@@ -109,12 +119,28 @@ Test the configured key against the configured `GH_APP_ID`. If `gh api app` fail
 Never report success from a probe alone — a token that mints can still be scoped to the wrong repo.
 
 ```bash
+# Installation token → installation-scoped endpoint: which repos can this token reach?
 TOK=$(<review_app_token_cmd>)
-GH_TOKEN="$TOK" gh api installation/repositories --jq '.repositories[].full_name'   # must list this repo
-GH_TOKEN="$TOK" gh api app --jq '"\(.slug) perms=\(.permissions)"'                  # must show pull_requests: write
+[ -n "$TOK" ] && GH_TOKEN="$TOK" gh api installation/repositories --jq '.repositories[].full_name'   # must list this repo
+unset TOK
+
+# App JWT → App-level endpoint: what did the installation actually grant? (GET app and
+# app/installations/<id> reject installation tokens — they need the JWT.)
+JWT=$(<review_app_token_cmd> --jwt)
+case "$JWT" in
+  ghs_*|"") echo "jwt=outdated_helper" ;;          # old helper ignored --jwt (or printed nothing)
+  *) GH_TOKEN="$JWT" gh api "app/installations/<GH_APP_INSTALLATION_ID>" \
+       --jq '"\(.app_slug) \(.account.login) perms=\(.permissions)"' \
+       || echo "jwt=outdated_helper" ;;          # must show pull_requests: write
+esac
+unset JWT
 ```
 
 `pull_requests: write` is the load-bearing permission — without it the token mints happily and every review 403s.
+
+**A failed JWT call here means an outdated helper — treat it as `helper_missing`.** Step 2 already proved the key and App ID mint a working installation token, so the helper can sign a valid JWT; if `--jwt` returns an installation token (`ghs_…`), nothing, or a JWT that 401s on `app/installations/<id>`, the helper on disk predates the `--jwt` branch. Rewrite it per `helper_missing` (Step 3) — in `--check` mode, report it instead — and re-run Step 4. Do not reclassify it as `auth_failed`: the successful mint already ruled out a key/App-ID problem.
+
+Check the **installation's** permissions (`app/installations/<id>`), not the App's (`app`): after a permission change the App declares the new set immediately, but the installation keeps the old one until it is re-approved — the installation's set is what the token actually gets.
 
 Do **not** post a test review to verify. Use `setup/github-app.md` §5 if the user explicitly wants an end-to-end proof on a real PR, and dismiss the review afterwards.
 

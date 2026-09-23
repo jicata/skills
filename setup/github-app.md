@@ -115,6 +115,9 @@ const signingInput = `${b64({ alg: 'RS256', typ: 'JWT' })}.${b64({ iat: now - 60
 const signature = crypto.createSign('RSA-SHA256').update(signingInput).sign(pem).toString('base64url');
 const jwt = `${signingInput}.${signature}`;
 
+// `--jwt`: print the App JWT instead (for App-level endpoints: `app`, `app/installations[/<id>]`).
+if (process.argv.includes('--jwt')) { process.stdout.write(jwt); process.exit(0); }
+
 fetch(`https://api.github.com/app/installations/${installationId}/access_tokens`, {
   method: 'POST',
   headers: { Authorization: `Bearer ${jwt}`, Accept: 'application/vnd.github+json' },
@@ -129,11 +132,14 @@ fetch(`https://api.github.com/app/installations/${installationId}/access_tokens`
 
 (The `iat: now - 60` backdate absorbs clock skew between you and GitHub — a JWT issued "in the future" is rejected. `exp` must be within 10 minutes.)
 
+The `--jwt` flag exists for diagnosis (`/fix-review-identity`): App-level endpoints (`app`, `app/installations[/<id>]`) accept only the App JWT, while `installation/repositories` and every repo endpoint accept only the installation token. Reviews never pass it.
+
 Then record it in `.claude/doctrine/project-profile.md`:
 
 ```yaml
 review_identity: app
 review_app_token_cmd: "GH_APP_ID=123456 GH_APP_INSTALLATION_ID=12345678 GH_APP_PRIVATE_KEY_PATH=$HOME/.ssh/claude-reviewer.pem node $HOME/.claude/gh-app-token.js"
+review_app_slug: "claude-reviewer"   # the App's slug; lets the merge gate recognise its own stale CHANGES_REQUESTED
 ```
 
 The App ID and installation ID are not secrets — only the `.pem` is. Keeping the key *path* in the profile and the key itself outside the repo is the whole security boundary.

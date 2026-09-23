@@ -32,13 +32,15 @@ If no issue number, ask. Do not guess.
 5. **Per-role models, resolved from the profile.** Each role runs on the model the profile's `models` map assigns it — `orchestrator`, `coder`, `reviewer` — falling back to `workhorse_model` for any role the map omits. The **reviewer must never be weaker than the coder**: a reviewer that cannot see what the coder could not see rubber-stamps, which defeats the independent-review dispatch entirely. Spending up on the reviewer is the highest-value tier choice in this flow.
 6. **The user's main repo checkout is never touched.** All implementation, branching, pushing, and review happens inside a dedicated sibling worktree at `../<repo>-ship-<issue-number>`. The user can keep working on `master` (or any other branch) in their main checkout for the duration of the run.
 
-## Step 0a — Model preflight (fail-fast)
+## Step 0a — Model preflight (warn, never block)
 
-Identical to `/ship-feature` Step 0a. Must run on the profile's `models.orchestrator` (fallback `workhorse_model`). If the active model differs, stop with:
+Identical to `/ship-feature` Step 0a. Read `models.orchestrator` from the profile (fallback `workhorse_model`); if the active session model differs (any variant of the configured family matches), print one line and **continue**:
 
-> /ship-issue must run on the profile's orchestrator model. Active model is `<X>`, profile says `<models.orchestrator>`. Run `/model <models.orchestrator>`, then re-invoke `/ship-issue <issue-number>`.
+> Session model is `<X>`; profile `models.orchestrator` is `<Y>`. Continuing — Coder/Reviewer tiers are passed explicitly per dispatch and are unaffected.
 
-**Subagent tiers are independent of the session model** — coder and reviewer receive their tier explicitly on dispatch.
+Record the mismatch for the final report's **Execution conformance** block. Never stop on this. **Subagent tiers are independent of the session model** — coder and reviewer receive their tier explicitly on dispatch.
+
+Then run `/ship-feature` Step 0a's **tier check** (reviewer never weaker than coder — raise, warn, record; never stop).
 
 ## Step 0b — Permission preflight (fail-fast)
 
@@ -169,6 +171,7 @@ Parse the return — keep findings in working memory as `reviewer_verdict`, and 
 #### Decision
 
 - `verdict: approve` AND `axis_a_blockers == 0` AND `axis_b_blockers == 0` AND (`axis_c_mode != "enforcing"` OR `axis_c == "pass"`) AND no unresolved threads → GO TO MERGE
+- `axis_c: "superseded"` (Coder pushed mid-review; `verdict` is null, no review was posted) → re-dispatch Reviewer on the new head **without** incrementing `round_count` — a superseded review was never a real round
 - `axis_c: "fail"` / `"unknown"` **under `enforcing`** → do not merge; route back to the Coder with the failing check names. Axis C is never conceded. Under `advisory` the failing checks go in the run report and the run continues; under `off` there is nothing to read. See `.claude/skills/_shared/axis-c.md`
 - Otherwise → GO TO ADDRESS
 
@@ -226,8 +229,10 @@ Parse the return:
 - `result: merge_conflict` → re-dispatch Coder for `/afk-address-pr` to rebase; one retry; on persistent conflict, mark `outcome = unmergeable`
 - `result: branch_protection` → cleanup entry; mark `outcome = unmergeable`, GO TO DONE
 - `result: pr_not_open` → reconcile (may already be merged); if merged, set `outcome = clean`, GO TO DONE
-- `result: review_stale` → a commit landed after the approving review, so the head is ungraded. GO TO REVIEW to re-grade at the current head. **Guard:** if this is the second consecutive `review_stale` for this PR, something is pushing between review and merge — log a `[stale-review-loop]` cleanup entry and GO TO MERGE with `--force` (which records `stale_review_forced`) rather than looping
-- `result: changes_requested` / `unresolved_threads` / `not_approved` / `not_reviewed` → orchestrator bug; halt with diagnostic. The REVIEW gate already requires `verdict: approve` with zero blockers, so reaching MERGE without an approval means the state machine routed wrongly
+- `result: review_stale` → a commit landed after the approving review, so the head is ungraded. Increment `stale_merge_count` (starts at 0 per PR; reset to 0 on any other MERGE result and whenever REVIEW returns a verdict other than `APPROVE`). GO TO REVIEW for a fresh pass at the current head, then retry the merge. When `stale_merge_count` reaches **2**, something keeps pushing between review and merge: log `[stale-review-forced pr=#NN]` to the cleanup issue and retry with `--force <cleanup-issue-number>` rather than looping. A merge that lands this way is `force_merged`, never `clean`, and its `stale_review_forced: true` is carried into the Execution conformance block.
+- `result: not_approved` / `not_reviewed` → no governing `APPROVE` exists at the head — typically an adopted PR whose only reviews predate the verdict marker (those never count as approvals, by design). GO TO REVIEW for a fresh pass, then retry the merge. **Disagree guard:** if the same result returns straight after a fresh `APPROVE` at the current head, the gate and the reviewer disagree — a real defect, not a loop to retry: log `[merge-gate-disagrees pr=#NN]` with both results, leave the PR open, and set `outcome = unmergeable`, GO TO DONE.
+- `result: changes_requested` → a **human** (or a bot other than the configured review App) blocked the PR natively; the review App's own superseded blocks never reach here (protocol §4 step 1). Respect it: log `[human-changes-requested pr=#NN]`, leave the PR open, and set `outcome = unmergeable`, GO TO DONE (the PR and worktree stay for the human). Never concede or force past a human block.
+- `result: unresolved_threads` → threads opened after the approval. GO TO ADDRESS, then REVIEW, then retry the merge.
 
 ### DONE
 
@@ -265,9 +270,14 @@ gh issue comment <issue-number> --body "$(cat <<EOF
 <Either "✅ Ran as configured." or, for each mismatch, one line:
  "⚠️ <what> — configured: <x>, executed: <y>. Cause: <reason>. Fix: run `<repair skill>`."
  Also report here, under `axis_c: advisory`, any red or unknown CI check that did not block — an advisory
- suite that stays red must not become invisible.>
+ suite that stays red must not become invisible.
  Name a skill the operator can invoke, never a sequence of manual steps — for review identity that is
- `/fix-review-identity`.>
+ `/fix-review-identity`.
+ Also: orchestrator model (Step 0a — "⚠️ Orchestrator model: configured <models.orchestrator>, ran as <session model> —
+ Coder/Reviewer tiers unaffected."); reviewer tier (Step 0a tier check — "⚠️ Reviewer tier: configured <R>, ran as <C> —
+ reviewer may not be weaker than coder; fix `models` in the profile."); stale-review force (when the merge carried
+ `stale_review_forced: true` — "⚠️ Merged with --force after 2 consecutive stale reviews — the merged head was never
+ reviewed.").>
 
 ## Rounds
 <round_count>
@@ -312,15 +322,15 @@ The inline `/afk-merge-pr` and `/afk-concede-thread` steps (run in the orchestra
 ## Critical Rules
 
 1. **Never halt for human input.** Every condition is auto-resolvable, force-concedable, or a cleanup-issue entry.
-2. **Never abandon the PR.** Every PR merges (clean, conceded, or forced) unless push itself is impossible (`unmergeable`).
+2. **Never abandon the PR.** Every PR merges (clean, conceded, or forced) unless push itself is impossible, a human natively requested changes, or the merge gate disagrees with a fresh approval (`unmergeable` — the PR stays open).
 3. **Never auto-concede Axis-A** in normal mode. Only the forced-merge path (round 7) uses `--force-axis-a`.
 4. **Never create a cleanup issue speculatively.** Lazy-create on first residue only.
 5. **Never bypass branch protection.**
-6. **Always run preflight Steps 0a/0b/0c/0d before anything else.** 0d (review identity) warns and continues; the others fail fast. Step 0c (read `resilience.md`) is mandatory — it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs.
+6. **Always run preflight Steps 0a/0b/0c/0d before anything else.** 0a (model) and 0d (review identity) warn and continue; the others fail fast. Step 0c (read `resilience.md`) is mandatory — it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs.
 7. **Always reconcile from GitHub on re-invocation.** An open PR for the issue is adopted, not duplicated.
 8. **Always emit final report to chat AND issue comment.**
 9. **Coder and Reviewer must be separate `Agent` dispatches, run in the background** (`run_in_background: true`) so both are visible in the agent display. Independence is the design. Drive on completion notifications; never poll or arm a wakeup. If a child wedges, the operator sees it frozen in the display and intervenes.
-10. **Per-role models.** The orchestrator runs on `models.orchestrator`; every dispatch passes the role's model (`models.coder` / `models.reviewer`) explicitly. The reviewer is never weaker than the coder.
+10. **Per-role models.** The orchestrator is expected on `models.orchestrator` (Step 0a warns on mismatch, never blocks); every dispatch passes the role's model (`models.coder` / `models.reviewer`) explicitly. The reviewer is never weaker than the coder.
 11. **Never adopt a PR for a different issue.** Reconciliation searches by `Fixes #<issue-number>`; if the only open PR doesn't match, treat as no PR.
 12. **Refuse PRD children.** Issues with `## Parent PRD` are explicitly redirected to `/ship-feature`.
 

@@ -38,8 +38,8 @@ query($owner: String!, $repo: String!, $pr: Int!) {
       headRefOid
       baseRefName
       reviewThreads(first: 100) { nodes { isResolved } }
-      latestReviews(first: 50) { nodes { state author { login } } }
-      reviews(last: 20) { nodes { body state submittedAt author { login } } }
+      latestReviews(first: 50) { nodes { state submittedAt author { __typename login } } }
+      reviews(last: 100) { nodes { body state submittedAt author { __typename login } } }
     }
   }
 }' -f owner=<owner> -f repo=<repo> -F pr=<pr-number>
@@ -51,14 +51,14 @@ Check **all** of the following. If any fails, stop and report — do not merge.
 
 1. `state == "OPEN"` — the PR must be open (not already merged or closed)
 2. **Review gate** — resolve the verdict per [`../_shared/review-protocol.md`](../_shared/review-protocol.md) §4. In short:
-   - Any `latestReviews` entry with `state == "CHANGES_REQUESTED"` → stop. A reviewer who requested changes is authoritative over any marker. (Use `latestReviews`, **not** `reviewDecision` — that field is only populated when branch protection requires reviews, so it stays `null` here even for a genuine App-authored block.)
-   - Take the newest review whose body starts with `Claude comment 🤖` and parse `**Verdict: …** · reviewed at \`<sha>\``.
+   - Any `latestReviews` entry with `state == "CHANGES_REQUESTED"` → stop (`changes_requested`) — **unless** its author is the configured review App — `author.__typename == "Bot"` **and** `author.login` is `<review_app_slug>` / `<review_app_slug>[bot]` (profile key; absent ⇒ no bot is ever superseded) — **and** the governing marker review below was submitted after it **and** graded the current `headRefOid`; then it is superseded (a stale round-1 App block left behind by a degraded round 2 — protocol §4 step 1, §7.3). A `CHANGES_REQUESTED` from a human **or any other bot** always stops, whatever any marker says. (Use `latestReviews`, **not** `reviewDecision` — that field is only populated when branch protection requires reviews, so it stays `null` here even for a genuine App-authored block.)
+   - Filter `reviews(last: 100)` to bodies starting with `Claude comment 🤖`, take the newest (the window is 100 because thread replies add empty-body `COMMENTED` reviews that can push the marker out of a smaller one), and parse `**Verdict: …** · reviewed at \`<sha>\``. **If it has no parseable marker** (legacy, pre-protocol review) → treat its verdict as `COMMENT` → stop (`not_approved`, or `unresolved_threads` if any thread is open). Never skip past it to an older marker.
    - **`<sha>` ≠ `headRefOid`** → stop as `review_stale`: the review graded a commit that is no longer the head. Suggest re-running `/review-pr <n>`. Do not merge on a stale approval.
-   - `REQUEST_CHANGES` → stop; suggest `/address-pr <n>`.
-   - `COMMENT` → stop. A comment review is not an approval, even with every thread resolved.
-   - `APPROVE` → pass.
-   - No parseable marker → fall back to any `latestReviews` entry with `state == "APPROVED"` (someone approved natively) → pass; anything else → stop as not reviewed. A `Claude comment 🤖` body with no marker predates this protocol — treat it as `COMMENT`, never as an approval, and re-review once to clear it.
-3. Every `reviewThreads.nodes[].isResolved == true` — no unresolved threads. If any are unresolved, stop and suggest `/address-pr <n>`.
+   - `REQUEST_CHANGES` → stop (`changes_requested`); suggest `/address-pr <n>`.
+   - `COMMENT` → stop (`not_approved`). A comment review is not an approval, even with every thread resolved.
+   - `APPROVE` → pass, subject to check 3.
+   - **No `Claude comment 🤖` review exists at all** → fall back to any `latestReviews` entry with `state == "APPROVED"` (someone approved natively) → pass; anything else → stop (`not_reviewed`). `not_reviewed` is only for this case — a markerless `Claude comment 🤖` review is `not_approved` (above), and one fresh `/review-pr <n>` clears it.
+3. Every `reviewThreads.nodes[].isResolved == true` — no unresolved threads. If any are unresolved, stop (`unresolved_threads`) and suggest `/address-pr <n>`.
 4. `baseRefName` starts with `prd-` — PRs from `/execute-issue` must target a base branch. If `baseRefName` is the default branch, stop and report a structural bug upstream; do not merge past it.
 
 ### Step 2.5 — Profile-declared merge-time gate and pre-merge steps
@@ -130,7 +130,7 @@ Stop. Do not chain into `/execute-issue` yourself.
 
 ## Critical Rules
 
-1. **Never merge without an `APPROVE` verdict against the current head.** Either a `**Verdict: APPROVE**` marker whose reviewed SHA equals `headRefOid`, or a human's native `APPROVED` decision. A `COMMENT` verdict does not qualify no matter how many threads are resolved, and neither does an approval of a superseded commit — re-run `/review-pr` instead.
+1. **Never merge without an `APPROVE` verdict against the current head.** Either a `**Verdict: APPROVE**` marker whose reviewed SHA equals `headRefOid`, or a native `APPROVED` in `latestReviews` when no `Claude comment 🤖` review exists. A `COMMENT` verdict does not qualify no matter how many threads are resolved, and neither does an approval of a superseded commit — re-run `/review-pr` instead.
 2. **Never merge with unresolved review threads.** Suggest `/address-pr` instead.
 3. **Never attempt conflict resolution on a failed merge.** Stop and report; a human decides whether to rebase, merge-in, or escalate.
 4. **Never merge a PR targeting the default branch.** PRs from `/execute-issue` target the PRD's base branch by design. A default-branch-targeted PR is a structural bug upstream — stop and report.

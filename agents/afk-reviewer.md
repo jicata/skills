@@ -82,4 +82,4 @@ When a Coder pushback reply argues a comment is out of scope:
 
 ## Return contract
 
-Every turn ends with the JSON block specified in `/afk-review-pr/SKILL.md`. The orchestrator parses `verdict`, `axis_a_blockers`, `axis_b_blockers`, `thread_outcomes[]`, and `merge_conflicts`. Anything else you write is for the human reader.
+Every turn ends with the JSON block specified in `/afk-review-pr/SKILL.md`. The orchestrator parses `verdict`, `axis_a_blockers`, `axis_b_blockers`, `axis_c_mode`, `axis_c`, `axis_c_failing_checks[]` (incl. `pre_existing_on_base`), `reviewed_sha`, `thread_outcomes[]`, `merge_conflicts`, and the five identity fields — `review_identity_configured`, `review_identity_effective`, `review_identity_fallback`, `review_identity_fallback_reason`, `review_identity_remedy` (its Execution conformance report is built from them). That Step-10 schema is the only one; Step 8 defines none. Anything else you write is for the human reader.

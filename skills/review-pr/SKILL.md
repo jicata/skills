@@ -263,9 +263,9 @@ Use the REST API to create a review with inline comments in a single request.
 **Then transport it per [`../_shared/review-protocol.md`](../_shared/review-protocol.md).** Read `review_identity` from the profile (absent ⇒ `self`):
 
 - `self` — the `event` field is **always** `"COMMENT"`, whatever the verdict. GitHub rejects `APPROVE`/`REQUEST_CHANGES` from the PR author with a `422`, and the whole review — inline comments included — is lost.
-- `app` — the `event` field matches the verdict; post with the App token per protocol §5.
+- `app` — write the payload with `event` equal to the verdict; the single-call post below mints the token and downgrades the payload itself if the mint fails.
 
-**If the profile says `app` but the token cannot be minted, do not quietly post as yourself.** Fall back to `event: "COMMENT"` with the marker unchanged — and append the §7.2 degraded clause to the marker line (` · ⚠️ posted as PR author (App token unavailable)`). The classified cause and remedy go in your Step 10 chat summary, not on the PR. A reviewer that silently stops being the bot is indistinguishable, on the PR, from a repo that was never configured for one. The verdict stays binding either way.
+**If the profile says `app` but the token cannot be minted (non-zero exit or empty output), do not quietly post as yourself.** The protocol §5 snippet handles it inside the posting call: effective identity `self`, reason classified per §7.1, `event` rewritten to `"COMMENT"`, and the §7.2 degraded clause (` · ⚠️ posted as PR author (App token unavailable)`) appended to the marker line. Read `identity=` / `reason=` from its output line. The classified cause and remedy (`run /fix-review-identity`) go in your Step 10 chat summary, not on the PR. A reviewer that silently stops being the bot is indistinguishable, on the PR, from a repo that was never configured for one. The verdict stays binding either way. If an earlier round left a native App `CHANGES_REQUESTED` on the PR, it stays visible in the UI, but the merge gate treats it as superseded by this newer marker on the current head (protocol §4 step 1) — mention that in the chat summary.
 
 In both modes the review body **opens with the verdict marker**, which is what the merge gate actually reads:
 
@@ -293,15 +293,70 @@ Build a JSON payload file (use `Write` to a scratch file, then pass via `--input
 }
 ```
 
-Post it:
+Post it with the protocol §5 snippet, verbatim, in **one** Bash call (shell state does not survive between calls — a token minted in an earlier call is gone, and `GH_TOKEN=""` posts as the PR author → 422 → whole review lost). `<payload>` is the scratch file above:
 
 ```bash
-gh api repos/<owner>/<repo>/pulls/<n>/reviews \
-  --method POST \
-  --input <scratch-file>.json
+# ONE Bash call — mint, guard, (degrade), post. Shell state does not survive between calls.
+# Substitute: <review_identity> (self|app, absent ⇒ self), <has_token_cmd> (yes|no),
+# <review_app_token_cmd> (verbatim from the profile), <payload> (the JSON file),
+# <owner>/<repo>, <n> (PR number).
+PAYLOAD="<payload>"; ERR="$PAYLOAD.err"; IDENTITY=self; REASON=none; TOK=
+if [ "<review_identity>" = app ]; then
+  if [ "<has_token_cmd>" != yes ]; then
+    REASON=not_configured
+  else
+    TOK="$(<review_app_token_cmd> 2>"$ERR")"; rc=$?
+    if [ $rc -eq 0 ] && [ -n "$TOK" ]; then
+      IDENTITY=app
+    else
+      TOK=; e="$(cat "$ERR" 2>/dev/null)"   # classified here, never printed
+      case "$e" in
+        *"Cannot find module"*)                          REASON=helper_missing ;;
+        *ENOENT*)                                        REASON=key_missing ;;
+        *"No such file"*|*"command not found"*)          REASON=helper_missing ;;
+        *401*|*"JWT could not be decoded"*)              REASON=auth_failed ;;
+        *404*|*"Not Found"*)                             REASON=not_installed ;;
+        *403*|*"not accessible by integration"*)         REASON=forbidden ;;
+        *)                                               REASON=token_error ;;
+      esac
+    fi
+  fi
+fi
+rm -f "$ERR"
+if [ "$IDENTITY" = self ]; then
+  # Posting as the PR author: the event MUST be COMMENT (APPROVE/REQUEST_CHANGES 422 and lose the
+  # whole review). If app mode degraded, also append the §7.2 clause to the marker line.
+  PY="$(command -v python3 || command -v python)"
+  "$PY" - "$PAYLOAD" "$REASON" <<'PYEOF'
+import json, sys
+path, reason = sys.argv[1], sys.argv[2]
+with open(path, encoding="utf-8") as f:
+    d = json.load(f)
+d["event"] = "COMMENT"
+clause = " · ⚠️ posted as PR author (App token unavailable)"
+if reason != "none":
+    lines = d["body"].split("\n")
+    for i, line in enumerate(lines):
+        if line.startswith("**Verdict:") and clause not in line:
+            lines[i] = line + clause
+            break
+    d["body"] = "\n".join(lines)
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(d, f, ensure_ascii=False)
+PYEOF
+  if [ $? -ne 0 ]; then   # rewrite failed: never post a possibly-native event as the PR author
+    URL=; post_rc=payload_rewrite_failed
+  else
+    URL="$(gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input "$PAYLOAD" --jq .html_url)"; post_rc=$?
+  fi
+else
+  URL="$(GH_TOKEN="$TOK" gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input "$PAYLOAD" --jq .html_url)"; post_rc=$?
+fi
+unset TOK
+echo "identity=$IDENTITY reason=$REASON post_rc=$post_rc review_url=$URL"
 ```
 
-Delete the scratch file after posting.
+Delete the scratch file after posting. Thread replies and resolutions keep running as your normal account — the App is the reviewer, not the operator.
 
 ### Step 9 — Follow-up pass (when prior skill-authored threads exist)
 
@@ -357,7 +412,7 @@ Same protocol as Step 8 — decide the verdict, then transport it per the identi
 
 ### Step 10 — Report back to the user
 
-After posting, output a concise summary in chat. **If the review ran degraded (protocol §7), that is the first line, not a footnote** — state the configured vs effective identity, the cause, and the remedy.
+After posting, output a concise summary in chat. **If the review ran degraded (protocol §7), that is the first line, not a footnote** — state the configured vs effective identity, the cause, and `Fix: run /fix-review-identity`.
 
 - Link to the review (`gh pr view <n> --json reviews -q '.reviews[-1].url'` or similar)
 - Count of 🔴 / 🟡 / 💭
