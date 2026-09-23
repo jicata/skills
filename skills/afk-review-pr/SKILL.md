@@ -322,11 +322,13 @@ Reviewed at commit `<sha>`.
 
 ## Step 8 — Post the review
 
+**Mint and post in ONE Bash call** (protocol §5). Shell state does not survive between tool calls: a token minted in an earlier call is gone, and `GH_TOKEN=""` posts as the PR author → a native `APPROVE`/`REQUEST_CHANGES` 422s and the whole review is lost. Write the payload first; the single-call post below mints, guards, and downgrades the payload itself if the mint fails.
+
 Build a JSON payload file under `tmp/afk/review-<pr>-<ts>.json`:
 
 ```json
 {
-  "event": "<per identity mode — see below>",
+  "event": "<per configured identity — see below>",
   "body": "Claude comment 🤖\n\n**Verdict: REQUEST_CHANGES** · reviewed at `<sha>`\n\n...",
   "comments": [
     {"path": "...", "line": <n>, "body": "Claude comment 🤖\n\n[AXIS-A] 🔴 ..."}
@@ -343,9 +345,9 @@ Build a JSON payload file under `tmp/afk/review-<pr>-<ts>.json`:
 
 **Transport** — per [`../_shared/review-protocol.md`](../_shared/review-protocol.md), from the profile's `review_identity` (absent ⇒ `self`):
 - `self` → `"event": "COMMENT"` always, whatever the verdict. Submitting `APPROVE`/`REQUEST_CHANGES` as the PR author is a `422` and loses the entire review, inline comments included.
-- `app` → `"event"` equals the verdict; post with the App token per protocol §5.
+- `app` → `"event"` equals the verdict. The post call downgrades it if the mint fails.
 
-**If the token cannot be minted, degrade loudly, never silently** (protocol §7): classify the cause per §7.1, post `"event": "COMMENT"`, append the §7.2 degraded clause to the marker line, and populate the four `review_identity_*` fields in the return — the orchestrator builds its Execution conformance report from those. Never drop the review over a token problem, and never block on one — the verdict travels in the marker and the gate is unaffected.
+**If the token cannot be minted (non-zero exit or empty output), degrade loudly, never silently** (protocol §7): the §5 snippet makes the effective identity `self`, classifies the reason per §7.1, rewrites `"event"` to `"COMMENT"`, and appends the §7.2 degraded clause (` · ⚠️ posted as PR author (App token unavailable)`) to the marker line. Fill the `review_identity_*` fields in the Step 10 return from its `identity=` / `reason=` output line — the orchestrator builds its Execution conformance report from those. Never drop the review over a token problem, and never block on one — the verdict travels in the marker and the gate is unaffected. A native App `CHANGES_REQUESTED` from an earlier round stays visible in the UI after a degraded round, but `/afk-merge-pr` treats it as superseded by this newer marker on the current head (protocol §4 step 1).
 
 The `**Verdict:**` marker is written in **both** modes and is what `/afk-merge-pr` gates on. `<sha>` is `REVIEWED_SHA` in full 40-char form — the same commit Axis C was evaluated against.
 
@@ -365,16 +367,67 @@ The structured return must carry the axis-C result alongside the existing counts
 }
 ```
 
+Post with the protocol §5 snippet, verbatim, in **one** Bash call (`<payload>` = the `tmp/afk/review-<pr>-<ts>.json` file), then `rm` the payload:
+
 ```bash
-# self mode (default)
-gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input <scratch>
-
-# app mode — token scoped to this call only, never logged or persisted
-REVIEW_TOKEN="$(<review_app_token_cmd>)"
-GH_TOKEN="$REVIEW_TOKEN" gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input <scratch>
-unset REVIEW_TOKEN
-
-rm <scratch>
+# ONE Bash call — mint, guard, (degrade), post. Shell state does not survive between calls.
+# Substitute: <review_identity> (self|app, absent ⇒ self), <has_token_cmd> (yes|no),
+# <review_app_token_cmd> (verbatim from the profile), <payload> (the JSON file),
+# <owner>/<repo>, <n> (PR number).
+PAYLOAD="<payload>"; ERR="$PAYLOAD.err"; IDENTITY=self; REASON=none; TOK=
+if [ "<review_identity>" = app ]; then
+  if [ "<has_token_cmd>" != yes ]; then
+    REASON=not_configured
+  else
+    TOK="$(<review_app_token_cmd> 2>"$ERR")"; rc=$?
+    if [ $rc -eq 0 ] && [ -n "$TOK" ]; then
+      IDENTITY=app
+    else
+      TOK=; e="$(cat "$ERR" 2>/dev/null)"   # classified here, never printed
+      case "$e" in
+        *"Cannot find module"*)                          REASON=helper_missing ;;
+        *ENOENT*)                                        REASON=key_missing ;;
+        *"No such file"*|*"command not found"*)          REASON=helper_missing ;;
+        *401*|*"JWT could not be decoded"*)              REASON=auth_failed ;;
+        *404*|*"Not Found"*)                             REASON=not_installed ;;
+        *403*|*"not accessible by integration"*)         REASON=forbidden ;;
+        *)                                               REASON=token_error ;;
+      esac
+    fi
+  fi
+fi
+rm -f "$ERR"
+if [ "$IDENTITY" = self ]; then
+  # Posting as the PR author: the event MUST be COMMENT (APPROVE/REQUEST_CHANGES 422 and lose the
+  # whole review). If app mode degraded, also append the §7.2 clause to the marker line.
+  PY="$(command -v python3 || command -v python)"
+  "$PY" - "$PAYLOAD" "$REASON" <<'PYEOF'
+import json, sys
+path, reason = sys.argv[1], sys.argv[2]
+with open(path, encoding="utf-8") as f:
+    d = json.load(f)
+d["event"] = "COMMENT"
+clause = " · ⚠️ posted as PR author (App token unavailable)"
+if reason != "none":
+    lines = d["body"].split("\n")
+    for i, line in enumerate(lines):
+        if line.startswith("**Verdict:") and clause not in line:
+            lines[i] = line + clause
+            break
+    d["body"] = "\n".join(lines)
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(d, f, ensure_ascii=False)
+PYEOF
+  if [ $? -ne 0 ]; then   # rewrite failed: never post a possibly-native event as the PR author
+    URL=; post_rc=payload_rewrite_failed
+  else
+    URL="$(gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input "$PAYLOAD" --jq .html_url)"; post_rc=$?
+  fi
+else
+  URL="$(GH_TOKEN="$TOK" gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input "$PAYLOAD" --jq .html_url)"; post_rc=$?
+fi
+unset TOK
+echo "identity=$IDENTITY reason=$REASON post_rc=$post_rc review_url=$URL"
 ```
 
 Thread replies, resolutions, and every other call in this skill keep running as the normal account — the App is the reviewer, not the operator.

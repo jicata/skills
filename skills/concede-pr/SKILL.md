@@ -103,26 +103,81 @@ Post an `APPROVE` **verdict** to unblock the PR, transported per [`../_shared/re
 
 `gh pr review --approve` is **not** usable here under the default `review_identity: self` — GitHub rejects an approval from the PR's own author with a `422` and posts nothing at all, leaving the PR permanently stuck at the merge gate. Post the verdict marker instead; that is what `/merge-pr` reads.
 
-```bash
-HEAD_SHA=$(gh pr view <n> --json headRefOid -q .headRefOid)
+**Mint and post in ONE Bash call** (protocol §5) — shell state does not survive between tool calls, and `GH_TOKEN=""` posts as the PR author, where `APPROVE` 422s and nothing is posted.
 
-# self mode (default) — COMMENT event, verdict carried by the marker
-gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST \
-  -f event=COMMENT \
-  -f body="Claude comment 🤖
+First read the head SHA (`gh pr view <n> --json headRefOid -q .headRefOid`), then `Write` a payload file to scratch — `event` is `APPROVE` if `review_identity: app`, else `COMMENT`:
 
-**Verdict: APPROVE** · reviewed at \`$HEAD_SHA\`
-
-⚠️ **Review Conceded**
-
-Maximum review iterations reached. All remaining \`[AXIS-B]\` standards violations have been deferred and are tracked in <new-issue-url>.
-
-Ready to merge."
-
-# app mode — same body, native APPROVE event, App token
+```json
+{
+  "event": "APPROVE",
+  "body": "Claude comment 🤖\n\n**Verdict: APPROVE** · reviewed at `<HEAD_SHA>`\n\n⚠️ **Review Conceded**\n\nMaximum review iterations reached. All remaining `[AXIS-B]` standards violations have been deferred and are tracked in <new-issue-url>.\n\nReady to merge."
+}
 ```
 
-If the App token cannot be minted, post the identical body with `-f event=COMMENT` **and the §7.2 degraded clause appended to the marker line**. The concession still clears the gate — the marker carries `APPROVE` — but a conceded PR that also silently lost its review identity is exactly the combination nobody would notice.
+Then post it with the protocol §5 snippet, verbatim (`<payload>` = that file), and delete the file:
+
+```bash
+# ONE Bash call — mint, guard, (degrade), post. Shell state does not survive between calls.
+# Substitute: <review_identity> (self|app, absent ⇒ self), <has_token_cmd> (yes|no),
+# <review_app_token_cmd> (verbatim from the profile), <payload> (the JSON file),
+# <owner>/<repo>, <n> (PR number).
+PAYLOAD="<payload>"; ERR="$PAYLOAD.err"; IDENTITY=self; REASON=none; TOK=
+if [ "<review_identity>" = app ]; then
+  if [ "<has_token_cmd>" != yes ]; then
+    REASON=not_configured
+  else
+    TOK="$(<review_app_token_cmd> 2>"$ERR")"; rc=$?
+    if [ $rc -eq 0 ] && [ -n "$TOK" ]; then
+      IDENTITY=app
+    else
+      TOK=; e="$(cat "$ERR" 2>/dev/null)"   # classified here, never printed
+      case "$e" in
+        *"Cannot find module"*)                          REASON=helper_missing ;;
+        *ENOENT*)                                        REASON=key_missing ;;
+        *"No such file"*|*"command not found"*)          REASON=helper_missing ;;
+        *401*|*"JWT could not be decoded"*)              REASON=auth_failed ;;
+        *404*|*"Not Found"*)                             REASON=not_installed ;;
+        *403*|*"not accessible by integration"*)         REASON=forbidden ;;
+        *)                                               REASON=token_error ;;
+      esac
+    fi
+  fi
+fi
+rm -f "$ERR"
+if [ "$IDENTITY" = self ]; then
+  # Posting as the PR author: the event MUST be COMMENT (APPROVE/REQUEST_CHANGES 422 and lose the
+  # whole review). If app mode degraded, also append the §7.2 clause to the marker line.
+  PY="$(command -v python3 || command -v python)"
+  "$PY" - "$PAYLOAD" "$REASON" <<'PYEOF'
+import json, sys
+path, reason = sys.argv[1], sys.argv[2]
+with open(path, encoding="utf-8") as f:
+    d = json.load(f)
+d["event"] = "COMMENT"
+clause = " · ⚠️ posted as PR author (App token unavailable)"
+if reason != "none":
+    lines = d["body"].split("\n")
+    for i, line in enumerate(lines):
+        if line.startswith("**Verdict:") and clause not in line:
+            lines[i] = line + clause
+            break
+    d["body"] = "\n".join(lines)
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(d, f, ensure_ascii=False)
+PYEOF
+  if [ $? -ne 0 ]; then   # rewrite failed: never post a possibly-native event as the PR author
+    URL=; post_rc=payload_rewrite_failed
+  else
+    URL="$(gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input "$PAYLOAD" --jq .html_url)"; post_rc=$?
+  fi
+else
+  URL="$(GH_TOKEN="$TOK" gh api repos/<owner>/<repo>/pulls/<n>/reviews --method POST --input "$PAYLOAD" --jq .html_url)"; post_rc=$?
+fi
+unset TOK
+echo "identity=$IDENTITY reason=$REASON post_rc=$post_rc review_url=$URL"
+```
+
+If the profile says `app` but the token cannot be minted (non-zero exit or empty output), the snippet rewrites the event to `COMMENT` **and appends the §7.2 degraded clause to the marker line** (` · ⚠️ posted as PR author (App token unavailable)`) before posting; when its output reads `identity=self` with a `reason` other than `none`, lead your Step 5 summary with `Fix: run /fix-review-identity`. The concession still clears the gate — the marker carries `APPROVE` — but a conceded PR that also silently lost its review identity is exactly the combination nobody would notice. **Never** send `event=APPROVE` from your own account.
 
 The marker must carry the **current** head SHA. Concession resolves threads without changing code, so re-read `headRefOid` at this step rather than reusing a SHA from an earlier review pass — a mismatch trips the merge gate's staleness check.
 

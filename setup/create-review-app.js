@@ -160,6 +160,7 @@ const server = http.createServer(async (req, res) => {
     const posix = (p) => p.replace(/\\/g, '/');
     console.log('\n── Then add to .claude/doctrine/project-profile.md ──────────');
     console.log('review_identity: app');
+    console.log(`review_app_slug: "${app.slug}"`);
     console.log(
       `review_app_token_cmd: "GH_APP_ID=${app.id} GH_APP_INSTALLATION_ID=<INSTALLATION_ID> GH_APP_PRIVATE_KEY_PATH=${posix(keyPath)} node ${posix(path.join(os.homedir(), '.claude', 'gh-app-token.js'))}"`
     );
