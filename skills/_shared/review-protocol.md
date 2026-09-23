@@ -211,7 +211,7 @@ This is deliberately **not** a cleanup-issue entry. The cleanup issue tracks cod
 "review_identity_remedy": "run /fix-review-identity"
 ```
 
-When they match, `review_identity_fallback` is `false` and the other fields are omitted.
+When they match, `review_identity_fallback` is `false` and the reason/remedy fields are `null`.
 
 **On the pull request**, add one clause to the existing marker line — not a banner, not a block:
 

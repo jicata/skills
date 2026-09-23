@@ -351,21 +351,7 @@ Build a JSON payload file under `tmp/afk/review-<pr>-<ts>.json`:
 
 The `**Verdict:**` marker is written in **both** modes and is what `/afk-merge-pr` gates on. `<sha>` is `REVIEWED_SHA` in full 40-char form — the same commit Axis C was evaluated against.
 
-The structured return must carry the axis-C result alongside the existing counts:
-
-```json
-{
-  "verdict": "approve" | "request_changes" | "comment",
-  "axis_a_blockers": <n>,
-  "axis_b_blockers": <n>,
-  "axis_c_mode": "off" | "advisory" | "enforcing",
-  "axis_c": "pass" | "fail" | "unknown" | "superseded" | "off",
-  "axis_c_failing_checks": [
-    {"check": "<failing-check-name>", "detail": "<extracted assertion/test name>", "url": "...", "pre_existing_on_base": true|false}
-  ],
-  "reviewed_sha": "<sha>"
-}
-```
+The structured return (axis-C result, `reviewed_sha`, identity fields, counts) is the **single canonical schema in Step 10** — do not emit a separate shape from this step.
 
 Post with the protocol §5 snippet, verbatim, in **one** Bash call (`<payload>` = the `tmp/afk/review-<pr>-<ts>.json` file), then `rm` the payload:
 
@@ -462,17 +448,25 @@ Run Axes A and B again on the current state. Any new findings become new inline 
 
 ## Step 10 — Emit structured return
 
+**This is the one canonical return schema for this skill** — every exit path (including the `superseded` early return from Step 6.5) emits this shape; Step 8 does not define its own.
+
 ```json
 {
   "skill": "afk-review-pr",
   "result": "reviewed" | "local_diverged" | "dirty_tree_foreign" | "missing_pr",
-  "verdict": "approve" | "request_changes" | "comment",
-  "head_sha": "<sha>",
+  "verdict": "approve" | "request_changes" | "comment" | null,
+  "reviewed_sha": "<full 40-char REVIEWED_SHA — the commit graded, = the marker's SHA>",
+  "head_sha": "<PR headRefOid at emit time — equals reviewed_sha unless axis_c is superseded>",
+  "axis_c_mode": "off" | "advisory" | "enforcing",
+  "axis_c": "pass" | "fail" | "unknown" | "superseded" | "off",
+  "axis_c_failing_checks": [
+    {"check": "<failing-check-name>", "detail": "<extracted assertion/test name>", "url": "...", "pre_existing_on_base": true | false}
+  ],
   "review_identity_configured": "self" | "app",
   "review_identity_effective": "self" | "app",
   "review_identity_fallback": <bool>,
   "review_identity_fallback_reason": "not_configured" | "helper_missing" | "key_missing" | "auth_failed" | "not_installed" | "forbidden" | "token_error" | null,
-  "review_identity_remedy": "<one-line fix>" | null,
+  "review_identity_remedy": "run /fix-review-identity" | null,
   "axis_a_blockers": <count>,
   "axis_b_blockers": <count>,
   "suggestion_count": <count>,
@@ -490,7 +484,7 @@ Run Axes A and B again on the current state. Any new findings become new inline 
     }
   ],
   "merge_conflicts": <bool>,
-  "review_url": "...",
+  "review_url": "..." | null,
   "is_follow_up": <bool>,
   "pr_number": <n>,
   "prd_number": <n> | null,
@@ -498,7 +492,13 @@ Run Axes A and B again on the current state. Any new findings become new inline 
 }
 ```
 
+**`verdict` and `review_url` are `null` only on the head-moved early return** (`axis_c: "superseded"`, Step 6.5a): no review is posted in that case, so there is no verdict to report and no review to link. The `review_identity_*` fields then describe the configured identity with `review_identity_effective` equal to it and `fallback: false` (no mint was attempted). On every other `result: "reviewed"` path both are non-null.
+
+`axis_c_failing_checks` is `[]` unless `axis_c == "fail"`; `pre_existing_on_base` is what the orchestrator's forced-merge Axis-C gate reads.
+
 `reject_count_total` is the cumulative count of follow-up rounds where this thread was *not* resolved — orchestrator uses this to trigger `/afk-concede-thread` at 3.
+
+`review_identity_configured` / `_effective` are always present. When they match, `review_identity_fallback` is `false` and `_fallback_reason` / `_remedy` are `null` (protocol §7.2). Never put the token or more than the first stderr line anywhere in this return.
 
 ## Critical Rules
 
