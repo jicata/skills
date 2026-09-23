@@ -66,8 +66,8 @@ query($owner: String!, $repo: String!, $pr: Int!) {
       headRefOid
       baseRefName
       reviewThreads(first: 100) { nodes { isResolved } }
-      latestReviews(first: 50) { nodes { state author { login } } }
-      reviews(last: 20) { nodes { body state submittedAt author { login } } }
+      latestReviews(first: 50) { nodes { state submittedAt author { __typename login } } }
+      reviews(last: 100) { nodes { body state submittedAt author { __typename login } } }
     }
   }
 }' -f owner=<owner> -f repo=<repo> -F pr=<pr-number>
@@ -82,10 +82,13 @@ If `state != "OPEN"`:
 
 Standard merge gate (skip if `--force`). **Resolve the verdict per [`../_shared/review-protocol.md`](../_shared/review-protocol.md) §4** — the verdict is the `**Verdict: …**` marker in the newest `Claude comment 🤖` review body. Native review *state* is read from `latestReviews`; **never** from `reviewDecision`, which requires branch protection with a review requirement and is `null` on most repos regardless of identity mode. The marker is authoritative in both modes, so this gate is identity-independent.
 
-- **Native `CHANGES_REQUESTED`** (any `latestReviews` entry with `state == "CHANGES_REQUESTED"`) → block. Authoritative over any marker:
+The governing review is found by filtering `reviews(last: 100)` to bodies starting with `Claude comment 🤖` and taking the newest. The window is 100 because every thread reply adds an empty-body `COMMENTED` review; a window of 20 can push the marker review out and misread the PR as `not_reviewed`.
+
+- **Native `CHANGES_REQUESTED`** (any `latestReviews` entry with `state == "CHANGES_REQUESTED"`) → block:
   ```json
   {"result": "changes_requested", "pr_url": "..."}
   ```
+  A human author, **or any bot other than the configured review App**, always blocks, whatever any marker says. **Exception — superseded App block:** if the author is the configured review App — `author.__typename == "Bot"` **and** `author.login` is `<review_app_slug>` / `<review_app_slug>[bot]` (profile key; absent ⇒ no bot is ever superseded) — **and** the governing marker review was submitted after it **and** its reviewed SHA == `headRefOid`, skip this bullet and gate on the marker below. This is the round-1 App `CHANGES_REQUESTED` left behind when a later round degraded to a self `COMMENT` (protocol §4 step 1); letting it block would stall the PR forever, which §7.3 forbids.
 - **Stale review** — marker's reviewed SHA ≠ `headRefOid` → block. The approval graded a commit that is no longer the head:
   ```json
   {"result": "review_stale", "reviewed_sha": "<sha>", "head_sha": "<headRefOid>"}
@@ -98,11 +101,11 @@ Standard merge gate (skip if `--force`). **Resolve the verdict per [`../_shared/
   ```json
   {"result": "not_approved", "verdict": "comment"}
   ```
-- **No parseable marker** → any `latestReviews` entry with `state == "APPROVED"` (native approval) passes; otherwise block:
+- **Newest `Claude comment 🤖` review has no parseable marker** (legacy, pre-protocol) → its verdict is `COMMENT`: block as `not_approved` above (or `unresolved_threads` if any thread is open). Never skip past it to an older marker, never treat it as `not_reviewed`, never as approval.
+- **No `Claude comment 🤖` review exists at all** → any `latestReviews` entry with `state == "APPROVED"` (native approval) passes; otherwise block. This is the **only** path to `not_reviewed`:
   ```json
   {"result": "not_reviewed"}
   ```
-  A `Claude comment 🤖` body with no marker predates this protocol — treat as `COMMENT`, never as approval.
 - **Verdict `APPROVE`** → pass, subject to the thread check below.
 - **All reviewThreads.isResolved == true** — if not:
   ```json
