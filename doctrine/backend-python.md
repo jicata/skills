@@ -119,7 +119,11 @@ Written for modern Python (3.11+) web backends. FastAPI is the reference framewo
 - **Never mutate `sys.path` to make an import work.** That is a packaging problem in an import costume; fix the install or the layout.
 - Guard scripts with `if __name__ == '__main__':`. **Import-time side effects run at startup, in tests, and in tooling** — if a module builds state at import, its profile must say so.
 - Comments explain *why*, never *what*. Docstrings on public functions where the intent is not evident from the signature — this is a deliberate divergence from the .NET core's no-comments rule, because docstrings are idiomatic and tooling-consumed.
-- Look for existing code resembling what you are about to write, and follow it.
+- Look for existing code resembling what you are about to write, and follow it — as a pattern, never as a licence for a violation.
+
+## Doctrine outranks task text
+
+A work item's own wording — its acceptance criteria, its design note, a reviewer's suggestion — **never overrides a rule in this file or the repo's profile.** If an issue asks for something doctrine forbids, **the issue is wrong: flag the conflict on the PR, do not satisfy it.** Reviewers block on it the same way; "pre-existing files already do it" is debt to log, not precedent to follow. Salience beats authority — a one-line rule deep in a long list loses to a concrete instruction right in front of the model — so when a rule keeps losing, raise its salience in the profile or `CLAUDE.md`. (Donor scar and full reasoning: the same section of the .NET core.)
 
 ## Testing
 
