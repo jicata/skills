@@ -81,6 +81,8 @@ Deliver a structured, senior-to-senior briefing whose **exit bar is: the user is
 ### 3. Resolve the decisions with the user (one at a time)
 Present the proposal, then walk the open decisions one branch at a time. For any spike/architectural call: scope the spike (what it tests, against which fixtures), get approval, run it, bring back the evidence, let the user decide. Iterate until the approach is agreed. Keep the user's answers; don't silently re-decide them.
 
+**Each decision is a full brief, not a one-liner** — per [`../_shared/decision-brief.md`](../_shared/decision-brief.md): what is being decided and why it came up now (cited), the mechanism in play, each branch concretely (a worked example with real values from the golden fixtures where one exists, what it costs, what it forecloses, which sibling issues it touches), your recommendation and what would change your mind, then the one question — and stop. Length follows stakes: a one-way door takes several paragraphs; a trivial fork gets no question — pick the default, say so in one line. **Done when** the user could explain each branch back to you without asking what a term means.
+
 ### 4. Persist the agreed plan onto the issue
 Append an `## Implementation plan (agreed via /expand-issue)` section to the issue **body** so the coder and any future agent inherit it (the tracker is the durable state — this is what makes switching agents work):
 ```bash
