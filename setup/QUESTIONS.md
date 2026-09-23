@@ -61,6 +61,11 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 → Also resolve and record the **default branch** (`gh repo view --json defaultBranchRef`). The ship-* skills write `master` throughout and substitute the real branch; a repo defaulting to `main` needs that substitution to be explicit rather than assumed.
 → installs the chosen pipeline tier; the router is generated to match.
 
+**Q9b — Local config in worktrees.** Detected, when the pipeline is installed: run `git clean -ndX` and look for ignored files the app or its tooling reads at runtime — `.env`, key/credential files, local settings overlays. State what you found. The pipeline works in fresh `git worktree add` checkouts, which contain tracked files only, so each of those is missing there and fails like a code bug.
+→ found runtime files → `worktree_carry: ignored` (recommended — a secret added later is carried without anyone listing it), plus `worktree_carry_exclude` for any bulky generated output the built-in list misses; or an explicit path list if the ignored set is mostly large local state.
+→ nothing runtime-relevant → omit the key.
+→ *Donor: `ignored` — a sync-tool key, cloud credentials and a local settings overlay, after two children of one PRD logged failed publishes for a key the worktree did not have.*
+
 **Q10 — Documentation locations.** The doc philosophy is NOT a choice — the base ships lean-only: the durable canon is **glossary + ADRs + architecture/concept map**, everything else is a temporary artifact living on its work item (see `doctrine/documentation-first.md`). The question is just: "Where do (or should) the three canon artifacts live? Is there a living build-status map, or should setup seed one?"
 → records the three paths in the profile; seeds missing canon files.
 → *Donor: historically ran a fuller matrix (feature READMEs, flow docs) and has since slimmed toward the canon — the base never inherits the fuller matrix.*

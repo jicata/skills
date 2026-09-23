@@ -129,6 +129,7 @@ Cases:
    git worktree prune
    git worktree add --detach "$WORKTREE_PATH" "origin/$DEFAULT_BRANCH"
    ```
+3b. **If the profile sets `worktree_carry`**, carry gitignored local config (keys, credentials, `.env`, local settings overlays) into the freshly created worktree, immediately after the `git worktree add` above, per [`.claude/skills/_afk-shared/worktree-carry.md`](../_afk-shared/worktree-carry.md). Skip when step 2 reused an existing worktree.
 4. **All subsequent Agent dispatches and any local git/gh operations the orchestrator runs must use `$WORKTREE_PATH` as their working directory.** The orchestrator passes the path into each Agent prompt; agents `cd` into it before any tool use.
 
 The classic "dirty tree → stop" check is intentionally removed: the user's main repo dirtiness is no longer load-bearing because we are not touching it. The afk-* subskills retain their own `dirty_tree_foreign` guard which will fire on the worktree itself if it is unexpectedly dirty.

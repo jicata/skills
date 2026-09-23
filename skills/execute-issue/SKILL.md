@@ -166,6 +166,9 @@ else
   else
     git -C "$REPO_ROOT" worktree add "$WT" -b $FEATURE origin/$BASE
   fi
+  # 2b. Only if the profile sets worktree_carry: carry gitignored local config into the new
+  #     worktree — see .claude/skills/_afk-shared/worktree-carry.md.
+  # carry_gitignored_runtime_files "$REPO_ROOT" "$WT" <mode> <args...>
 fi
 
 cd "$WT"

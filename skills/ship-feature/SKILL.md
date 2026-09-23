@@ -189,6 +189,7 @@ Single worktree, identical to prior behavior.
      git worktree add "$WORKTREE_PATH" -b <base-branch> origin/master
      ( cd "$WORKTREE_PATH" && git push -u origin <base-branch> )
      ```
+4a. **If the profile sets `worktree_carry`**, carry gitignored local config (keys, credentials, `.env`, local settings overlays) into the freshly created worktree per [`.claude/skills/_afk-shared/worktree-carry.md`](../_afk-shared/worktree-carry.md). Skip when step 3 reused an existing worktree.
 4b. **Sync the base branch forward from master** (see "Base-branch master sync" below) — run it here, in the base worktree, before any child branch is cut from `<base-branch>`. Skip only when the base branch was just created off `origin/master` in 4 (it is already current).
 5. **All subsequent Agent dispatches and any local git/gh operations the orchestrator runs must use `$WORKTREE_PATH` as their working directory.** The orchestrator passes the path into each Agent prompt; agents `cd` into it before any tool use. The orchestrator itself uses `( cd "$WORKTREE_PATH" && <cmd> )` for every git op.
 
@@ -211,6 +212,8 @@ N+1 worktrees total: one "base" worktree owning `<base-branch>` for orchestrator
    ```bash
    if ! git worktree list --porcelain | grep -q "$SLOT_WT_k"; then
      git worktree add --detach "$SLOT_WT_k" origin/<base-branch>
+     # only if the profile sets worktree_carry — every slot's agents need the same local config:
+     # carry_gitignored_runtime_files "$REPO_ROOT" "$SLOT_WT_k" <mode> <args...>
    fi
    ```
    When the slot scheduler claims a child issue for slot `k`, the orchestrator (or the Coder via its dispatch prompt) checks out the child branch inside `$SLOT_WT_k`:
