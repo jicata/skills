@@ -73,6 +73,10 @@ Parse the PR body for `Fixes #N`, `Closes #N`, `Resolves #N` (case-insensitive, 
 
 If none are found, report: "PR #<n> does not reference a linked issue via `Fixes #<n>` in its body." Proceed with the merge regardless — the PR may have been opened manually — but note the missing link in the final report.
 
+### Step 3.5 — Conventional-title gate (only under `pr_title_convention: conventional`)
+
+On a squash the PR title becomes the commit subject the repo's release tooling parses. If the profile sets `pr_title_convention: conventional`, verify the title per `.claude/skills/_afk-shared/conventional-pr-title.md` and rewrite a non-matching one with `gh pr edit <pr-number> --title …` before merging. Otherwise skip.
+
 ### Step 4 — Squash-merge and delete the branch
 
 ```bash

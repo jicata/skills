@@ -84,6 +84,7 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 → `ship_merge_default: merge | gate | ask` (omit for `ask`). A per-run `--merge` / `--no-merge` flag always overrides it.
 → Recommend `gate` when a default-branch merge is a release — the human tests the integrated change before it ships, and `--merge` on a re-invoke finalizes. Recommend `merge` when the default branch releases nothing on its own.
 → *Donor: `ask` with gating as the non-interactive default — release-please cuts a release on every merge to master.*
+→ Same detection, second fact: if the release tooling derives versions or changelogs from commit subjects (release-please, semantic-release, a Conventional Commits `commit-msg` hook), record `pr_title_convention: conventional` for confirmation — squash-merged PR titles become those subjects, and a non-conventional one is silently dropped from the release. Detected, not asked.
 
 **Q13 — LLM surface.** "Does this app construct prompts / call models?" → *yes:* install `llm-prompt-craft` doctrine (prompt-visibility gate).
 

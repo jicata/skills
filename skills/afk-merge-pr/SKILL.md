@@ -149,6 +149,10 @@ gh pr comment <pr-number> --body "Claude comment 🤖
 This PR is being merged via the autonomous orchestrator (/ship-feature or /ship-issue) after concession of remaining blocker threads. See cleanup issue #<cleanup-issue-number> for the list of deferred concerns to address before next release."
 ```
 
+## Step 4.6 — Conventional-title gate (only under `pr_title_convention: conventional`)
+
+On a squash the PR title becomes the commit subject the repo's release tooling parses — directly for `--single`, via the preserved child squash commit for a child → base merge. If the profile sets `pr_title_convention: conventional`, verify the title per `.claude/skills/_afk-shared/conventional-pr-title.md` and rewrite a non-matching one (`gh pr edit <pr-number> --title …`) before merging. This runs under `--force` too: a forced merge is still a release input. Otherwise skip.
+
 ## Step 5 — Squash-merge and delete the branch
 
 ### Synchronous merge (default)

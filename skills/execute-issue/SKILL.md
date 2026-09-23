@@ -63,7 +63,7 @@ On **no** → report "left `<base-branch>` unmerged; finalize skipped" and stop.
    gh pr list --head <base-branch> --base <default-branch> --state open --json number,url -q '.[0]'   # reuse if present
    # else:
    gh pr create --base <default-branch> --head <base-branch> \
-     --title "PRD #<n>: <title>" \
+     --title "<PRD #<n>: <title> — or conventional under the profile's pr_title_convention, per _afk-shared/conventional-pr-title.md>" \
      --body "Finalizes PRD #<n>. Merges all child slices from \`<base-branch>\` into \`<default-branch>\`."
    ```
 2. **Pre-flight default-branch sync** — surface conflicts on the PRD side, in a transient base worktree (same pattern as Step 3's 1b):
@@ -243,7 +243,7 @@ if ! gh pr view --json url >/dev/null 2>&1; then
   gh pr create \
     --base <base-branch> \
     --head <child-number>-<slug> \
-    --title "<child-issue-title>" \
+    --title "<child-issue-title — or conventional under the profile's pr_title_convention, per _afk-shared/conventional-pr-title.md>" \
     --body "$(cat <<'EOF'
 Fixes #<child-number>
 

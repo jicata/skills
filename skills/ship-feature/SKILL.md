@@ -469,7 +469,7 @@ When `NEXT_CHILD` reports `no_children` and there are no open child PRs left:
    gh pr create \
      --base master \
      --head <base-branch> \
-     --title "PRD #<prd-number>: <PRD title>" \
+     --title "<PRD #<prd-number>: <PRD title> — or conventional under the profile's pr_title_convention, per _afk-shared/conventional-pr-title.md>" \
      --body "$(cat <<EOF
    Closes #<prd-number>
 

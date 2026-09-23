@@ -65,7 +65,7 @@ When invoked with `--single`, apply the following overrides to the steps below. 
     --title "<issue-title>" \
     --body "Fixes #<issue-number>\n\n## Summary\n...\n\n## Acceptance criteria\n...\n\n## Test plan\n..."
   ```
-  The `Fixes #<issue-number>` line is still load-bearing for `/afk-merge-pr --single`.
+  The `Fixes #<issue-number>` line is still load-bearing for `/afk-merge-pr --single`. **Title:** the issue title — or, under the profile's `pr_title_convention: conventional`, a title built per `.claude/skills/_afk-shared/conventional-pr-title.md`, never the raw issue title.
 
 - **Step 8 (Cleanup-issue helper)**: Title format changes to `[ship-cleanup] Issue #<issue-number> — residual concerns`. Search:
   ```bash
@@ -299,7 +299,7 @@ EOF
 fi
 ```
 
-The `Fixes #<child-number>` line is load-bearing — `/afk-merge-pr` parses it.
+The `Fixes #<child-number>` line is load-bearing — `/afk-merge-pr` parses it. **Title:** the child issue title — or, under the profile's `pr_title_convention: conventional`, a title built per `.claude/skills/_afk-shared/conventional-pr-title.md`. The child's squash subject is what a later base→default-branch finalize preserves onto the default branch, so a non-conventional child title is lost from the release there.
 
 If `git push` fails for non-conflict reasons (auth, branch protection blocking the orchestrator), call cleanup-issue helper with a `push_failure` entry and return:
 ```json
