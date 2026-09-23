@@ -264,7 +264,7 @@ The chosen lens is authoritative for code structure and the TDD red-green loop +
 ### Regression handling (autonomous, never `[Skip]`)
 
 If tests that were passing before your changes now fail:
-1. Inspect the failure. If your slice plausibly caused it → fix it (this is in scope).
+1. Inspect the failure. If your slice plausibly caused it → fix it (this is in scope). If the message says a file, credential, or rig is missing (a fixture needing an emulator, a gitignored payload, a local settings overlay), the cause is a wrong filter or an unprovisioned machine, not a regression — fix the lane invocation and re-run; do not stash and do not log `regression`.
 2. If the failure looks pre-existing or unrelated to your diff → confirm it fails on a clean baseline using the **same lane** it appeared in: `git stash && <the same check_commands lane>`.
 3. If pre-existing on the clean baseline → call cleanup-issue helper with a `regression` entry detailing the failing test name, file, and observed failure mode.
 4. **Never** add `[Skip(...)]` / `Skip=` (xUnit), `it.skip(...)`, or the equivalent in the repo's test framework. Leave the test failing, log it, and return `regression` outcome — orchestrator decides.

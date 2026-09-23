@@ -158,6 +158,7 @@ Thread asks for the opposite of an explicit Acceptance Criterion.
 ### Regression localization
 
 If applying a Bucket-A fix introduces (or reveals) a test failure:
+0. **Read the failure message first.** A missing file, credential, or rig (a fixture that needs an emulator, a gitignored payload, a local settings overlay) means a wrong filter or an unprovisioned machine — not a regression. Fix the lane invocation and re-run; do not stash and do not log `[regression]`.
 1. Run `git stash` and re-run the **same lane** on the clean baseline (the profile's `check_commands` fast lane, exactly as spelled — donor scar: an unfiltered test run with the integration rig down mimics a mass regression). If the failure exists pre-fix → it is pre-existing → log `[regression]` entry to cleanup, restore stash, continue.
 2. If the failure was introduced by the fix → keep working until tests pass. **Never `[Skip(...)]`** (or the repo's test-framework equivalent).
 3. If genuinely irreducible after best effort, restore stash, log `[regression-from-fix]` entry, emit `result: regression` and return.

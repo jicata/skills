@@ -73,7 +73,18 @@ base_version: <FILL: version/commit of the skills base library this repo was set
 
 ## Testing
 
-<!-- How endpoints/units are tested; what is DELIBERATELY out of scope so agents don't re-flag it (Q11, Q12). -->
+<!-- How endpoints/units are tested; what is DELIBERATELY out of scope so agents don't re-flag it (Q11, Q12).
+     Also the test LANES, when the suite has more than one: which lane `check_commands` runs as the fast
+     pre-push gate, which lanes CI runs in parallel with review, any local-run exception (e.g. "diffs touching
+     persistence run the integration lane once locally"), and any lane nothing runs automatically. Two rules
+     every lane map carries:
+     - The fast local gate selects exactly the tests CI's fast job selects — same filter, same split. A gate
+       that selects differently produces failures CI never sees and misses ones it will.
+     - A new test category that fails loudly without its prerequisites (a rig, a credential, a gitignored
+       fixture) is added to CI's filter AND this lane map in the same change. Donor scar (ADF, 2026-08): a
+       new live-service category updated CI's filter only; coders kept running the old filter, hit the
+       missing-prerequisite guard, and logged a false regression that cost a cleanup cycle. -->
+
 
 <FILL>
 
