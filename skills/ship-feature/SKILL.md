@@ -565,7 +565,28 @@ When `NEXT_CHILD` reports `no_children` and there are no open child PRs left:
      git worktree prune
      ```
      Slot worktrees may already be detached at `origin/<base-branch>` (released slots) or holding a stale child branch (unmergeable slot); `--force` covers both.
-   - If any children are `unmergeable`, or `[finalize-blocked]` was logged, or the PRD→master PR is still open — **including the default-mode `awaiting-approval` gate, where the PR is intentionally left open for the human to check out and test `<base-branch>`** → **leave all worktrees in place** so the user can inspect/recover local state. Mention every worktree's absolute path in the final report, grouped by sequential vs parallel.
+   - **Local branch sweep — same clean conditions, immediately after the worktree removal above.** Every child that reached `result: merged` left a local branch behind, and so did `<base-branch>`:
+     ```bash
+     for pr in <every merged child PR number>; do
+       git branch -D "$(gh pr view $pr --json headRefName --jq .headRefName)"
+     done
+     git branch -D <base-branch>
+     ```
+     **Here, not at MERGE_CHILD.** In sequential mode the just-merged child branch is still checked out in `$WORKTREE_PATH` until the next child is claimed, so an in-loop `git branch -D` is refused; the worktrees are gone by this point, so the sweep succeeds.
+
+     **`-D`, never `-d`, and the gate is what makes it safe.** Child PRs are **squash**-merged into `<base-branch>`, so none of these branches is ever an ancestor of anything — `-d` refuses every time and `git branch --merged` never lists them, which is exactly how they accumulate unnoticed. Sweep only branches whose PR `gh` confirmed merged, only after the worktrees were removed, only under the clean conditions above. Skip any branch whose worktree removal failed.
+
+     > **Donor scar (ADF, 2026-08):** both ship skills removed the worktree at DONE but never the branch; 25 dead local branches had accumulated before anyone looked, invisible to `git branch --merged`.
+   - If any children are `unmergeable`, or `[finalize-blocked]` was logged, or the PRD→master PR is still open — **including the default-mode `awaiting-approval` gate, where the PR is intentionally left open for the human to check out and test `<base-branch>`** → **leave all worktrees and every local branch in place** so the user can inspect/recover/test local state. Mention every worktree's absolute path in the final report, grouped by sequential vs parallel.
+
+     One exception inside this path: a slot worktree that is **detached, clean, and holds no commits** (a released or never-claimed slot) has nothing to inspect. Reap those with a non-`--force` removal, which git refuses the moment a tree holds modifications or untracked files:
+     ```bash
+     for k in $(seq 1 <N>); do
+       git worktree remove "$SLOT_WT_k" 2>/dev/null || true
+     done
+     git worktree prune
+     ```
+     **Never `--force` on this path and never sweep branches here** — an unmerged child branch may hold the only copy of its commits.
 2. Generate the final report (next step).
 
 ## Step 4 — Final report
@@ -736,7 +757,7 @@ Agent(
 - **Round 7 hit on a child with Axis-A blockers still open** → force-concede with `--force-axis-a`, force-merge with cleanup linkage; the 🚨 marker on the cleanup entry makes Axis-A residue visible
 - **Master branch protection blocks the final PRD→master merge** → leave PR open, log to cleanup, report; leave the worktree in place so the user can inspect
 - **Cleanup issue manually closed mid-run** → re-create on next concern (fresh title), log the gap
-- **`--dry-run`** → walk the state machine and print intended actions; no `Agent` dispatches, no `gh` mutations, no `git` mutations (including no `git worktree add` / `git worktree remove`), no check-command runs. Print the worktree path that *would* be used and the finalization terminal — default mode: "open the base→master PR and STOP (no merge)"; `--merge` mode: "open and merge the base→master PR". **With `--parallel <N>`, also print the DAG (nodes + edges + initial ready_set) and a simulated tick-by-tick scheduler trace** showing which child each slot claims at each tick under ideal-completion assumptions — the goal is to expose schedule shape, not predict timing.
+- **`--dry-run`** → walk the state machine and print intended actions; no `Agent` dispatches, no `gh` mutations, no `git` mutations (including no `git worktree add` / `git worktree remove` and no `git branch -D`), no check-command runs. Print the worktree path that *would* be used and the finalization terminal — default mode: "open the base→master PR and STOP (no merge)"; `--merge` mode: "open and merge the base→master PR". **With `--parallel <N>`, also print the DAG (nodes + edges + initial ready_set) and a simulated tick-by-tick scheduler trace** showing which child each slot claims at each tick under ideal-completion assumptions — the goal is to expose schedule shape, not predict timing.
 - **Worktree already exists at the target path** → reuse it; do not delete or recreate. GitHub state remains the source of truth for resumption; the worktree just holds the local checkout.
 - **`--merge` completion re-invoke after a default-mode run** → every child is already merged into the base branch and the base→master PR is open. Reconciliation flows NEXT_CHILD → `no_children` → FINALIZE_PRD, which **adopts the open PR** and runs the finalize tail. The retained worktree is reused.
 - **Default-mode run finishes at `awaiting-approval`** → base→master PR open with its validation block, PRD issue open, `prd-<n>` label intact, canonical wire-contract publish held, worktree(s) retained. None of this is residue — no cleanup entry for a clean gate.

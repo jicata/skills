@@ -275,14 +275,22 @@ Parse the return:
 
 ### DONE
 
-1. Worktree cleanup:
-   - If `outcome` is `clean` / `axis_b_residue` / `axis_a_residue` / `force_merged` → remove the worktree now, since the PR is merged and no local state needs preserving:
+1. Worktree **and local branch** cleanup:
+   - If `outcome` is `clean` / `axis_b_residue` / `axis_a_residue` / `force_merged` → the PR is merged and no local state needs preserving. Remove the worktree, then delete the local branch it held:
      ```bash
      git worktree remove --force "$WORKTREE_PATH"
      git worktree prune
+     git branch -D "$(gh pr view <pr_number> --json headRefName --jq .headRefName)"
      ```
-   - If `outcome` is `awaiting_approval` or `blocked_integration_ci` → **leave the worktree in place** — the PR is unmerged and the human will check out its branch to test or to look at what failed. Mention the path in the final report.
-   - If `outcome` is `unmergeable` → **leave the worktree in place** so the user can inspect local state. Mention the path in the final report.
+     **Delete the branch too — this is not optional bookkeeping.** Removing a worktree leaves its branch behind, and a **squash**-merged branch is never an ancestor of the default branch: `git branch --merged` never lists it, so the usual cleanup idiom is blind to it forever. Skipping this is how a repo silently accumulates dozens of dead local branches.
+
+     **`-D`, never `-d`** — `-d` refuses a squashed branch every time (the same reason `/merge-pr` uses `-D`). The safety therefore comes from **the gate, not from git**: run this only on an outcome where `gh` confirmed the merge, and only after the `git worktree remove` above succeeded. If removal failed, skip the branch deletion — a branch still checked out somewhere is the one case where `-D` would destroy the only copy.
+   - If `outcome` is `awaiting_approval` or `blocked_integration_ci` → **leave the worktree and its branch in place** — the PR is unmerged and the human will check out its branch to test or to look at what failed. Mention the path in the final report.
+   - If `outcome` is `unmergeable` → attempt removal **without `--force`**, and keep the worktree on refusal:
+     ```bash
+     git worktree remove "$WORKTREE_PATH" 2>/dev/null && git worktree prune
+     ```
+     Plain `remove` refuses whenever the tree holds modifications or untracked files, so git itself arbitrates: a worktree with real state is kept, while an **empty shell** — the aborted-run case of a detached, clean, zero-commit worktree with nothing to inspect — is reaped by the run that created it. **Never `--force` on this path, and never delete the branch here**: the PR did not merge, so the branch may hold the only copy of unpushed commits. If removal is refused, mention the path in the final report.
 2. Generate the final report (Step 3).
 
 ### ABORT
@@ -392,10 +400,10 @@ The inline `/afk-merge-pr` and `/afk-concede-thread` steps (run in the orchestra
 - **Round 7 hit with Axis-A blockers still open** → `--merge` mode: force-concede with `--force-axis-a`, force-merge with cleanup linkage; the 🚨 marker on the cleanup entry makes Axis-A residue visible. Default mode: stop at the gate as `awaiting_approval` unconverged, open threads logged, nothing force-conceded.
 - **`--merge` re-invoke on an already-approved open PR** → reconciliation short-circuits to MERGE; no fresh review pass.
 - **Master branch protection blocks the merge** → cleanup entry, `outcome = unmergeable`, leave the PR open for human action.
-- **`--dry-run`** → walk the state machine and print intended actions; no `Agent` dispatches, no `gh` mutations, no `git` mutations (including no `git worktree add` / `git worktree remove`), no check-command runs. Print the worktree path that *would* be used and the terminal it would reach — default mode: "stop at the approved PR (no merge)"; `--merge` mode: "merge to <default-branch>".
+- **`--dry-run`** → walk the state machine and print intended actions; no `Agent` dispatches, no `gh` mutations, no `git` mutations (including no `git worktree add` / `git worktree remove` and no `git branch -D`), no check-command runs. Print the worktree path that *would* be used and the terminal it would reach — default mode: "stop at the approved PR (no merge)"; `--merge` mode: "merge to <default-branch>".
 - **Worktree already exists at the target path** → reuse it; do not delete or recreate. GitHub state remains the source of truth for resumption.
 - **Worktree creation fails** (e.g., path occupied by a non-worktree directory) → log a cleanup-issue entry, mark `outcome = unmergeable`, stop. The user can manually `git worktree remove` or rename the colliding directory and re-invoke.
-- **`unmergeable` outcome** → the worktree is intentionally left in place so the user can inspect/recover local state. The final report includes the path. The user removes it manually with `git worktree remove --force <path> && git worktree prune` once done.
+- **`unmergeable` outcome** → DONE first tries a non-`--force` removal, so an empty shell (detached, clean, no commits — the aborted-run case) is reaped by the run that made it. A worktree holding modifications or untracked files is refused by git and intentionally left in place so the user can inspect/recover local state; the final report includes the path, and the branch is never deleted on this path. The user removes it manually with `git worktree remove --force <path> && git worktree prune` once done.
 - **Issue body references a missing module or non-existent feature** → coder will detect this during Explore; `result: regression` or `ac_missing` will be logged; orchestrator continues.
 
 ## Relationship to /ship-feature
