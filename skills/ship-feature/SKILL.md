@@ -29,21 +29,20 @@ If no PRD number, ask. Do not guess.
 6. **The user's main repo checkout is never touched.** All implementation, branching, pushing, reviewing, and final master-merge prep happens inside dedicated sibling worktrees at `../<repo>-ship-prd-<prd-number>` (sequential mode) or `../<repo>-ship-prd-<prd-number>-slot<k>` for `k in 1..N` (parallel mode). The worktrees own the PRD base branch and child branches for their lifetime; the user can keep working on `master` (or any other branch) in their main checkout for the duration of the run.
 7. **Parallelism is opt-in via `--parallel <N>` and DAG-gated.** Without the flag, the run is fully sequential and identical to prior behavior. With the flag, child issues are dispatched concurrently only when their `Blocked-by:` predecessors have merged; merges are always serialized — either via GitHub's merge queue on the PRD base branch (preferred, auto-detected at Step 0c) or via an orchestrator-side working-memory mutex (fallback, when merge queue isn't available — e.g., private repos on free GitHub plans). The scheduler is best-effort: any slot failure logs to cleanup and other slots keep flowing.
 
-## Step 0a — Model preflight (fail-fast)
+## Step 0a — Model preflight (warn, never block)
 
-The orchestrator must run on the model the profile assigns to the **orchestrator role**. Before any other step:
+The orchestrator is expected on the model the profile assigns to the **orchestrator role**. Before any other step:
 
 1. Read `models.orchestrator` from the project profile (`.claude/doctrine/project-profile.md`), falling back to `workhorse_model` if the `models` map is absent or omits the role.
 2. Inspect the active model. The harness exposes the current model in the session header.
-3. If the active model is **anything other than that** (any variant of the same model family is acceptable), stop immediately and tell the user:
+3. **Mismatch** (any variant of the configured family matches) → print one line and **continue**:
 
-   > /ship-feature must run on the profile's orchestrator model. Active model is `<X>`, profile says `<models.orchestrator>`. Run `/model <models.orchestrator>`, then re-invoke `/ship-feature <prd-number>`.
+   > Session model is `<X>`; profile `models.orchestrator` is `<Y>`. Continuing — Coder/Reviewer tiers are passed explicitly per dispatch and are unaffected.
 
-4. Do NOT attempt to switch models silently. **Subagent tiers are not constrained by the session model** — the orchestrator passes `model` explicitly on every dispatch, so the coder and reviewer run on their own assigned tiers regardless of what this session is set to.
+   Record `orchestrator_model_mismatch = { configured: <Y>, executed: <X> }` for the final report's **Execution conformance** block. Never stop on this; never switch models silently.
+4. **Tier check.** Rank the known tiers `haiku` < `sonnet` < `opus`. If `models.reviewer` ranks below `models.coder`, print one line — `Reviewer tier <R> is weaker than coder tier <C> — raising reviewer to <C> for this run` — dispatch every Reviewer on the coder's tier, and record `reviewer_tier_raised = { configured: <R>, executed: <C> }` for the Execution conformance block. A tier outside that list is not ranked — skip the check. Never stop on this.
 
-This guard exists for two reasons:
-- **Cost** — multi-round Coder↔Reviewer loops on a premium model burn an order of magnitude more than the orchestration value justifies
-- **Architecture** — the orchestrator's job is routing on `result` / `verdict` JSON keys, not deep reasoning. The workhorse model handles routing and tool sequencing correctly; the heavy lifting was already deliberately split out into workhorse-model subagents
+**Subagent tiers are independent of the session model.** The orchestrator passes `model` explicitly on every dispatch (see *Model enforcement*), so the Coder and Reviewer run on their assigned tiers whatever this session runs on. The orchestrator's own job is routing on `result` / `verdict` JSON keys; the heavy reasoning lives in the subagents. A hard stop on a session mismatch therefore protects nothing the dispatches don't already guarantee — it only costs the operator a restart — so it warns instead. The tier check is the guard that does matter: a reviewer weaker than the coder rubber-stamps, and it is raised rather than stopped because a mis-set profile must not cost a run.
 
 ## Step 0b — Permission preflight (fail-fast)
 
@@ -333,7 +332,7 @@ Tick procedure (runs whenever a slot completes or at startup):
 - **`merge_strategy == "queue"`:** the orchestrator dispatches `afk-merge-pr --auto` per slot in parallel; the merge queue on `<base-branch>` linearizes them. The slot is held until GH reports the PR `merged`, which the orchestrator detects by polling `gh pr view <pr> --json mergedAt,state` on each tick OR by listening for the harness's pull_request-event notification if available.
 
 - **`merge_strategy == "mutex"`:** when a slot reaches MERGE_CHILD, check `merge_mutex_holder`:
-  - If `null`: set `merge_mutex_holder = k`, dispatch `afk-merge-pr <pr_number>` **synchronously** (no `--auto`, no `run_in_background`) in slot `k`'s worktree. On any terminal result (`merged` / `merge_conflict` / `branch_protection`), release `merge_mutex_holder = null` immediately. On `merged`: bump `base_branch_tip` to the new SHA and mark every *other* in-flight slot's PR with `needs_rebase = true` in working memory. Re-enter SCHEDULER_TICK.
+  - If `null`: set `merge_mutex_holder = k`, dispatch `afk-merge-pr <pr_number>` **synchronously** (no `--auto`, no `run_in_background`) in slot `k`'s worktree. On **every** result except `merge_queued` (including `review_stale`, `not_approved`, `not_reviewed`, `changes_requested`, `unresolved_threads`), release `merge_mutex_holder = null` immediately — a slot routed back to REVIEW or ADDRESS must not hold the mutex while it waits. On `merged`: bump `base_branch_tip` to the new SHA and mark every *other* in-flight slot's PR with `needs_rebase = true` in working memory. Re-enter SCHEDULER_TICK.
   - If non-null (another slot holds it): the slot's MERGE_CHILD transition is deferred. Record `slot_assignments[k].pending_merge = true` and yield back to SCHEDULER_TICK — the slot remains occupied. On every subsequent tick, slots with `pending_merge == true` re-attempt mutex acquisition. The orchestrator MUST NOT spin — it just re-checks at each natural tick boundary (when other slots complete Coder/Reviewer work).
 
 **Stale-base handling (mutex mode only):** when a slot is flagged `needs_rebase = true`, its *next* Agent dispatch (whatever phase it's in — REVIEW, ADDRESS, or MERGE_CHILD) MUST be preceded inside the prompt by an explicit rebase instruction:
@@ -439,8 +438,10 @@ Parse the structured return:
 - `result: merge_queued` (parallel queue-mode only) → slot remains occupied; SCHEDULER_TICK polls `gh pr view <pr> --json mergedAt,state` on subsequent ticks. On observed merge, transition to `merged`. If the PR transitions to `closed` without `mergedAt` (queue rejected it — required check failure on rebased base), GO TO ADDRESS.
 - `result: merge_conflict` → re-dispatch `afk-coder` for `/afk-address-pr` to attempt rebase; if Coder returns `rebase_conflict` again, force-concede + retry merge; if still failing, mark `unmergeable`
 - `result: branch_protection` → cleanup entry, mark `unmergeable`, NEXT_CHILD
-- `result: review_stale` → a commit landed after the approving review, so the head is ungraded. GO TO REVIEW to re-grade at the current head. **Guard:** on a second consecutive `review_stale` for the same PR, log a `[stale-review-loop]` cleanup entry and GO TO MERGE_CHILD with `--force <cleanup-issue-number>` (which records `stale_review_forced`) rather than looping. In mutex mode this is expected occasionally — a `needs_rebase` slot pushes a rebase after its review pass
-- `result: changes_requested` / `unresolved_threads` / `not_approved` / `not_reviewed` → orchestrator bug (shouldn't reach here without forcing); halt with diagnostic
+- `result: review_stale` → a commit landed after the approving review, so the head is ungraded. Increment `stale_merge_count` (starts at 0 per PR; reset to 0 on any other MERGE result and whenever REVIEW returns a verdict other than `APPROVE`). GO TO REVIEW for a fresh pass at the current head, then retry the merge. When `stale_merge_count` reaches **2**, something keeps pushing between review and merge: log `[stale-review-forced pr=#NN]` to the cleanup issue and retry with `--force <cleanup-issue-number>` rather than looping. A merge that lands this way is `force_merged`, never `clean`, and its `stale_review_forced: true` is carried into the Execution conformance block. In mutex mode a single stale result is expected occasionally — a `needs_rebase` slot pushes a rebase after its review pass
+- `result: not_approved` / `not_reviewed` → no governing `APPROVE` exists at the head — typically an adopted PR whose only reviews predate the verdict marker (those never count as approvals, by design). GO TO REVIEW for a fresh pass, then retry the merge. **Disagree guard:** if the same result returns straight after a fresh `APPROVE` at the current head, the gate and the reviewer disagree — a real defect, not a loop to retry: log `[merge-gate-disagrees pr=#NN]` with both results, leave the PR open, and mark the child `unmergeable`, NEXT_CHILD.
+- `result: changes_requested` → a **human** (or a bot other than the configured review App) blocked the PR natively; the review App's own superseded blocks never reach here (protocol §4 step 1). Respect it: log `[human-changes-requested pr=#NN]`, leave the PR open, and mark the child `unmergeable`, NEXT_CHILD. Never concede or force past a human block.
+- `result: unresolved_threads` → threads opened after the approval. GO TO ADDRESS, then REVIEW, then retry the merge.
 - `result: structural_bug_master_target` → halt; this is a PRD-config error
 
 ### FINALIZE_PRD
@@ -558,7 +559,12 @@ gh issue comment <prd-number> --body "$(cat <<EOF
  CI authority (profile `axis_c`) — under `advisory`, report any red or unknown check here even though it did
  not block, so a permanently-red suite cannot become invisible;
  merge strategy (Step 0c preferred `queue` vs executed `mutex`); anything else where the run
- silently took a fallback path.>
+ silently took a fallback path.
+ Also: orchestrator model (Step 0a — "⚠️ Orchestrator model: configured <models.orchestrator>, ran as <session model> —
+ Coder/Reviewer tiers unaffected."); reviewer tier (Step 0a tier check — "⚠️ Reviewer tier: configured <R>, ran as <C> —
+ reviewer may not be weaker than coder; fix `models` in the profile."); stale-review force (one line per PR merged with
+ `stale_review_forced: true` — "⚠️ #<pr> merged with --force after 2 consecutive stale reviews — the merged head was never
+ reviewed.").>
 
 ## Children
 <table: pr_number | title | merged_at | residue_tags>
@@ -587,10 +593,9 @@ To dispatch `afk-coder` and `afk-reviewer`, use the `Agent` tool. Each dispatch 
 
 **Every Agent dispatch from /ship-feature MUST pass `model:` explicitly, resolved from the profile's `models` map by role** — `models.coder` for coder dispatches, `models.reviewer` for reviewer dispatches, falling back to `workhorse_model` for any role the map omits. Non-negotiable:
 
-- The orchestrator itself already runs on `models.orchestrator` (enforced by Step 0a model preflight)
 - The `afk-coder.md` and `afk-reviewer.md` agent definitions may pin the model in frontmatter, but the harness can let the parent's model leak through to subagents in some configurations
 - Passing the model at dispatch time overrides any inheritance and guarantees the role's assigned tier runs the work — this is also what makes subagent tiers independent of the session model
-- Workhorse end-to-end: orchestrator AND subagents. No premium model in the loop. This is a cost discipline — multi-round Coder↔Reviewer loops on a premium model are prohibitive
+- The Coder is the high-volume seat (multi-round loops), so it takes the cheaper tier; the Reviewer is the quality gate. **The reviewer must never be weaker than the coder** (Step 0a raises it if the profile says otherwise)
 
 If the harness rejects the `model` parameter on a particular `subagent_type`, fall back to `general-purpose` with the explicit `model` parameter.
 
@@ -665,16 +670,16 @@ Agent(
 ## Critical Rules
 
 1. **Never halt for human input.** Every condition is either auto-resolvable, a forced concession, or a cleanup-issue entry.
-2. **Never skip a child.** Every PR is merged — clean, conceded, or forced. The only `unmergeable` exception is when the push itself fails (auth/branch-protection on the orchestrator path).
+2. **Never skip a child.** Every PR is merged — clean, conceded, or forced. The only `unmergeable` exceptions are when the push itself fails (auth/branch-protection on the orchestrator path), a human's native `CHANGES_REQUESTED`, and a merge gate that disagrees with a fresh approval.
 3. **Never auto-concede Axis-A** in normal mode. Forced-merge path only.
 4. **Always lazy-create the cleanup issue** on first concern, never up-front.
 5. **Always emit final report to chat AND PRD issue comment.**
 6. **Never bypass branch protection.**
-7. **Always run preflight Steps 0a/0b (and 0c in parallel mode) before anything else.** Step 0b's review-identity probe warns and continues rather than failing fast — but any gap between configured and executed mode must be stated up front **and** repeated in the final report's Execution conformance block, never left silent. Step 0b includes the resilience preflight: read `resilience.md` (it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs) before first dispatch.
+7. **Always run preflight Steps 0a/0b (and 0c in parallel mode) before anything else.** Step 0a and Step 0b's review-identity probe warn and continue rather than failing fast — but any gap between configured and executed mode must be stated up front **and** repeated in the final report's Execution conformance block, never left silent. Step 0b includes the resilience preflight: read `resilience.md` (it governs the §1 time-boxed shell that prevents `gh` / `git` / provisioning hangs) before first dispatch.
 8. **Always reconcile from GitHub on re-invocation.** Open PRs targeting the PRD base branch are picked up and resumed.
 9. **Never create more than one ship-cleanup issue per PRD.** Helper deduplicates by title search.
 10. **Coder and Reviewer must be separate agent dispatches.** Independence is the design.
-11. **Per-role models.** The orchestrator MUST run on `models.orchestrator` (Step 0a preflight). Every Agent dispatch MUST pass the role's model explicitly — `models.coder` or `models.reviewer` — because frontmatter alone is insufficient: the dispatch parameter is the load-bearing override. **The reviewer must never be weaker than the coder**, or independent review degrades to rubber-stamping.
+11. **Per-role models.** The orchestrator is expected on `models.orchestrator` (Step 0a warns on mismatch, never blocks). Every Agent dispatch MUST pass the role's model explicitly — `models.coder` or `models.reviewer` — because frontmatter alone is insufficient: the dispatch parameter is the load-bearing override. **The reviewer must never be weaker than the coder**, or independent review degrades to rubber-stamping.
 12. **Never touch the user's main checkout.** All implementation, branching, pushing, reviewing, and master-merge prep happens inside the dedicated worktree(s). `master` is never checked out — it stays as `origin/master` and the master-merge is staged by merging `origin/master` into `<base-branch>` inside `$BASE_WT` (or `$WORKTREE_PATH` in sequential mode).
 13. **Parallel mode: merges are always serialized.** Step 0c picks the strategy: `queue` (preferred, GH merge queue, no orchestrator-side lock) or `mutex` (fallback, working-memory single-holder lock with synchronous `gh pr merge --squash`). Never run two `afk-merge-pr` calls concurrently in mutex mode. Never bypass either mechanism. In mutex mode, every merge bumps `base_branch_tip` and flags all other in-flight slots `needs_rebase`.
 14. **Parallel mode: slot affinity is mandatory.** Once slot `k` claims a PR, every subsequent dispatch for that PR runs in slot `k` until the PR is merged or marked unmergeable. Migrating a PR across slots loses local context (uncommitted progress, build artifacts) and breaks the dirty-tree guard.
