@@ -149,6 +149,7 @@ Most doctrine is path-scoped or on-trigger. Marking a file "always-on" without a
 | `frontend-react.md` | **Framework axis.** Server state via the query cache, effect discipline, key stability. Loads alongside `arch-frontend.md`. |
 | `frontend-vue.md` | **Framework axis.** `<script setup>`, `ref` vs `reactive`, composables, the `v-if`/`v-for` trap, and the separate `vue-tsc` type gate. Loads alongside `arch-frontend.md`. |
 | `relational-persistence.md` | Schema, migrations, indexes, and query practice behind an ORM. Spine: **the test stand-in lies** — every persistence change is judged against both the canonical store and the faster thing tests run on. Carries the natural-key rule for runtime-mutated reference data and the concurrent-context trap. |
+| `port-from-consumer-contract.md` | For apps another system consumes. **Design the shape with the consumer, not for it**: look before you shape, pin the resource by route constant + verb (never by name), record the evidence tier, and — the rule that exists because the first three were followed in form — **a citation is not evidence**: re-read every cited line at a known ref, and re-probe on reuse. Its trip-wire is a `CLAUDE.md` line, because it fires at design time when no file is open. |
 | `llm-prompt-craft.md` | For apps that construct prompts. A **visibility gate** (render the prompt as text and surface it — every change, no threshold) plus craft doctrine: self-contained, plain, example-driven, disposition stated, contract separated from teaching. |
 | `writing-skills.md` + `writing-skills-glossary.md` | How skills themselves are authored: **predictability** as the root virtue, with levers grouped by invocation, information hierarchy, steering, and pruning. This is the doctrine this repo is held to. |
 
@@ -179,7 +180,7 @@ The catalog, and what each answer materializes:
 | --- | --- | --- |
 | **Q1** | Chassis — base libraries that own runtime behaviour? | `chassis-foundation` template |
 | **Q2** | Does deployment leave this repo? | `deploy-infra` template |
-| **Q3** | Routes/contracts whose truth lives in another system? | contract doctrine + oracle pointers |
+| **Q3** | Does another system consume this API, or own its truth? | `port-from-consumer-contract` doctrine + `consumer_repos` + a `CLAUDE.md` trip-wire |
 | **Q4** | Can agents reach live/shared environments? | hard safety constraints, **first** in the overlay |
 | **Q5** | Stack *(detected)* | language doctrine core + `check_commands` |
 | **Q6** | Architecture shape *(detected)* | architecture doctrine + **the composite coder lens** |

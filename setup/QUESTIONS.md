@@ -14,9 +14,10 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 → *yes:* instantiate `templates/deploy-infra`: the pipeline diagram, the sibling-repo pointers, the "a route the gateway doesn't know is a dead endpoint" trigger.
 → *Donor: CI ends at Artifactory; deploy = image-bump PR in `platform-gitops` + ArgoCD; Ocelot gateway routes must match app prefixes.*
 
-**Q3 — External contract truth.** "Are any of this app's public routes/contracts ported from, or consumed by, systems whose behavior is the real source of truth? Where does that truth live?"
-→ *yes:* install `port-from-consumer-contract` doctrine + overlay pointers to the oracle/consumer.
-→ *Donor: yes — an upstream vendor API client is the wire-contract authority; a whole PRD (#261) existed to fix the damage from porting against the `.proto` instead.*
+**Q3 — External contract truth.** "Does another system consume this app's API — or is any public route ported from a system whose behavior is the real source of truth? Where does that consumer's source live, and which branch is its integration ref?"
+→ *yes:* install `doctrine/port-from-consumer-contract.md`; record each consumer in the profile's `consumer_repos` key (local path + integration ref + probe order — client route constants first, then the DTOs it serializes, then its validators, then its UI); inline the trip-wire into the generated `CLAUDE.md` as one line ("before proposing any route, shape, or status contract, read the consumer at its integration ref — `.claude/doctrine/port-from-consumer-contract.md`"). The CLAUDE.md line is not optional: the rule fires at PRD/grilling time, when no file is open, so a path-scoped rule alone never loads in time. Optionally add a `paths:` rule over the repo's controllers/DTOs for the code-time half.
+→ *no consumer repo reachable yet:* still install it if the app has a public surface — "no consumer client exists yet" is a result the doctrine asks you to record, not a reason to skip it.
+→ *Donor: yes — one consumer app's API client + validators + admin UI is the wire-contract authority. Three incidents: a port frozen against the internal `.proto` (corrective PRD), a greenfield admin lane shaped without looking (three issues frozen, reversal PRD), and a tier-1-looking consumer check that was stale at every line.*
 
 **Q4 — Live-environment safety.** "Can agents in this repo reach live/shared databases or environments? Which must be treated read-only, and what ceremony applies to schema/data changes?"
 → hard safety constraints at the top of the overlay (these are the rules that must never be lost in a compaction).

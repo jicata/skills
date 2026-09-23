@@ -20,6 +20,7 @@ check_commands: <FILL: list — the commands that must pass before a PR, e.g. ["
 mode: <FILL: greenfield | brownfield>
 chassis: <FILL: none | paths — if not none, templates/chassis-foundation was instantiated; keep the paths mirrored here>
 legacy_oracle: <FILL: none | pointer to the reference implementation new code must behaviorally match>
+consumer_repos: <FILL: none | list — each system that consumes this app's public surface: {name, path: local checkout, ref: the integration branch to read at (never the working tree), probe: where its client route constants / DTOs / validators / UI live}. Consumed by doctrine/port-from-consumer-contract.md (Q3). Omit for none>
 doc_appetite: <FILL: full | lean>
 pipeline_tier: <FILL: full | light>
 axis_c: <FILL: off | advisory | enforcing — how much authority CI check-runs have over a review verdict and a merge. Omit to infer from `ci` (none ⇒ off, configured ⇒ enforcing). `advisory` is the transition state while CI is being stood up: fully exercised and reported, but never blocking. See skills/_shared/axis-c.md>
@@ -90,7 +91,7 @@ base_version: <FILL: version/commit of the skills base library this repo was set
 
 ## External contracts
 
-<!-- Ported/consumed routes whose truth lives elsewhere; wire-contract tooling; the oracle pointer if legacy_oracle ≠ none (Q3, Q8, Q14). -->
+<!-- Ported/consumed routes whose truth lives elsewhere; wire-contract tooling; the oracle pointer if legacy_oracle ≠ none (Q3, Q8, Q14). Consumer locations go in the `consumer_repos` key; this section carries the scars — e.g. a consumer resource whose name collides with one of ours. -->
 
 <FILL>
 
