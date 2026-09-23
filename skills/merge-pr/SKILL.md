@@ -65,6 +65,8 @@ Check **all** of the following. If any fails, stop and report — do not merge.
 
 Applies only if the profile's Merge gates section (or its `design_pipeline` doctrine) declares a merge-time command that CI does not already run — donor: a frontend `npm run build` that the CI workflow never invokes, so a Vite-only failure would otherwise land green. Run it on the PR's worktree when the PR touches the declared path. Red → stop and report `build_failed`; this is not a standards opinion and is never conceded or forced past. If the profile declares nothing, skip.
 
+The same hook carries non-build gates — the worked example is a live-data migration verification (restore a captured read-only copy of live data into a throwaway store, apply the migration as deploy would, re-apply as a no-op) before a default-branch merge. Its status comes from the command's exit code, an unverified run blocks like a failure, and the PR evidence never includes raw output, which can echo real rows. See `/afk-merge-pr` Step 2.5.
+
 Then, still before the squash, run any **pre-merge steps** the `design_pipeline` doctrine declares on the PR head (donor: promoting accepted design baselines so they ride in the squash commit). Best-effort: report, never block the merge on them.
 
 ### Step 3 — Identify the linked issue(s)

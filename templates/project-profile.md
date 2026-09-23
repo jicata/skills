@@ -100,6 +100,8 @@ base_version: <FILL: version/commit of the skills base library this repo was set
 
 > **EXAMPLE — delete:** Review identity is `self`, so every skill review posts as `COMMENTED` and `reviewDecision` is permanently `null`. The binding verdict is the `**Verdict:**` marker in the review body, per `skills/_shared/review-protocol.md`. WHY: GitHub rejects APPROVE/REQUEST_CHANGES from the PR author. Evidence: 400 PRs, zero non-null `reviewDecision`.
 
+> **EXAMPLE (donor: the donor stack) — delete:** Merge-time gate (merge-pr / afk-merge-pr Step 2.5): a PR landing on the default branch that touches `<migrations dir>/` runs `<verify command>` first — it restores a captured read-only copy of live dev data into a throwaway emulator, applies the migration the way deploy does, and re-applies it as a no-op. Exit `0` pass, `1` fail, `2`/`3` unverified; fail and unverified both block and are never conceded or forced. Evidence posted to the PR is the status line, file names and row counts only. Never on a child PR — the base→default-branch PR is where a PRD's migrations are seen as a set, in order. WHY: deploy runs the migration against live data and an applied migration cannot be edited afterwards; CI applies migrations to an *empty* database, so a data migration whose `WHERE` matches nothing exits 0, reports green, and ships a no-op. Evidence: the donor's migration-gate doctrine, 2026-09.
+
 ## Deploy & environments
 
 <!-- Where the path-to-production leaves this repo; if templates/deploy-infra was instantiated, ONE index line pointing at it — don't duplicate its content here (Q2, Q12). -->
