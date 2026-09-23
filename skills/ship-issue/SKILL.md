@@ -138,7 +138,8 @@ The classic "dirty tree → stop" check is intentionally removed: the user's mai
 Track in working memory (no state file):
 - `issue_number`, `pr_number` (or `null` until coder creates), `cleanup_issue_number` (or `null` until lazy-created)
 - `round_count`, `thread_reject_counts: {<thread_id>: <count>}`
-- `outcome` enum: `clean` | `axis_b_residue` | `axis_a_residue` | `force_merged` | `unmergeable` | `awaiting_approval` (default-mode terminal: PR converged — or handed over unconverged at round 7 — and left open at the production gate)
+- `outcome` enum: `clean` | `axis_b_residue` | `axis_a_residue` | `force_merged` | `unmergeable` | `awaiting_approval` (default-mode terminal: PR converged — or handed over unconverged at round 7 — and left open at the production gate) | `blocked_integration_ci` (`--merge` mode under `axis_c: enforcing`, terminal CI red or unobserved — PR left open)
+- `integration_ci` (`n/a` | `pass` | `fixed` | `red` | `red-preexisting` | `unknown`), `ci_fix_attempts` (starts at 0, never reset)
 
 State machine:
 
@@ -230,7 +231,15 @@ Parse the return:
 
 ### MERGE
 
-**Default mode — stop at the production gate.** Do **not** merge; this is the whole point of the mode.
+**Terminal integration CI — watch → attribute → fix-or-log (both modes, before the mode branch).** The Reviewer read Axis C at review time; the default branch may have moved since, or a re-run may have flipped the suite. Re-confirm at the terminal, in the worktree on the PR branch. Governed by the profile's `axis_c` (`.claude/skills/_shared/axis-c.md`): under `off`, skip this block and set `integration_ci = n/a`.
+
+- **Watch.** Read the PR head's check-runs exactly as `afk-review-pr` Step 6.5 does — poll every 30s until every run is `completed`, capped at 15 minutes, each call per `resilience.md` §1. All `success` → `integration_ci = pass`, go to the mode branch. Still pending at the cap → log `[ci-integration-unknown]`, set `integration_ci = unknown`, go to the mode branch. Never treat pending as green; never hang.
+- **Attribute** (any `failure` / `timed_out`) against the same-named check on the default branch's HEAD: also red there → pre-existing, log `[ci-fail-integration pre-existing]`, set `integration_ci = red-preexisting`, do not try to fix it. Green there, red on the PR → attributable.
+- **Fix (attributable only), capped.** Resume the persistent Coder (`SendMessage` to `coder_agent_id`) with the failing check names, extracted assertions and run URLs: "diagnose on the PR branch, fix, push." Re-watch after each push. **Cap: 3 attempts per PR across the whole run** — `ci_fix_attempts` is never reset, so re-entering MERGE after a stale-approval re-review does not buy three more. Green → `integration_ci = fixed`. Exhausted → log `[ci-fail-integration attributable-unfixed]`, set `integration_ci = red`. A Coder fixing its own regression is the loop working — report it, no ceremony.
+
+Under `advisory` the watch still runs and every state is reported, but nothing below blocks on it — that is what advisory means. Under `enforcing` the `--merge` branch refuses red and unknown.
+
+**Default mode — stop at the production gate.** Do **not** merge; this is the whole point of the mode. Report `integration_ci` in the final report — the human is the gate, but they are told the CI state before they invest in testing.
 
 1. **The approval must be at the head.** Evaluate the review-protocol §4 gate read-only. If it returns `review_stale` (a push landed after the last `APPROVE`), run one more REVIEW at the current head before stopping — report "reviewer-approved" only when the gate would pass right now. Any other non-pass result on a PR this run believed converged is reported as found, never papered over.
 2. If `outcome` is not already `awaiting_approval` (the clean-approve arrival rather than round 7), set it now.
@@ -239,7 +248,7 @@ Parse the return:
 
 The final report tells the human to test and then re-invoke `/ship-issue <issue-number> --merge`.
 
-**`--merge` mode — ship it.**
+**`--merge` mode — ship it.** **Integration-CI release gate first (under `axis_c: enforcing`):** proceed only if `integration_ci` is `pass` or `fixed`. On `red`, `red-preexisting` or `unknown`, do **not** merge — the cleanup entry is already logged; set `outcome = blocked_integration_ci`, leave the PR open, GO TO DONE. Never merge onto the default branch on a red or unobserved suite. Then run the merge:
 
 If forced:
 ```
@@ -271,7 +280,7 @@ Parse the return:
      git worktree remove --force "$WORKTREE_PATH"
      git worktree prune
      ```
-   - If `outcome` is `awaiting_approval` → **leave the worktree in place** — the PR is unmerged and the human will check out its branch to test. Mention the path in the final report.
+   - If `outcome` is `awaiting_approval` or `blocked_integration_ci` → **leave the worktree in place** — the PR is unmerged and the human will check out its branch to test or to look at what failed. Mention the path in the final report.
    - If `outcome` is `unmergeable` → **leave the worktree in place** so the user can inspect local state. Mention the path in the final report.
 2. Generate the final report (Step 3).
 
@@ -288,13 +297,16 @@ gh issue comment <issue-number> --body "$(cat <<EOF
 🤖 /ship-issue autonomous run complete.
 
 ## Outcome
-<one of: awaiting-approval (default — converged, NOT merged) | awaiting-approval-unconverged 🚨 (round 7, threads open) | clean-merge | merged-with-axis-b-residue | merged-with-axis-a-residue 🚨 | force-merged | unmergeable>
+<one of: awaiting-approval (default — converged, NOT merged) | awaiting-approval-unconverged 🚨 (round 7, threads open) | clean-merge | merged-with-axis-b-residue | merged-with-axis-a-residue 🚨 | force-merged | blocked-integration-ci (terminal CI red/unobserved — NOT merged, PR open, logged) | unmergeable>
 
 ## PR
 #<pr-number> (<state>)
 
+## Integration CI
+<n/a (axis_c off) | green | auto-fixed (<checks>) | red (<checks>, logged) | pending (logged) | pre-existing red on <default-branch> (<checks>, logged)>
+
 ## Next step
-<On `awaiting_approval`: "Test the PR (branch <branch>, worktree below), then run `/ship-issue <issue-number> --merge` to ship." On a merged outcome: "Merged to <default-branch>." On `unmergeable`: what blocked it and where to look.>
+<On `awaiting_approval`: "Test the PR (branch <branch>, worktree below), then run `/ship-issue <issue-number> --merge` to ship." On `blocked_integration_ci`: "CI is red/unobserved on the open PR (failing checks on the cleanup issue) — NOT merged. Fix the checks on <branch>, then re-invoke `/ship-issue <issue-number> --merge`." On a merged outcome: "Merged to <default-branch>." On `unmergeable`: what blocked it and where to look.>
 
 ## Cleanup issue
 <link, or "none">
@@ -331,6 +343,7 @@ Unlike `/ship-feature`, this skill creates a cleanup issue **only if at least on
 - A regression was logged
 - AC was missing
 - `unmergeable` outcome
+- A red or pending terminal integration CI was logged (`[ci-fail-integration …]` / `[ci-integration-unknown]`), including the `blocked_integration_ci` outcome
 - Default-mode round 7 reached with threads still open (`awaiting_approval` unconverged) — the open threads are logged so they are not lost when the human takes over
 
 The clean default-mode gate (`awaiting_approval`, everything converged) is **not** residue. If none of the above apply, **no cleanup issue is created** and the final report notes `Cleanup issue: none`.
@@ -368,6 +381,7 @@ The inline `/afk-merge-pr` and `/afk-concede-thread` steps (run in the orchestra
 11. **Never adopt a PR for a different issue.** Reconciliation searches by `Fixes #<issue-number>`; if the only open PR doesn't match, treat as no PR.
 12. **Refuse PRD children.** Issues with `## Parent PRD` are explicitly redirected to `/ship-feature`.
 13. **The production merge is gated by default; `--merge` is the opt-in.** Default runs converge the PR and stop; the merge happens only in `--merge` mode. The gate removes exactly two behaviours — the terminal merge and the round-7 force — and nothing else.
+14. **Always re-read CI at the terminal, in both modes** (unless `axis_c: off`). Watch bounded, attribute red against the default branch's HEAD, fix attributable failures via the Coder (capped at 3 per PR across the run), log the rest. Under `enforcing`, `--merge` merges only on `pass` / `fixed`; red or unobserved never merges. This bounded foreground `gh api` loop is not the forbidden polling of background agents — it is the same read the Reviewer already does.
 
 ## Edge Cases
 

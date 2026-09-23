@@ -490,9 +490,21 @@ When `NEXT_CHILD` reports `no_children` and there are no open child PRs left:
 
    Then append the validation-steps block (`.claude/skills/_afk-shared/validation-steps.md`) to the PR body, preserving the existing body — the recipe the human uses to validate the integrated base branch before approving the merge.
 
-1b. **Production gate — default mode stops here.** In default mode the whole feature is integrated on `<base-branch>` and the base→master PR is open with its validation block. Set `finalization = awaiting-approval`, **do not** run steps 2–3c (no master merge, no PRD close, no label delete, no canonical wire-contract publish — all production actions), and GO TO DONE. The `prd-<n>` label and the PRD issue stay as they are, so the still-integrating work stays grouped and the PRD stays open until it actually lands. The final report tells the human to test `<base-branch>` and re-invoke `/ship-feature <prd-number> --merge`.
+1a. **Integration CI — watch → attribute → fix-or-log (both modes, before the gate).** The base→master PR is the first CI run of all children *together* against the current default branch — a run no child ever saw, since each was green against an older base tip, in isolation. Cross-child breakage (one child renames what another calls) and base-drift breakage surface **only here**; per-child Axis C structurally cannot catch them. Run it in the base worktree on `<base-branch>`, governed by the profile's `axis_c` (`.claude/skills/_shared/axis-c.md`) — under `off`, skip and set `integration_ci = n/a`.
 
-   **Only in `--merge` mode** (given up front, or on the completion re-invoke) do steps 2–3c run.
+   i. **Watch.** Read the PR head's check-runs exactly as `afk-review-pr` Step 6.5 does — poll every 30s until every run is `completed`, capped at 15 minutes, each call per `resilience.md` §1. All `success` → `integration_ci = pass`, go to 1b. Still pending at the cap → log `[ci-integration-unknown]` with the pending check names, set `integration_ci = unknown`, go to 1b. Never treat pending as green; never hang.
+
+   ii. **Attribute** each `failure` / `timed_out` against the same-named check on `origin/master` HEAD: also red there → pre-existing, not this PRD's doing, never fixed here; green there, red on the PR → attributable (a child, or the integration of children, produced it).
+
+   iii. **Fix (attributable only), capped.** Resume a surviving Coder (`SendMessage`), or dispatch a fresh one (`Agent(model: "<models.coder>", run_in_background: true)`) in the base worktree, with the failing check names, extracted assertions and run URLs: "diagnose on `<base-branch>`, fix, push — this is integration breakage across children that each passed alone." Re-run (i) after each push. **Cap: 3 attempts across the whole run** (`ci_fix_attempts`, never reset within a run). Green → `integration_ci = fixed`. Exhausted → log `[ci-fail-integration attributable-unfixed]`, set `integration_ci = red`.
+
+   iv. Only pre-existing failures → log `[ci-fail-integration pre-existing]` naming the checks, set `integration_ci = red-preexisting`.
+
+   A Coder fixing breakage its own children made is the loop working — record `integration_ci = fixed (<checks>)` in the final report, no ceremony. Under `advisory` the watch runs and reports but blocks nothing.
+
+1b. **Production gate — default mode stops here.** In default mode the whole feature is integrated on `<base-branch>` and the base→master PR is open with its validation block. Set `finalization = awaiting-approval`, **do not** run steps 2–3c (no master merge, no PRD close, no label delete, no canonical wire-contract publish — all production actions), and GO TO DONE. The `prd-<n>` label and the PRD issue stay as they are, so the still-integrating work stays grouped and the PRD stays open until it actually lands. The final report tells the human to test `<base-branch>` and re-invoke `/ship-feature <prd-number> --merge`. It also reports `integration_ci` from 1a, so the human knows the integration's CI state before investing in manual testing — this path never blocks on CI; any red or pending state is already a cleanup entry.
+
+   **Only in `--merge` mode** (given up front, or on the completion re-invoke) do steps 2–3c run — and, under `axis_c: enforcing`, only if `integration_ci` is `pass` or `fixed`. On `red`, `red-preexisting` or `unknown`, do **not** merge: set `finalization = finalize-blocked-ci`, leave the base→master PR open, GO TO DONE. Never merge onto the default branch on a red or unobserved integration suite.
 
 2. Attempt the master merge with **manual hunk-by-hunk resolution first**, fallback `-X theirs`. **All git operations happen inside the worktree on `<base-branch>`; `master` is never checked out — it stays as the `origin/master` remote ref.**
    ```bash
@@ -566,11 +578,12 @@ gh issue comment <prd-number> --body "$(cat <<EOF
 - Children shipped with Axis-B residue: <count>
 - Children shipped with Axis-A residue 🚨: <count>
 - Children unmergeable (push/branch-protection failures): <count>
-- PRD finalization: <awaiting-approval (base→master PR open, NOT merged) | merged-into-master | conflicts logged | blocked>
+- PRD finalization: <awaiting-approval (base→master PR open, NOT merged) | merged-into-master | conflicts logged | blocked | finalize-blocked-ci (integration CI red/unobserved — NOT merged, PR open, logged)>
+- Integration CI (base→master PR): <n/a (axis_c off) | green | auto-fixed (<checks>) | red (<checks>, logged) | pending (logged) | pre-existing red on master (<checks>, logged)>
 - Wire-contract publish: <n/a | untouched | pushed | already in sync | failed — residue logged | held — publishes on --merge>
 
 ## Next step
-<On `awaiting-approval`: "Test the integrated feature on `<base-branch>` (worktree below), then run `/ship-feature <prd-number> --merge` to finalize into master." On `merged-into-master`: "Shipped to master." On a blocked finalize: what blocked it and where the cleanup entry is.>
+<On `awaiting-approval`: "Test the integrated feature on `<base-branch>` (worktree below), then run `/ship-feature <prd-number> --merge` to finalize into master." On `finalize-blocked-ci`: "Integration CI is red/unobserved on the open base→master PR (failing checks on the cleanup issue) — NOT merged. Fix the checks on `<base-branch>`, then re-invoke `/ship-feature <prd-number> --merge`." On `merged-into-master`: "Shipped to master." On any other blocked finalize: what blocked it and where the cleanup entry is.>
 
 ## Cleanup issue
 <link, or "none">
@@ -711,6 +724,7 @@ Agent(
 15. **Every Coder/Reviewer/Address dispatch — both modes — uses `run_in_background: true`** so it is visible in the agent display. The orchestrator drives on harness completion notifications; it never polls, sleep-waits, or arms a `ScheduleWakeup` watchdog. If a child wedges inside a tool call, the operator sees it frozen in the display (no forward tool activity) and intervenes — there is no auto-kill.
 16. **Parallel mode: cleanup-issue concurrency is comment-append-only.** Body edits race across slots and silently lose entries; appending structured comments is the only safe pattern. (Mechanic implemented in the afk-* subskills, not here — but ship-feature must not attempt body edits to the cleanup issue from inside the parallel scheduler.)
 17. **The base→master merge is gated by default; `--merge` is the opt-in.** FINALIZE_PRD opens the base→master PR and stops unless `--merge` mode is on. The gate suppresses **only** the finalize tail (master merge + PRD close + `prd-<n>` label delete + canonical wire-contract publish); the child loop is untouched. On a `--merge` completion re-invoke, FINALIZE_PRD adopts the already-open base→master PR (never opens a second) and runs the tail.
+18. **Always follow the integration PR's CI (FINALIZE_PRD 1a), in both modes** (unless `axis_c: off`). The base→master PR is the only CI run of all children together — it catches cross-child and base-drift breakage per-child Axis C cannot. Watch bounded, attribute red against `origin/master` HEAD, fix attributable failures via the Coder (capped at 3 across the run), log the rest. Under `enforcing`, `--merge` merges only on `pass` / `fixed`; red or unobserved → `finalize-blocked-ci`, PR left open. This bounded foreground `gh api` loop is not a Rule-15 violation — Rule 15 forbids watchdog-polling background agents, and this is the same capped read the Reviewer already does.
 
 ## Edge Cases
 
