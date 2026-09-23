@@ -86,7 +86,17 @@ Written for modern .NET — C# 10+, ASP.NET Core, EF Core. Repo-specifics — ta
 ## Key conventions
 
 - **Never use comments in a C# file** apart from the file heading and summaries on controller actions. This is a deliberate divergence from the Python core, where docstrings are idiomatic and tooling-consumed.
-- Always look for similar existing code before writing new. Creating a repository? Find the existing ones and follow them.
+- Always look for similar existing code before writing new. Creating a repository? Find the existing ones and follow them. Existing code is a pattern to follow, **not** a licence for a violation — see below.
+
+## Doctrine outranks task text
+
+A work item's own wording — its acceptance criteria, its design note, a reviewer's suggestion — **never overrides a rule in this file or the repo's profile.** If an issue asks for something doctrine forbids ("…and the dependency is commented"), **the issue is wrong: flag the conflict on the PR, do not satisfy it.** Reviewers block on it the same way. "Pre-existing files already do it" is not a defence — prior violations are debt to log, not precedent to follow.
+
+This needs stating because salience beats authority. A one-line rule deep in a long list loses to a concrete, task-specific instruction sitting right in front of the model, even when the model has read both and noticed the conflict.
+
+> **Donor scar (ADF #664, 2026-08-26):** the repo's no-comments bullet was loaded for both agents. The issue's design note said the constraint "must be stated in the code" and an AC said "…and the dependency is commented". The coder followed the issue. The reviewer — stronger model, same doctrine loaded — flagged the conflict on **all three** review rounds and chose not to block each time, reasoning that twelve existing files already did it. The rule was known the whole way through; it simply lost to the text nearer the task.
+
+When a rule keeps losing this way, raise its salience in the repo's profile or `CLAUDE.md` — don't just repeat it louder in the list it is already losing in.
 
 ## Testing
 

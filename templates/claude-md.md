@@ -21,7 +21,7 @@ opening a file knows what kind of codebase it is in.>
 
 - **`.claude/doctrine/project-profile.md`** — this repo's constraints, each with the incident behind it. Read it before <FILL: the two or three activities whose constraints bite hardest here>. It is the only writable skill surface; base files install verbatim.
 - **`.claude/doctrine/00-doctrine-index.md`** — which doctrine governs which activity.
-- **`.claude/rules/`** — path-scoped, loaded automatically when a matching file is opened. You do not need the index for those.
+- **`.claude/rules/`** — path-scoped, loaded automatically when you Read a matching file (not when you create one — read a neighbour first). You do not need the index for those.
 
 ## Canon
 

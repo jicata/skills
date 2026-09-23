@@ -15,7 +15,7 @@ That's an argument, not a briefing. Don't scaffold it with a "here are the piece
 ## The moves
 
 1. **Short declarative sentences, one idea each.** Few subordinate clauses. Build, then stop hard — *"That's it. That's the whole issue."* / *"Full stop, no condition."* The hard stop is what tells the reader a thing is finished.
-2. **Find the metaphor that's mechanically true, then reuse it as an anchor.** *"It's not a switch — it's a weld."* That earns its place because a weld genuinely is permanent and unconditional, which is exactly what the attribute does — and because it comes back later as *"the cost of the weld."* A metaphor that only gestures is decoration; one that carries the mechanism is compression. Cash it out in the real domain in the next breath, always.
+2. **State the mechanism in the system's own terms — an analogy never stands in for it.** The reader lacks this system's nouns, not the ability to follow a mechanism. An analogy is a second thing to hold, and it leaks exactly where it stops matching. Casting collaborators in plain roles (*"the lookup clerk"*) is the same failure: it teaches a word the reader will never find in the code. **The one allowance, in conversation only:** a short handle for a mechanism stated in the adjacent sentence, true all the way down, and reused as an anchor. *"It's not a switch — it's a weld"* qualifies: the next sentences say exactly what the attribute does, a weld genuinely is permanent and unconditional, and it returns later as *"the cost of the weld."* If deleting the handle loses nothing, delete it. In a written briefing, no handle at all — see below.
 3. **Real specifics carry the argument.** *"Someone was editing those two tests yesterday in PR #588 — carefully renaming a property inside a test that cannot execute."* / *"Issue #295: green run, 116 tests silently missing."* Named artifacts, real numbers, real dates. Never "this can cause problems."
 4. **Write in their world, second person.** *"Your Rider run looks identical to today."* *"The cleanup issue you handed me."* State effects as what they will see and do, not as system properties.
 5. **Concede their point explicitly, and say why it's right.** Give the objection its own section and the technical reason it holds. Routing around it reads as not having understood it.
@@ -23,16 +23,32 @@ That's an argument, not a briefing. Don't scaffold it with a "here are the piece
 7. **Land the net effect before the detail.** *"Your Rider run looks identical to today. The difference is those two tests stop being permanently dead."*
 8. **End with one question.** One, actionable, answerable with a yes.
 
+## Written briefings — the controlled register
+
+A briefing someone will review a PR or maintain a module against — a planning walkthrough, a teaching comment a coder consumes, a situation report — is written in **[ASD-STE100 Simplified Technical English](https://en.wikipedia.org/wiki/Simplified_Technical_English)**. The spine above does not change; the register tightens.
+
+- **Short sentences, one idea each. Active voice, present tense.**
+- **Keep the project's real terms in the body.** Never swap in a plainer synonym, and never vary a term once used — one thing keeps one name throughout. The reader has to work in exactly these words.
+- **A traced worked example is mandatory.** Follow one concrete value through the modules and name every hand-off in the system's own terms: which module it reaches, what it is sent, what it returns. This is the load-bearing part — it shows how the pieces connect, not only what one piece does.
+- **No analogies, no role casting, no handles.**
+- **State each rule once, as a rule.** A chain of hedges costs more than the certainty it buys.
+- **Close on a glossary tail.** Every project noun, acronym, bare identifier and workflow assumption the briefing leans on, one line each, in first-appearance order. The teaching load the analogy used to carry moves here.
+
+Order is unchanged: plain statement first (*what it is · the problem it solves · in → out*), then the traced example, then the technical zoom with `file:line`. Never open cold with the interface.
+
+> **Donor scar (ADF, 2026-09-11):** planning walkthroughs opened with a layman rundown — a one-line analogy and collaborators cast as *"the lookup clerk"*, *"the safe calculator"*. The readers were engineers who had to review the PR and maintain the slice in the project's own words; the roles taught vocabulary that appears nowhere in the code, and the analogy was one more thing to map back. The register flipped to the one above. The traced example survived untouched — it had never been the problem.
+
 ## What kills it
 
 - **Theorizing.** Abstract statements about the shape of the problem instead of the problem. If a paragraph would survive being pasted into a different project, it's not doing work.
 - **Explaining what they know.** Defining shared vocabulary is condescending and burns the budget you needed for the local wiring.
 - **Hedged, clause-heavy sentences.** They read as evasion and force re-parsing.
 - **Menus.** Three options with trade-offs where a recommendation was wanted.
+- **An analogy doing the explaining.** If the reader could not reconstruct the mechanism from your sentences with the analogy deleted, you explained the analogy, not the system.
 
 ## Reference example
 
-The exemplar this doctrine is derived from — a donor-repo answer about three inconsistent test-skip mechanisms. Note the spine, the weld metaphor, PR #588 as evidence, the conceded Rider point, and the single closing question.
+The exemplar this doctrine is derived from — a donor-repo answer about three inconsistent test-skip mechanisms. It is a chat answer, not a written briefing, so it may carry one handle. Note the spine, the weld handle and how the mechanism follows it immediately, PR #588 as evidence, the conceded Rider point, and the single closing question.
 
 > **The problem, plainly**
 >

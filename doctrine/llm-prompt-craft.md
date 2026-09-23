@@ -28,6 +28,7 @@ Two gaps caused it: **invisibility** (Part A) and **poor craft** (Part B). This 
 3. **Before/after on edits.** Show both, so the delta in *instruction* — not just code — is reviewable.
 4. **The diff must carry the message, not just the plumbing.** Author prompts so a reviewer reading the PR sees the words. Assert on rendered prompt content in tests; a prompt change with no test-visible string change is a smell.
 5. **Reviewers enforce this too.** In the review skills, a changed prompt builder whose rendered text was not surfaced is a **blocking** finding — request the rendered prompt before approving.
+6. **A stored prompt is rendered by pulling it.** When the instruction lives on a gateway or prompt store rather than in source, the only faithful rendering is a live pull — never a committed copy, which is stale the moment someone edits the store. See [`pull-live-state-first.md`](./pull-live-state-first.md): pull before quoting, keep no transcription in the repo, propose changes on the work item.
 
 The point: the user must be able to read and veto the actual words a model is given, the same way they can read any rule. Prompts are not implementation detail.
 

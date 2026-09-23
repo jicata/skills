@@ -10,7 +10,7 @@ The one rule that keeps N repos upgradeable:
 
 - **Base files install verbatim and are read-only by convention.** A repo never edits an installed base skill. Upgrades are file copies.
 - **Each repo gets a writable overlay** — a `project-profile.md` the interview writes and every later session maintains: YAML facts up top (stack, architecture, tracker, check commands, chassis, mode), **trigger-indexed** constraint sections below (keyed by activity: persistence, testing, deploy…). Constraints are edited in place, never appended chronologically; every constraint carries its **why + an evidence pointer** — a rule with a scar attached gets obeyed, a bare imperative gets relitigated. When a section outgrows a screen, it graduates into its own doctrine file and leaves an index line behind.
-- **Only manifests are ever generated per repo** — never wisdom. Five of them: the composite coder lens (a file list), the doctrine index (a table), the repo's `ask-*` router (derived from what setup actually installed, so it can't lie on day 1), a short `CLAUDE.md`, and a set of path-scoped `.claude/rules/`. The last two are what make loading *real*: `CLAUDE.md` is the only file Claude Code reads into every session, and a rule with `paths:` frontmatter loads its doctrine automatically the moment a matching file is opened. Both are routers into doctrine, never copies of it.
+- **Only manifests are ever generated per repo** — never wisdom. Five of them: the composite coder lens (a file list), the doctrine index (a table), the repo's `ask-*` router (derived from what setup actually installed, so it can't lie on day 1), a short `CLAUDE.md`, and a set of path-scoped `.claude/rules/`. The last two are what make loading *real*: `CLAUDE.md` is the only file Claude Code reads into every session, and a rule with `paths:` frontmatter loads its doctrine automatically the moment a matching file is read. Both are routers into doctrine, never copies of it.
 
 Templates (chassis-foundation, deploy-infra, …) are instantiated **only when the interview surfaces the condition** — nothing here assumes every project has a chassis, a GitOps pipeline, or a legacy oracle.
 
@@ -127,7 +127,7 @@ Doctrine files are **not** auto-loaded by Claude Code. Three mechanisms put them
 | Tier | Mechanism | Cost |
 | --- | --- | --- |
 | **always-on** | named in the generated `CLAUDE.md` | every session — reserve for the catastrophic few |
-| **path-scoped** | a generated `.claude/rules/*.md` with `paths:` frontmatter | only when a matching file is opened |
+| **path-scoped** | a generated `.claude/rules/*.md` with `paths:` frontmatter | only after a Read of a matching file — not Glob, not a Write of a new file |
 | **on-trigger** | the generated doctrine index, read by a skill | only when that skill runs |
 
 Most doctrine is path-scoped or on-trigger. Marking a file "always-on" without a `CLAUDE.md` line behind it is a wish, not a fact.
@@ -136,7 +136,7 @@ Most doctrine is path-scoped or on-trigger. Marking a file "always-on" without a
 | --- | --- |
 | `documentation-first.md` | Consult docs before code. Defines the **lean canon** — glossary, ADRs, architecture/concept map — and treats everything else as a temporary artifact living on its work item. |
 | `surface-dont-chase.md` | Ambient rule: a smell noticed in already-loaded context gets **one line and an offer to log it**, never a refactor. Captures the instinct without the scope creep. |
-| `how-to-explain.md` | How explanations are written. The reader is a senior engineer not resident in *this* system: assume the vocabulary, spend the words on the local wiring. Carries the spine (problem → why the obvious fix fails → what they're right about → plan → risk → one question), the prose moves, and a full worked exemplar. The rule the teaching briefings in `expand-issue` / `log-issue` are specializations of. |
+| `how-to-explain.md` | How explanations are written. The reader is a senior engineer not resident in *this* system: assume the vocabulary, spend the words on the local wiring. Carries the spine (problem → why the obvious fix fails → what they're right about → plan → risk → one question), the prose moves, and a full worked exemplar. Mechanism in the system's own terms, never an analogy in its place; written briefings use the ASD-STE100 controlled register with a mandatory traced example and a glossary tail. The rule the teaching briefings in `expand-issue` / `log-issue` are specializations of. |
 | `fowler-smell-baseline.md` | Curated Fowler smells for the Standards axis. Always a labelled judgement call, never blocking on its own; documented doctrine overrides. |
 | `AXES.md` | **The composition contract.** Doctrine cores plug in along independent axes — architecture × language — so a repo composes *Python + VSA* or *.NET + Clean*. The law: **no core may name a peer on another axis**; cross-axis routing happens only in the per-repo generated coder lens. Tie-break: **architecture wins on placement, language wins on idiom, the repo's profile beats both.** |
 | `arch-layered.md` | **Architecture axis.** Classic horizontal layers — dependencies point *downward*, infrastructure at the bottom, no ports. Carries the honest trade-offs, the graduate-to-Clean trigger list, and the vocabulary correction that layered is the **inverse** of Onion rather than a variant of it. |
@@ -149,6 +149,8 @@ Most doctrine is path-scoped or on-trigger. Marking a file "always-on" without a
 | `frontend-react.md` | **Framework axis.** Server state via the query cache, effect discipline, key stability. Loads alongside `arch-frontend.md`. |
 | `frontend-vue.md` | **Framework axis.** `<script setup>`, `ref` vs `reactive`, composables, the `v-if`/`v-for` trap, and the separate `vue-tsc` type gate. Loads alongside `arch-frontend.md`. |
 | `relational-persistence.md` | Schema, migrations, indexes, and query practice behind an ORM. Spine: **the test stand-in lies** — every persistence change is judged against both the canonical store and the faster thing tests run on. Carries the natural-key rule for runtime-mutated reference data and the concurrent-context trap. |
+| `port-from-consumer-contract.md` | For apps another system consumes. **Design the shape with the consumer, not for it**: look before you shape, pin the resource by route constant + verb (never by name), record the evidence tier, and — the rule that exists because the first three were followed in form — **a citation is not evidence**: re-read every cited line at a known ref, and re-probe on reuse. Its trip-wire is a `CLAUDE.md` line, because it fires at design time when no file is open. |
+| `pull-live-state-first.md` | For state that lives in a live mutable store — stored prompt instructions, feature flags, remote config. **One command away means one copy**: pull before quoting or reasoning, keep **no** committed transcription, propose changes on the work item alongside the pulled version stamp, and never let a test depend on the pull. Its one-line form goes in `CLAUDE.md`. |
 | `llm-prompt-craft.md` | For apps that construct prompts. A **visibility gate** (render the prompt as text and surface it — every change, no threshold) plus craft doctrine: self-contained, plain, example-driven, disposition stated, contract separated from teaching. |
 | `writing-skills.md` + `writing-skills-glossary.md` | How skills themselves are authored: **predictability** as the root virtue, with levers grouped by invocation, information hierarchy, steering, and pruning. This is the doctrine this repo is held to. |
 
@@ -161,7 +163,7 @@ Prose is filled in here and nowhere else — instantiated by setup from intervie
 | `project-profile.md` | **always** | `.claude/doctrine/project-profile.md` — the overlay. The repo's only writable skill surface. |
 | `router.md` | always | `.claude/skills/ask-<name>/SKILL.md` — the router, generated from what was *actually* installed. |
 | `chassis-foundation.md` | Q1 — the app sits on base/chassis libraries that own runtime behaviour | `.claude/doctrine/chassis-foundation.md`, reached **both** ways — a line in `CLAUDE.md` (this is the one whose absence caused two production incidents, so it earns always-on budget) **and** a path-scoped rule over the app's own source, so it arrives whenever an agent is about to reason about runtime behaviour: what the chassis owns, the division of labour, reviewer red flags, and the "read the chassis before asserting runtime behaviour" trigger list. |
-| `deploy-infra.md` | Q2 — the path to production leaves this repo | `.claude/doctrine/deploy-infra-foundation.md`, on-trigger via the doctrine index (it bites at ship time, not while editing a file, so it maps to no path): the pipeline, sibling-repo pointers, and the "a route the gateway doesn't know is a dead endpoint" trigger. |
+| `deploy-infra.md` | Q2 — the path to production leaves this repo | `.claude/doctrine/deploy-infra-foundation.md`, on-trigger via the doctrine index (it bites at ship time, not while editing a file, so it maps to no path): the pipeline, sibling-repo pointers, the "a route the gateway doesn't know is a dead endpoint" trigger, and the **conform-to-the-fleet** law — author infra config by rendering it and a named working sibling's, then diffing; every remaining line is a justified delta or a bug. |
 
 ---
 
@@ -179,8 +181,9 @@ The catalog, and what each answer materializes:
 | --- | --- | --- |
 | **Q1** | Chassis — base libraries that own runtime behaviour? | `chassis-foundation` template |
 | **Q2** | Does deployment leave this repo? | `deploy-infra` template |
-| **Q3** | Routes/contracts whose truth lives in another system? | contract doctrine + oracle pointers |
+| **Q3** | Does another system consume this API, or own its truth? | `port-from-consumer-contract` doctrine + `consumer_repos` + a `CLAUDE.md` trip-wire |
 | **Q4** | Can agents reach live/shared environments? | hard safety constraints, **first** in the overlay |
+| **Q4b** | Behaviour-shaping state in a live store (prompts, flags, remote config)? | `pull-live-state-first` doctrine + `live_state_sources` + a `CLAUDE.md` line |
 | **Q5** | Stack *(detected)* | language doctrine core + `check_commands` |
 | **Q6** | Architecture shape *(detected)* | architecture doctrine + **the composite coder lens** |
 | **Q7** | Database, migration owner, local/test stand-in | persistence doctrine + overlay facts |

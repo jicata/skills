@@ -12,15 +12,22 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 
 **Q2 — Deployment reality.** "Does the path from merged code to a running system leave this repo? Where does deployment actually happen — GitOps repos, gateways, IaC?"
 → *yes:* instantiate `templates/deploy-infra`: the pipeline diagram, the sibling-repo pointers, the "a route the gateway doesn't know is a dead endpoint" trigger.
+→ follow-up: **"Which service of the same stack already ships through this pipeline and works?"** That is the reference sibling the template's *Conform to the fleet* section diffs against. None yet is a valid answer — record it, so the first deploy is known to be the one without a reference.
 → *Donor: CI ends at Artifactory; deploy = image-bump PR in `platform-gitops` + ArgoCD; Ocelot gateway routes must match app prefixes.*
 
-**Q3 — External contract truth.** "Are any of this app's public routes/contracts ported from, or consumed by, systems whose behavior is the real source of truth? Where does that truth live?"
-→ *yes:* install `port-from-consumer-contract` doctrine + overlay pointers to the oracle/consumer.
-→ *Donor: yes — an upstream vendor API client is the wire-contract authority; a whole PRD (#261) existed to fix the damage from porting against the `.proto` instead.*
+**Q3 — External contract truth.** "Does another system consume this app's API — or is any public route ported from a system whose behavior is the real source of truth? Where does that consumer's source live, and which branch is its integration ref?"
+→ *yes:* install `doctrine/port-from-consumer-contract.md`; record each consumer in the profile's `consumer_repos` key (local path + integration ref + probe order — client route constants first, then the DTOs it serializes, then its validators, then its UI); inline the trip-wire into the generated `CLAUDE.md` as one line ("before proposing any route, shape, or status contract, read the consumer at its integration ref — `.claude/doctrine/port-from-consumer-contract.md`"). The CLAUDE.md line is not optional: the rule fires at PRD/grilling time, when no file is open, so a path-scoped rule alone never loads in time. Optionally add a `paths:` rule over the repo's controllers/DTOs for the code-time half.
+→ *no consumer repo reachable yet:* still install it if the app has a public surface — "no consumer client exists yet" is a result the doctrine asks you to record, not a reason to skip it.
+→ *Donor: yes — one consumer app's API client + validators + admin UI is the wire-contract authority. Three incidents: a port frozen against the internal `.proto` (corrective PRD), a greenfield admin lane shaped without looking (three issues frozen, reversal PRD), and a tier-1-looking consumer check that was stale at every line.*
 
 **Q4 — Live-environment safety.** "Can agents in this repo reach live/shared databases or environments? Which must be treated read-only, and what ceremony applies to schema/data changes?"
 → hard safety constraints at the top of the overlay (these are the rules that must never be lost in a compaction).
 → *Donor: live Spanner `shared-app-db` is READ-ONLY; Flyway promotes to live → seeds must be idempotent; editing an old migration = drop/recreate a DB → always ask.*
+
+**Q4b — Live mutable state.** "Does behaviour-shaping state live outside the repo in a store agents can read with one command — prompt instructions on a model gateway, feature-flag rules, remote config? What is the read-only pull command, and which environment does it read?"
+→ *yes:* install `doctrine/pull-live-state-first.md`; record each store in the profile's `live_state_sources` key (what it holds, the pull command, the environment it reads); inline its one-line form into `CLAUDE.md` — the trigger is a question ("what does the store say for X?"), not a file, so no `paths:` rule can carry it. If the repo already holds a transcription of the store (a `docs/prompts/` mirror, a fixture of the flag rules), say so now: it is a deletion candidate, and the first pull will likely show it stale.
+→ *no pull command exists yet:* recommend writing one before anything else — without it every agent reasons from whatever copy is nearest.
+→ *Donor: stored prompt instructions on an AI gateway, pulled by a committed read-only script. An audit found half the committed transcriptions stale — one 31 lines behind, one naming no instruction id — and the mirror directory was deleted.*
 
 ## Stack & architecture (mostly detected, confirmed, then installed)
 
