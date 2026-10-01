@@ -96,11 +96,11 @@ Agents in `agents/`: **`afk-coder`** (runs `afk-execute-issue`, then `afk-addres
 
 ### Visualization
 
-Both require the **Miro MCP server** to be connected — they are no-ops without it. They share one design doctrine (`miro-diagram` Part A: one altitude per diagram, colour = who does the work, size = hierarchy, no captions on a tight spine) and one body of Miro-DSL scar tissue; they differ in *when* the picture is drawn.
+Both require the **Miro MCP server** to be connected — they are no-ops without it. They share one design doctrine (`miro-diagram` Part A: one altitude per diagram, colour = who does the work, size = hierarchy, no captions on a tight spine) and one body of Miro-canvas scar tissue (agree the layout in text first — API edits cost 4–5× the first draw and eat the free plan's 100 calls/day); they differ in *when* the picture is drawn.
 
 | Skill | What it does |
 | --- | --- |
-| `miro-diagram` | **One-shot.** You already understand the system; this designs and hand-places the diagram in a single pass. Hand-placed (`layout_create`), never the auto-layouter — which produces lopsided branches and drops edge labels on the boxes. Carries the design doctrine both skills read from, plus the `layout_update` matching pitfalls (entity-encoded `+ = &`, frame auto-reflow, exact-line deletes). |
+| `miro-diagram` | **One-shot.** You already understand the system; this designs and hand-places the diagram in a single pass. Hand-placed as Canvas Composer SVG (one `canvas_create_from_svg` call per frame), never an auto-layouter — which produces lopsided branches and drops edge labels on the boxes. Carries the design doctrine both skills read from, plus the canvas mechanics: load the composer skill first, save each `result_svg` so later edits patch by `data-miro-id`, never delete a frame through the API. |
 | `flow-map` | **Incremental.** For a flow you're still recovering: the human reasons about a step, the skill reasons back *grounded in the real handler*, and only the agreed version lands as a block — so the board is a visual trail of the conversation, and every correction is where the mental model actually updated. Two altitudes: the stage map is a frame, a drilled-in substep is a **smaller** frame (size is the hierarchy signal) linked by a dashed `detail of ①` connector, because Miro frames can't nest. |
 
 ### Learning

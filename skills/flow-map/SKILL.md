@@ -39,10 +39,11 @@ Text: title `#191c22`, body grey `#5b6472`, subtitle/caption grey `#6b7280`. Leg
 
 **Layout:** vertical spine, `input → entry(★) → ① → ② → … → output`. Siblings that run off the same value (e.g. two assessments off one payload) go inside a **phase band** with a branch. Terse boxes; **no connector captions on the tight spine** (they pile up unreadably) — plain arrows down the spine, captions only on side/drill-in links.
 
-### Block internal offsets (badged block, container centre `cx,cy`, size `w,h`; `top=cy-h/2`, `left=cx-w/2`)
-- **badge** circle: `x=left+48, y=top+46`, d≈52 (main) / 34 (detail), number as content, `fill=actor-border`, white text, `valign=middle align=center`.
-- **title** TEXT: `x=cx+20, y=top+40, w=w-140`, `align=left`, size 19 (main) / 14 (detail).
-- **body** TEXT: `x=cx, y=top+98 (main) / top+64 (detail), w=w-80`, `align=left`, grey, size 14 (main) / 11 (detail).
+### Block internal offsets (badged block at frame-relative top-left `left,top`, size `w,h`)
+- **container** `<rect x=left y=top width=w height=h rx="12">`, actor fill + actor border.
+- **badge** `<circle cx=left+48 cy=top+46 r=26>` (main) / `r=17` (detail), the number as `data-content`, `fill`=actor border, `data-text-color="#ffffff"`.
+- **title** `<textArea x=left+90 y=top+24 width=w-140>`, left-aligned, size 19 (main) / 14 (detail), dark.
+- **body** `<textArea x=left+40 y=top+76 (main) / top+52 (detail) width=w-80>`, left-aligned, grey, size 14 (main) / 11 (detail). A `textArea` grows downward; when the result reports a grown body, grow the container to match.
 
 Main frame ≈ `w1500 h1720`, blocks `w460–680 h160–230`.
 
@@ -53,23 +54,22 @@ Main frame ≈ `w1500 h1720`, blocks `w460–680 h160–230`.
 - Frames vs loose containers: keep substeps as **small frames** (parts stay glued as one movable unit). Only drop to a plain container if the user wants it visually *nested* — at the cost of the boxes becoming individually loose.
 
 ## Miro-MCP mechanics & the hard-won gotchas
-Get the DSL spec once with `layout_get_dsl`, reuse it. Frames first, then children (`parent=<frame alias|url>`), then connectors. Child `x/y` = **centre**, relative to frame **top-left** (0,0); centre must stay within `[0,w]×[0,h]` or the whole batch fails.
+The board tools are `canvas_*` and `board_*`; the old `layout_*` DSL tools are deprecated and no longer exposed. `/miro-diagram` Part B carries the full mechanics — read it once. The ones this skill leans on hardest:
 
-**These cost real time — bake them in:**
-1. **`layout_update` must target the FRAME url** (`?moveToWidget=<frameId>`), not the board URL — a board-scope update **can't see frame children** ("old_string not found").
-2. **Text swaps: match the content substring only** (the unique sentence), not the whole line. **Avoid `+` `=` `&` in the matched text** — they're entity-encoded in the stored DSL (`&#43; &#61; &amp;`); `· – — → ① ★` stay literal and match fine.
-3. **For geometry edits and deletes, `layout_read` the frame first and copy the EXACT line.** The read format differs from the create/update *echo*: reads render `fill_opacity=0.0`, `border_width=2.0`, `1.0`; echoes render `0`, `2`, `1`. Match the **read** format or it won't find it. Deleting needs a full-line match.
-4. **NEVER delete a frame to remove a diagram** — Miro **orphans** the children (they float at board-absolute positions), it does not cascade. To remove: delete the children first, then the frame — or don't wrap throwaway detail in a frame.
-5. **Adding items via `layout_create`: target the frame URL** (`?moveToWidget=<frameId>`) so the frame is the default parent; a board-URL create with `parent=<frameURL>` can mis-place items at board origin. Single-item reads render children *without* `parent=` and mislead — **trust a frame-scope read**, not a single-item read, to judge parentage.
-6. **Connectors** can't attach to frames; attach to items (a block, or the detail panel's input). Use `stroke_style=dashed` + a caption for drill-in / secondary links; plain arrows for the spine.
-7. **Glyphs that render:** `①②③④ ⑤…`, `★`, `·`, `→`, `—`, `–`. Avoid emoji (inconsistent). Use a coloured circle badge, not an emoji.
-8. **Frame auto-reflow:** adding items can shift the frame's board position and every child's echoed `x`; re-read before the next position edit.
+1. **Load `canvas_get_canvas_composer_skill` once per session** before the first draw (no step → it routes you to `design` / `edit`, then `dsl`). Reuse its instructions; don't re-fetch. This skill's grammar (the colour key, dashed drill-in links) is the explicit requirement and beats the composer's default house style.
+2. **Text first, then one draw.** The loop's agreement happens in chat; the board only receives what was agreed. API edits cost **4–5× the first draw** and the free plan allows **100 calls/day**, so a map redrawn per thought exhausts the quota mid-session. Land agreed blocks in batches when the dialogue allows.
+3. **One `canvas_create_from_svg` call per frame, at its first draw** — the stage map once, each detail panel once. A frame is `<g data-frame="…" transform="translate(X,Y)">` with a first child `<rect data-type="frame" x="0" y="0" …/>`; children are relative to its top-left.
+4. **Save every `result_svg`** where the next session can find it (one file per frame; the user picks the place). Growing the spine is then a `canvas_update_from_svg` that adds new elements (no `data-miro-id`) and patches moved ones by `data-miro-id` — never transcribed ids, never a from-scratch regeneration.
+5. **Drill-in links across frames:** a connector attaches to items, **never to a frame**, so it runs from the parent block to the detail panel's input block (`stroke-dasharray="5,5"`, `data-content="detail of ①"`). It references the parent block, which already exists on the board — reference it the way the composer's `dsl`/`edit` instructions say an existing widget is referenced, using the `data-miro-id` from the saved `result_svg`. If the composer cannot express the link, put `detail of ①` in the detail frame's title and tell the user.
+6. **NEVER delete a frame to remove a diagram** — Miro **orphans** the children (they float at board-absolute positions), it does not cascade. Delete the children first (`data-deleted="true"` stubs, after the user confirms the list), or have the user delete the frame in the UI.
+7. **Frames move between sessions.** Before a position edit, re-read (`canvas_search` for the frame title, then one `canvas_read_as_svg` with the frame's id); never trust cached coordinates. Fix every size change a result reports before calling the block landed.
+8. **Glyphs that render:** `①②③④ ⑤…`, `★`, `·`, `→`, `—`, `–`. Avoid emoji (inconsistent). Escape `&` `<` `>` in every label — one raw `&` fails the whole call.
 
 ## Process
-1. **Confirm the board** (reuse the existing board; place far-right). Read the DSL spec once.
+1. **Confirm the board** (reuse the existing board; place far-right). Load the composer skill once.
 2. **Source the truth** — read the real code for the current step before drawing it (delegate deep reads to a subagent; keep the conclusion).
 3. **Pick the altitude** — one per frame. Stage map = the flow; detail panel = one stage's sub-steps.
-4. **Place / extend** with `layout_create` inside the frame, following the grammar + offset scheme.
+4. **Place / extend** — only what the loop agreed: the first block of a frame is its `canvas_create_from_svg`; later blocks are one batched `canvas_update_from_svg` from the saved `result_svg`, following the grammar + offset scheme.
 5. **Surface + iterate** — give the `?moveToWidget=<frameId>` link, describe the modelling choice, offer the next step or a drill-in. Keep it a dialogue.
 6. **Keep synced** — if the map reveals a genuine decision gap, propose an ADR at whatever gate the repo's ADR convention defines (the profile records where the canon docs live); behaviour gaps become tests, not docs.
 
