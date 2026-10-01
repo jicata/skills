@@ -136,7 +136,7 @@ Most doctrine is path-scoped or on-trigger. Marking a file "always-on" without a
 
 | File | Scope |
 | --- | --- |
-| `documentation-first.md` | Consult docs before code. Defines the **lean canon** — glossary, ADRs, architecture/concept map — and treats everything else as a temporary artifact living on its work item. |
+| `documentation-first.md` | Consult docs before code. Defines the **lean canon** — glossary, ADRs, architecture/concept map — and treats everything else as a temporary artifact living on its work item. The **rot test** routes each fact to the one layer that changes with it — behaviour to a pinning test, wire changes to contract artifacts, map changes to the map, planning to the work item; a doc found outside the canon is a deletion candidate. |
 | `surface-dont-chase.md` | Ambient rule: a smell noticed in already-loaded context gets **one line and an offer to log it**, never a refactor. Captures the instinct without the scope creep. |
 | `how-to-explain.md` | How explanations are written. The reader is a senior engineer not resident in *this* system: assume the vocabulary, spend the words on the local wiring. Carries the spine (problem → why the obvious fix fails → what they're right about → plan → risk → one question), the prose moves, and a full worked exemplar. Mechanism in the system's own terms, never an analogy in its place; written briefings use the ASD-STE100 controlled register with a mandatory traced example and a glossary tail. The rule the teaching briefings in `expand-issue` / `log-issue` are specializations of. |
 | `fowler-smell-baseline.md` | Curated Fowler smells for the Standards axis. Always a labelled judgement call, never blocking on its own; documented doctrine overrides. |
