@@ -80,7 +80,7 @@ What holds under **all** of them: **reaching across a boundary to another unit's
   ON CONFLICT (parent_id) DO NOTHING;
   ```
 
-> **Donor scar:** an admin-managed category taxonomy carried random GUIDs assigned at creation time, while the code-side seed used its own invented Ids — the two forked long ago. A migration hardcoding a literal category GUID shipped and broke startup with a duplicate-key violation on the primary key, then on the slug index. Tests were green throughout.
+> **Donor scar:** an admin-managed reference table carried random GUIDs assigned at creation time, while the code-side seed used its own invented Ids — the two forked long ago. A migration hardcoding a literal row GUID shipped and broke startup with a duplicate-key violation on the primary key, then on the slug index. Tests were green throughout.
 
 **Reviewer red flag:** a literal entity Id in a migration, a seed, or a `WHERE id = '<literal>'` against a runtime-managed table. Blocker even if tests pass.
 
@@ -161,7 +161,7 @@ Without an explicit `ORDER BY`, the canonical store does not guarantee which row
 - **Unsafe**: any other predicate, unless paired with an explicit `OrderBy` encoding the intended selection rule.
 - **Prefer `Single`/`SingleOrDefault`** when the invariant is genuinely "exactly one row" — it documents the intent and fails loudly if the invariant is ever violated, instead of silently returning a plausible-looking wrong row.
 
-> **Donor scar (Brochures #1022 / #1056):** a full-suite run against the canonical store reproduced one genuine behavioural failure that never showed up against the stand-in: `Categories.FirstAsync(c => c.ParentCategoryId != null)` with no ordering picked a different category under the canonical store than under the stand-in, turning a 200 into a 400. The predicate could match more than one row — nothing about the code enforced uniqueness. The donor's triage found its 20 existing call sites all filtered on the primary key already; the rule exists to stop the next one.
+> **Donor scar:** a full-suite run against the canonical store reproduced one genuine behavioural failure that never showed up against the stand-in: `Nodes.FirstAsync(n => n.ParentId != null)` with no ordering picked a different row under the canonical store than under the stand-in, turning a 200 into a 400. The predicate could match more than one row — nothing about the code enforced uniqueness. The donor's triage found its 20 existing call sites all filtered on the primary key already; the rule exists to stop the next one.
 
 **Enforcement (donor pattern):** a source-scanning guard test that lists every `First`/`FirstOrDefault(Async)?` call site on the ORM's entity sets and fails unless each is a primary-key predicate, carries an explicit `OrderBy`, or sits on a reviewed allow-list with a justification. The repo's profile records where its guard lives, if it has one.
 
