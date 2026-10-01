@@ -520,9 +520,10 @@ When `NEXT_CHILD` reports `no_children` and there are no open child PRs left:
 
    If conflicts:
    - For each conflicted file, attempt to resolve hunk-by-hunk preserving both sides where they're orthogonal
+   - **Generated artifacts are regenerated, never side-picked** (`resolving-merge-conflicts` step 3a) — screenshots, a design mirror, snapshots, codegen output. Take either side only to clear the marker; step 2a regenerates them. Without a declared generator, log `[finalize-conflict generated]` naming the file and the side kept.
    - For irreducible conflicts: `git checkout --ours <file> && git add <file>` (prefers PRD-branch side — note `--ours` because we're sitting on `<base-branch>` merging `origin/master` in)
    - Document residue in cleanup issue with `[finalize-conflict]` entry per file
-   - `git commit` the merge and `git push origin <base-branch>`
+   - `git commit` the merge, run step 2a, then `git push origin <base-branch>`
    - Then merge the PR via `gh pr merge <prd-pr-num> --merge` (NOT squash — preserves child commits), and once `gh pr view` reads `MERGED`, delete the remote base branch remote-only and best-effort: `gh api -X DELETE "repos/<owner>/<repo>/git/refs/heads/<base-branch>"` (failure → a report line). **Never `--delete-branch`:** `<base-branch>` is checked out in `$WORKTREE_PATH`, and gh's local cleanup is not confined to that worktree — it can switch the user's main checkout (see `afk-merge-pr` Step 5). The local branch goes in DONE's sweep.
 
    If `git merge --no-ff --no-commit` fails to even start (divergent histories, etc.):
@@ -530,6 +531,8 @@ When `NEXT_CHILD` reports `no_children` and there are no open child PRs left:
    - Append `[finalize-blocked]` entry to cleanup issue
    - Leave the PRD→master PR open
    - GO TO DONE without a master merge
+
+2a. **Profile-declared design hook — after the merge commit, before the push.** Applies only if the profile's `design_pipeline` doctrine declares post-merge procedures, and only when the finalize merge (clean or conflicted) touched the paths they watch. `/merge-pr` Step 5.5 and `/afk-merge-pr` Step 6.6 run them per child, but only against the PRD branch; the default branch refreshes the same generated tree from its own merges meanwhile, so two correctly-generated snapshots diverge for the whole run and meet only here. Run the procedures exactly as that doctrine writes them, in the worktree on `<base-branch>`, commit what they regenerate, and push it with the merge — before the PRD→master PR merges. Best-effort, as in `/afk-merge-pr`: record `mirror_refresh: done | skipped | failed`, log a failure to the cleanup issue, never block finalization on it. (Donor scar: a finalize merge hit binary conflicts on three screenshots; `--ours` kept the PRD side and silently discarded the default branch's newer refresh, and nothing re-synced it until a cleanup drain found the `[finalize-conflict]` entry.)
 
 3. If merged successfully, close the PRD issue (in case the squash merge into a base branch path means the keyword auto-close didn't fire):
    ```bash
@@ -606,6 +609,7 @@ gh issue comment <prd-number> --body "$(cat <<EOF
 - PRD finalization: <awaiting-approval (base→master PR open, NOT merged) | merged-into-master | conflicts logged | blocked | finalize-blocked-ci (integration CI red/unobserved — NOT merged, PR open, logged)>
 - Integration CI (base→master PR): <n/a (axis_c off) | green | auto-fixed (<checks>) | red (<checks>, logged) | pending (logged) | pre-existing red on master (<checks>, logged)>
 - Wire-contract publish: <n/a | untouched | pushed | already in sync | failed — residue logged | held — publishes on --merge>
+- Design hook at finalize: <n/a (no design_pipeline) | done | skipped | failed — residue logged>
 
 ## Next step
 <On `awaiting-approval`: "Test the integrated feature on `<base-branch>` (worktree below), then run `/ship-feature <prd-number> --merge` to finalize into master." On `finalize-blocked-ci`: "Integration CI is red/unobserved on the open base→master PR (failing checks on the cleanup issue) — NOT merged. Fix the checks on `<base-branch>`, then re-invoke `/ship-feature <prd-number> --merge`." On `merged-into-master`: "Shipped to master." On any other blocked finalize: what blocked it and where the cleanup entry is.>
