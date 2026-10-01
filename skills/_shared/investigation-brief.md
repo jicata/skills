@@ -10,6 +10,10 @@ Hand the reporter's quarantined theory over as a **claim to falsify**, stated as
 
 Docs-first, per the repo's documentation doctrine: the lean canon — glossary, architecture/concept map, the relevant ADRs (locations per `.claude/doctrine/project-profile.md`) — before the slice's code and tests.
 
+## Pin the tree
+
+Before reading code, `git fetch` and record the commit you read at (`git rev-parse HEAD`, and whether it is behind its upstream). Every claim the investigation returns is a claim about that commit — the tree can move mid-session (a pull, a merge, a branch switch), and a clean `git status` proves nothing about freshness. The SHA is what lets the caller tell a stale finding from a wrong one.
+
 ## What it must return
 
 **1. Mechanism.** The traced path, told through one real instance with real values. Where the diagnosis leans on behaviour of code the agent did not read — "the backend already expands descendants", "the chassis already wraps this in a transaction" — it cites the file and symbol it inspected to confirm that. An unverified cross-module assumption is a halt condition: go read it, or strike the claim. Unverified cross-module assumptions are what produce multi-pass cascades, where each pass fixes one side, ships, and breaks the next.
@@ -33,6 +37,14 @@ Behaviours that share a query path, middleware, or event handler with the defect
 
 **6. Open questions.** Branches of the contract that code alone cannot settle — *404 or 403 when the tenant owns no matching row? Idempotent on a natural key, or is PK uniqueness enough? Retry a failed publish, or log and swallow?* These are the reader's decisions, and they are asked after the situation lands, with the options this investigation found.
 
+**7. Ruling, intent, frequency.** An accurate diagnosis is not yet a defect. Before anything is called one, three checks, each returned with what it found or "none":
+
+- **Ruling** — grep the doctrine and shared protocol files for the behaviour. A file that already names it and rules it acceptable or cosmetic wins, unless the investigation has new evidence against that ruling.
+- **Intent** — ask "is this deliberate?" before "is this broken?". A stated rationale beside the code ("once per run, at setup", so every role shares one rulebook) is design intent: argue against the rationale, or drop the claim.
+- **Frequency** — one observed instance is one instance. Measure how often the window has actually opened (usually one cheap `git log` or count) before calling anything systemic.
+
+A fix that spans several files and invents new machinery is a signal to re-examine the premise, not to write a more detailed plan. (Donor scar: a correctly traced cause — one review posted under the wrong identity — was escalated into a three-file "systemic staleness" fix. The review protocol already ruled that case cosmetic, the pinning it blamed was deliberate and the fix would have broken it, and the window had opened once in thirty days.)
+
 ## Consumer contracts
 
 Where the work creates or changes anything a consumer calls — a route, verb, request or response shape, a required field, a status contract, a resource decomposition — and the profile's External contracts section names a consumer or legacy oracle whose truth lives elsewhere, probe that consumer **before** any shape is proposed.
@@ -41,4 +53,4 @@ Pin every claim to a route constant plus verb, never a folder or component name;
 
 ## Completion criterion
 
-Six sections returned. Every cross-module claim carries the file and symbol that confirms it. The surface map covers each axis on which the surface has observable behaviour, and the quarantined theory has been explicitly confirmed or falsified.
+Seven sections returned, pinned to the SHA they were read at. Every cross-module claim carries the file and symbol that confirms it. The surface map covers each axis on which the surface has observable behaviour, and the quarantined theory has been explicitly confirmed or falsified.

@@ -142,6 +142,7 @@ These are Coder pushback replies. For each:
 4. Judge: is the pushback valid?
    - **Accept** if: (a) the AC genuinely doesn't cover the concern, OR (b) the cited rule from `/afk-review-pr` doesn't actually apply at that anchor, OR (c) the concern is pre-existing tech debt the PR didn't introduce.
    - **Reject** if: the AC clearly demands the change, or the rule clearly applies and the diff is the cause.
+   - **"The issue asked for it" never defends a doctrine violation** — reject that pushback (see Step 6, doctrine beats issue text).
 
 5. **On accept**: post a reply confirming and resolve the thread:
    ```bash
@@ -230,6 +231,8 @@ Anchor every finding to a diff line (added/modified). For each rule in each load
 **Module-root census.** When the PR adds/moves/renames a file into a slice/module root, list that root's loose files and count them against the threshold the repo's structure doctrine sets (donor: ~8 non-registrar files in a VSA slice root). Over the threshold, or the loose files form an identifiable sub-domain → 🟡 `[AXIS-B]` at the new file, cite the structure doctrine's census rule, suggest the target subfolder. The new file is the causal link; do not demand a full refactor in this PR.
 
 Apply concession suppression from Step 4.5: skip findings that match a `[concession-axis-b]` entry on the same file/rule.
+
+**Axis B beats Axis A on a doctrine rule — never defer to issue text.** If the linked issue's own AC or design note asks for something a loaded rule forbids — above all a rule stated as absolute ("never", "non-negotiable") — the doctrine wins, per the "Doctrine outranks task text" section of the installed backend language core (the profile's `backend_core`: `backend-dotnet.md` / `backend-python.md`). The violation is a real 🔴 `[AXIS-B]` on the offending line, not a nit and not "the AC required it". Do not silently accept it, and do not merely note the conflict as a discussion point: flag it as a blocker **and** say in the review body that the issue's own text should be corrected, so it stops asking for the same violation on the next PR. In Axis A, grade that AC as *conflicts with doctrine*, never as unmet — a Coder who declined it did right, and an `[AXIS-A]` blocker there would push it back into the violation. "Other files already do it" is not a reason to wave a new instance through — it is evidence the drift is already compounding. (Donor scar: a reviewer with the rule loaded saw exactly this conflict on all three review rounds and deferred each time because twelve existing files already did it — the rule lost to the text nearer the task until a human caught it.)
 
 For each in-scope violation, prepare an inline comment with:
 - `[AXIS-B]` + priority marker

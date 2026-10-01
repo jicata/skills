@@ -67,15 +67,18 @@ Read the fidelity statement from the instrument issue's close-out, then verify e
 
 For each divergence, say explicitly whether it moves a number across a threshold in the decision rule. Some won't matter; say which.
 
-Record a `## Calibration` comment on the notebook: the statement, what you checked it against with citations, the divergences, and for each one whether the instrument was fixed or the divergence accepted. Amend the purpose issue where the decision rule has to move.
+**Then run the identical instrument on a nonsense control** — specimens that should score zero (shuffled pairs, made-up inputs, a deliberately wrong answer key). The control arm tells you what today does; this tells you whether the instrument can say no. If the nonsense control scores, the instrument is too loose: tighten it, or switch to a judged rubric with the control judged identically, before the campaign. (Donor scar: a token-match probe reported 100% coverage; a nonsense control then scored 6/10. Re-run as a judged rubric, the honest figure was 74%.)
 
-**Completion criterion:** every claim in the fidelity statement checked against production and accounted for. This gate closes before the first paid call.
+Record a `## Calibration` comment on the notebook: the statement, what you checked it against with citations, the divergences, for each one whether the instrument was fixed or the divergence accepted, and the nonsense control's score. Amend the purpose issue where the decision rule has to move.
+
+**Completion criterion:** every claim in the fidelity statement checked against production and accounted for, and the nonsense control scoring near zero. This gate closes before the first paid call.
 
 ## Phase 4 — Campaign
 
 You and the operator, interactively. Never autonomous.
 
 - **Report fractions with n**, stratified where the population is mixed. Portable fractions, never synthetic absolutes.
+- **A perfect score is an alarm, not a result.** Suspect the gate before celebrating: re-run the nonsense control on this round's instrument settings, and report the number only once the control stays near zero.
 - **Run blind wherever judgment decides an outcome** — randomized arms, sealed key, the operator's judgment recorded before unsealing. The operator may waive it; record that as open-label by choice on the notebook rather than letting blinding quietly evaporate.
 - **Append as you go.** Each round of results becomes a notebook comment while it's fresh. Three other things earn their own comments: surprises against the prediction, operator challenges that change the design, and **design intents** — decisions made in passing that a downstream PRD must inherit even though they don't change the experiment.
 - **Watch the meter.** Report spend against the ceiling each round, and stop at the ceiling.

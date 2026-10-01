@@ -98,6 +98,8 @@ gh issue edit <n> --repo <owner/repo> --body-file <scratch>/body.md
 ```
 Capture: the simplest design and the declared complexity list, the layout, the deep-module interface(s), the ordered red-green test list, the binding parity gate (if any), and each resolved decision **with its rationale**. Do NOT alter the Acceptance Criteria except to *sharpen* them when a decision changed them — and note the change explicitly.
 
+**When planning proves a passage of the body wrong, rewrite it in place** — the sentence, table row, or AC itself, at its original location, with a short inline note where the change carries information ("reclassified after the consumer check, <date>"). Never append an `## Amendment` / `## Correction` section and leave the wrong text standing above it: a reader scanning a long body reads the section that answers their question and stops, and never reaches the retraction. The same goes for a parent-PRD passage the plan contradicts. (The walkthrough comment is exempt — it is point-in-time by design.)
+
 ### 4.5 Post the briefing as a walkthrough comment
 The Step 2.5 briefing is the most maintainer-valuable artifact this skill produces — a plain-English, *why-first* explanation of the slice. Persist it **as a separate issue comment** (not in the body — the body holds the terse implementation plan; the comment holds the teaching narrative). The walkthrough comment is the slice's **temporary deep-dive artifact** — a point-in-time planning product, correct as of writing, with no maintenance contract. Per the lean doc canon (`doctrine/documentation-first.md`), it is never lifted into a standing doc; durable knowledge distils into ADRs / the glossary / the architecture map only.
 

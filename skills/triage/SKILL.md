@@ -41,7 +41,9 @@ Use the `Agent` tool with `subagent_type=Explore`, briefed per [`../_shared/inve
 
 Aim it at the observation. Hand the quarantined theory over as a claim to falsify.
 
-**Completion criterion:** the six sections of that brief are returned and its completion criterion is met.
+Fetch and note HEAD yourself before dispatching; the brief pins the agent's findings to the SHA it read.
+
+**Completion criterion:** the seven sections of that brief are returned and its completion criterion is met.
 
 ## Step 4 — Establish the evidence
 
@@ -65,6 +67,8 @@ Write it per [`../_shared/situation-report.md`](../_shared/situation-report.md) 
 
 Then **stop and wait**. The reader's cheapest correction is "you're looking at the wrong thing", and it is only available while nothing has been proposed. If they redirect, return to Step 3 with the new aim.
 
+**When the reader contradicts your reading of the code, check the tree before defending the reading.** `git fetch`, `git log --oneline -3`, and compare with the SHA the investigation pinned — the reader is usually looking at newer code than you are. An agent dispatched early read the older tree: re-check its conclusions against HEAD, don't just merge them. (Donor scar: a pull landed mid-session; the agent went on citing the pre-pull code, and when the user twice said its description was out of date it re-verified against the same stale tree and told them the code disagreed. Every number it had quoted was wrong.)
+
 Fold this into the next skill's proposal only when the report arrived fully-formed and the investigation surfaced no open decisions.
 
 **Completion criterion:** the reader has responded to the situation.
@@ -73,7 +77,9 @@ Fold this into the next skill's proposal only when the report arrived fully-form
 
 Four exits. Name the one you are taking and why.
 
-**1 — Nothing to file.** Working as designed, or nothing found. State what was ruled out and where you looked, per shape 2 or 3 of the situation report. Stop. A run that ends here did its job.
+Before exits 2 and 3, fetch again and confirm HEAD still matches the pinned SHA. If it moved, re-read the lines the mechanism cites before handing off — a situation about superseded code files a superseded issue.
+
+**1 — Nothing to file.** Working as designed, or nothing found — including a behaviour the doctrine already rules acceptable, or one that is deliberate (brief §7). State what was ruled out and where you looked, per shape 2 or 3 of the situation report. Stop. A run that ends here did its job.
 
 **2 — Author it** → `/log-issue`. The work fits one PR. The situation report is already in context; it is the handoff. Nothing is written to disk.
 
