@@ -41,6 +41,7 @@ skill-sync/  the return path: classify repo deltas as overlay-bound / upstreamab
 
 | Skill | What it does |
 | --- | --- |
+| `ask` | **Ask Mode** — implementation off. Explores a problem before any plan exists: reads code and docs, answers directly, asks one or two follow-ups that push deeper, challenges assumptions, summarizes the shared understanding, and asks for an explicit go-ahead before anything is written. Where `grill-me` stress-tests a plan you have, `ask` is for when you don't have one yet. |
 | `wayfinder` | Charts work too big for one session as a GitHub map of **decision tickets** — questions whose resolution is a decision, not build slices — and works them one at a time until the route is clear. Hands off to the spec-authoring skill; never builds. |
 | `grill-me` | Interviews you relentlessly about a plan or design, resolving each branch of the decision tree, until you share understanding. |
 | `grill-with-docs` | Grilling that also challenges the plan against the domain model, and updates the glossary/ADRs inline as decisions crystallise. Use when the session should leave a paper trail. |
