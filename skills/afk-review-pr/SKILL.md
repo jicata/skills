@@ -238,7 +238,7 @@ For each in-scope violation, prepare an inline comment with:
 
 ## Step 6.5 — Axis C (CI)
 
-**First read `axis_c` from the profile** (`off` / `advisory` / `enforcing`; absent ⇒ infer from `ci`) — see [`../_shared/axis-c.md`](../_shared/axis-c.md). If `off`, skip this step entirely and emit `axis_c: "off"`. If `advisory`, run every part of this step as written but raise findings as 🟡 rather than 🔴, and never let the result gate the verdict. If `enforcing`, findings are 🔴 and gate as described.
+**First read `axis_c` from the profile** (`off` / `advisory` / `enforcing`; absent ⇒ infer from `ci`) and **resolve it for this PR's `baseRefName`** against the profile's `ci_bases` — a base CI does not run on is `off` — see [`../_shared/axis-c.md`](../_shared/axis-c.md). If `off`, skip this step entirely and emit `axis_c: "off"`. If `advisory`, run every part of this step as written but raise findings as 🟡 rather than 🔴, and never let the result gate the verdict. If `enforcing`, findings are 🔴 and gate as described.
 
 The Coder runs only the fast lane of the profile's `check_commands` before pushing — the expensive lanes run in CI, **concurrently with this review**. Reading CI is therefore part of the review, not a separate step someone else does. Run this **after** Axes A and B, so review work overlaps the CI run instead of blocking on it.
 
@@ -267,13 +267,14 @@ Poll every 30s until every check run reports `status == "completed"`, capped at 
 
 | Observation | `axis_c` | Findings |
 |---|---|---|
-| All check runs `success` | `pass` | none |
+| At least one check run, all `success` | `pass` | none |
+| **No check runs at all** on the reviewed SHA | `unknown` | never `pass` — "all `success`" is vacuously true on zero runs. Check `mergeable` (a conflicting PR queues no CI) vs runs stuck `queued` (no runner), per axis-c.md *Reading the evidence* |
 | Any `failure` / `timed_out` | `fail` | one Axis-C finding per failing check |
 | All `completed`, some `cancelled`, SHA unchanged | `unknown` | note the cancelled checks |
 | Head SHA moved during review | `superseded` | none — return immediately |
 | Still pending at the 15m cap | `unknown` | note the pending checks |
 
-For each failing check, pull the failing step's log and extract the **specific** failure — the assertion message and test name, not "<check> failed":
+Before raising a red as a regression, compare the job's duration with its healthy band and re-run the failed jobs once (`gh run rerun <run-id> --failed`) — per axis-c.md, a red that reproduces is real. For each failing check, pull the failing step's log and extract the **specific** failure — the assertion message and test name, not "<check> failed":
 
 ```bash
 gh run list --commit "$REVIEWED_SHA" --json databaseId,workflowName,conclusion

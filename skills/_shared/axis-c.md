@@ -6,7 +6,7 @@ Axis C is the third review axis: the state of CI on the exact commit under revie
 
 ## The three modes
 
-Read `axis_c` from `.claude/doctrine/project-profile.md`. **If the key is absent, infer from `ci`:** no CI configured ⇒ `off`; CI configured ⇒ `enforcing`. Repos that predate this key keep behaving as they did.
+Read `axis_c` from `.claude/doctrine/project-profile.md`. **If the key is absent, infer from `ci`:** no CI configured ⇒ `off`; CI configured ⇒ `enforcing`. Repos that predate this key keep behaving as they did. Then narrow it to the PR's base — see *Resolve the mode per PR* below.
 
 | `axis_c` | Check-runs are read | Findings raised as | Blocks `APPROVE` | Blocks merge |
 |---|---|---|---|---|
@@ -19,6 +19,30 @@ Read `axis_c` from `.claude/doctrine/project-profile.md`. **If the key is absent
 **`advisory`** — the transition state, and the point of this file. Run the full Axis-C procedure: pin the reviewed SHA, poll to a conclusion, classify, extract the specific failure. Report it in the review body and in the run report. But raise failures as 🟡, never 🔴; never withhold `APPROVE` for it; never block a merge on it. A red or flaky CI cannot stall the pipeline, while the machinery stays exercised and observable rather than sitting dormant until someone trusts it enough to switch on.
 
 **`enforcing`** — full authority. A red check is a 🔴 blocker, `APPROVE` requires an observed green, a pending run is never a pass, and Axis-C findings are **never conceded** — a red suite is a fact, not an opinion.
+
+## Resolve the mode per PR, from its base
+
+`axis_c` is the mode for PRs that CI actually runs on. Many workflows filter by **base** branch (`pull_request: branches: [<default-branch>]`), so a PR on any other base — a PRD base branch, a release branch — gets no check-runs at all, ever. Read the profile's `ci_bases` (the base branches CI runs on; absent ⇒ every base) and resolve the mode **per PR** from its `baseRefName`:
+
+- `baseRefName` matches `ci_bases` ⇒ the profile's `axis_c`.
+- Anything else ⇒ **`off`**, with `off`'s full semantics: do not query, do not poll, do not flag the absence.
+
+Resolve this before polling. Skipping it costs twice: the reviewer polls a full timeout for a run that cannot exist, and then meets an empty check-run set — where "all check-runs `success`" is **vacuously true**. **An empty set on a base CI does not run on is `off`. It is never `pass`, and it is never `unknown`.**
+
+> **Donor scar:** CI was narrowed to default-branch PRs to save Actions minutes. Without a per-base resolution, every child-PR review round would have burned the 15-minute poll, then been free to read zero runs as all-green — exactly the lie the next section exists to prevent.
+
+## Reading the evidence
+
+**An empty set on a base CI *does* run on is a real signal — find out which one.** Not `pass`, and not yet a CI outage:
+
+- **The PR conflicts with its base.** A `pull_request` workflow runs against the merge commit, and GitHub cannot build one for a conflicting PR — so no run is queued at all. `gh pr checks` says "no checks reported": that is **absent**, not pending. Check `mergeable`; merge the base in before concluding CI is broken or that the gate can be skipped. (Donor: three pushes to a conflicting PR silently produced zero runs and read as an outage.)
+- **Runs sit `queued` indefinitely.** Different signature, different cause: no runner is picking them up (self-hosted runners down, a concurrency group stuck). That is an infrastructure fact to report, not a code finding.
+
+Either way the result is `unknown` under `enforcing`, and the report says which of the two it was.
+
+**Read the job's duration before calling a red a regression.** A suite has a healthy duration band. A red far *slower* than the band smells of resource contention — timing-sensitive tests losing a CPU race; a mass failure far *faster* than the band smells of infrastructure — a dependency that died mid-run. Neither is a code defect, and fixing code for one burns review rounds on nothing; because Axis-C findings are never conceded, that is expensive. **Re-run the failed jobs once (`gh run rerun <run-id> --failed`), then believe it.** A red that reproduces is real, whatever its duration. Report the first run, the re-run, and both durations in the Axis-C finding.
+
+> **Donor scar:** the same commit's frontend job went red at 5m15s and green at 2m23s; a backend job failed 654 tests in 2m42s against ~3m20s healthy, then passed on an isolated re-run. Both were runner-side.
 
 ## The verdict rule, stated once
 

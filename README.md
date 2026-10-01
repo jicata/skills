@@ -193,7 +193,7 @@ The catalog, and what each answer materializes:
 | **Q9** | Tracker + orchestration tier: full PRD pipeline or light? | the installed pipeline tier; the router matches |
 | **Q10** | Where do the three canon doc artifacts live? | recorded paths; seeds missing canon files |
 | **Q11** | Test strategy — and what's deliberately **out** of scope | overlay testing section |
-| **Q12** | What gates a merge? | overlay facts + reviewer expectations |
+| **Q12** | What gates a merge? | overlay facts + reviewer expectations + `axis_c` / `ci_bases` |
 | **Q13** | Does the app construct prompts / call models? | prompt-craft doctrine |
 | **Q14** | How do humans exercise the API (Postman)? | wire-contract skill |
 | **Q15** | Existing glossary? One bounded context or several? | glossary conventions + `grill-with-docs` routing |

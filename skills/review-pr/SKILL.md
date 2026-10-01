@@ -197,12 +197,13 @@ REVIEWED_SHA=$(gh pr view <n> --json headRefOid --jq .headRefOid)   # capture at
 gh api "repos/<owner>/<repo>/commits/$REVIEWED_SHA/check-runs" --jq '.check_runs[] | {name, status, conclusion}'
 ```
 
-Three rules:
+Four rules:
+- **Resolve the mode for this PR's base first** (profile `ci_bases`, per [`../_shared/axis-c.md`](../_shared/axis-c.md)). A base CI does not run on is `off` — don't poll for runs that cannot exist. On a base it does run on, **zero check-runs is not green**: a conflicting PR queues none.
 - **Pin the SHA.** CI runs can be cancelled or superseded when the head moves, so "the latest run" can belong to a different commit. If the head moved during your review, say so and re-review — your findings describe a stale diff.
 - **Pending is not pass.** Wait for conclusions. If still pending, report Axis C as *unknown* — never green.
 - **Never approve on a red or unobserved suite.**
 
-For each failing check, extract the actual assertion or test name — not "check failed":
+Before calling a red a regression, read the job's duration against its healthy band and re-run the failed jobs once — a red that reproduces is real. For each failing check, extract the actual assertion or test name — not "check failed":
 
 ```bash
 gh run list --commit "$REVIEWED_SHA" --json databaseId,workflowName,conclusion
