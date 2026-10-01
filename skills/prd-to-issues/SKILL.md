@@ -33,7 +33,7 @@ If any slice will create or change a consumer-facing contract (route, verb, requ
 
 Break the PRD into **tracer bullet** issues. Each issue is a thin vertical slice that cuts through ALL integration layers end-to-end, NOT a horizontal slice of one layer.
 
-Slices may be 'HITL' or 'AFK'. HITL slices require human interaction, such as an architectural decision or a design review. AFK slices can be implemented and merged without human interaction. Prefer AFK over HITL where possible.
+Slices may be 'HITL' or 'AFK'. HITL slices require human interaction, such as an architectural decision, a design review, or a measurement with a go/no-go call. AFK slices can be implemented and merged without human interaction. Prefer AFK over HITL where possible. A HITL slice does **not** become a PRD child — see Step 5, "HITL slices leave the PRD".
 
 <vertical-slice-rules>
 - Each slice delivers a narrow but COMPLETE path through every layer (schema, API, tests)
@@ -93,6 +93,12 @@ gh issue create ... --label "prd-<N>"
 
 The label is the durable crosswalk — `label:prd-<N>` lists the whole set regardless of title/table drift. Do **not** put it on the parent PRD itself (the PRD is not its own child). Treat the label as **temporary scaffolding**: it is deleted when the PRD is fully merged to master. Both flows do this at finalize — `/ship-feature` (autonomous) in its `FINALIZE_PRD` wrap-up, and `/execute-issue` (manual) when the run finds every child already merged and finalizes behind its confirmation gate. If you land the PRD→master PR some other way, delete it by hand with `gh label delete "prd-<N>"`.
 
+**HITL slices leave the PRD: a human gate goes *between* autonomous runs, never inside one.** `/ship-feature` never halts mid-run for a human — no label or marker changes that. It works every open child until none remain, then `FINALIZE_PRD` (in `--merge` mode) merges the base branch to master, closes the PRD, and deletes the `prd-<N>` label — and it refuses to start against a closed PRD, so "ship the children in waves" is not available either: the first run finalizes the PRD out from under the second wave. A HITL child inside the PRD therefore gets its human judgment made autonomously. So for each HITL slice:
+
+- Create it as a **standalone issue**: no `## Parent PRD` heading (that heading is exactly what child enumeration filters on, and `/ship-issue` refuses any issue carrying it) and no `prd-<N>` label. Mention the PRD in prose ("Gate for PRD #N") so the link survives without making it a child.
+- **Never write a `Blocked by` edge from a child to a non-child.** In parallel mode an unknown predecessor is dropped as `[dag-orphan-edge]`; in sequential mode no DAG is built at all — either way the edge is silently ignored. Record the external gate in prose on the PRD and in the Step 6 execution order instead.
+- Only one ungated stretch becomes PRD children, shipped in one `/ship-feature` run started after the gates in front of it have passed. Slices on the far side of a gate are standalone issues too. (Donor shape: a CI slice and a measurement-spike-with-go/no-go slice standalone, seven children in one run, a branch-protection slice standalone after it.)
+
 <issue-template>
 
 ## Parent PRD
@@ -151,7 +157,7 @@ Do NOT close or modify the parent PRD issue.
 
 ### 6. Wrap up
 
-After all issues are created, print the execution order derived from the `Blocked by` DAG (blockers before dependents), then tell the user:
+After all issues are created, print the execution order derived from the `Blocked by` DAG (blockers before dependents) — with each standalone HITL issue placed where its gate falls, marked as a human stop between runs — then tell the user:
 
 > All child issues created. Execution order: #A → #B/#C → #D.
 > Next: `/expand-issue <first child>` to plan the first slice, then hand it to the coder (`/execute-issue <prd-n>` or `/ship-feature <prd-n>`). While the coder builds, keep running ahead — `/expand-issue` the remaining children in execution order so each slice is already planned when the coder reaches it.
