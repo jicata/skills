@@ -86,7 +86,10 @@ base_version: <FILL: version/commit of the skills base library this repo was set
      - A new test category that fails loudly without its prerequisites (a rig, a credential, a gitignored
        fixture) is added to CI's filter AND this lane map in the same change. Donor scar (ADF, 2026-08): a
        new live-service category updated CI's filter only; coders kept running the old filter, hit the
-       missing-prerequisite guard, and logged a false regression that cost a cleanup cycle. -->
+       missing-prerequisite guard, and logged a false regression that cost a cleanup cycle.
+     A live-service lane (real credentials, real external calls) is a diagnostic nothing runs automatically —
+     never a gate; see skills/tdd/tests.md → Live-service tests for the opt-in, loud-failure and
+     counted-skip rules. -->
 
 
 <FILL>
