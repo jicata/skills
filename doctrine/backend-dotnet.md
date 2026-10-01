@@ -24,7 +24,7 @@ Written for modern .NET — C# 10+, ASP.NET Core, EF Core. Repo-specifics — ta
 - **Prefix interface names with `I`** (`IUserService`). This is a deliberate divergence from the Python core, where protocols carry no prefix; do not carry either habit across languages.
 - Entity-key and schema naming conventions are repo policy — see the repo's `project-profile.md` / persistence doctrine before naming keys.
 - **Never contract a domain entity stem.** The repo's canonical entity types are the vocabulary; a type or member name must not drop a **domain word** off a compound stem.
-  - **The test — module qualifier vs. domain word.** You *may* strip a leading **module qualifier**: a prefix that leads several entities and is not itself an entity. You *may not* strip a word that leaves the **bare tail of a compound entity** — a contraction, because the stripped word names a real entity you'd be reaching *through*. (Donor example: `LoanCodingConceptMap` → `ConceptMap` fine — `LoanCoding` names no entity; `TemplateComponent` → `Component` forbidden — `NarrativeTemplate` is itself an entity.)
+  - **The test — module qualifier vs. domain word.** You *may* strip a leading **module qualifier**: a prefix that leads several entities and is not itself an entity. You *may not* strip a word that leaves the **bare tail of a compound entity** — a contraction, because the stripped word names a real entity you'd be reaching *through*. (Donor example: `ReportingConceptMap` → `ConceptMap` fine — `Reporting` names a module, not an entity; `TemplateComponent` → `Component` forbidden — `NarrativeTemplate` is itself an entity.)
   - **Sanctioned exceptions are repo policy.** A repo's profile/ADRs may sanction specific alias patterns as structure, not rot. (Donor: interleaved Spanner children keep short `{Entity}Id` aliases so the propagated key stays legible, per its ADR.)
   - **Why a rule, not a build-failing test.** Nobody *decides* to contract a stem — it accretes, and later PRDs copy the habit (donor scar: a full sweep PRD was needed to undo it). A reflective architecture test to police it was designed and judged overkill: making the rule *correct* required more machinery (module-prefix derivation, an exemption list) than the rot it guards. When code is agent-authored and agent-reviewed, the cheapest effective guard is doctrine that fires at authoring and review time. **Reviewer heuristic:** a new type/member whose leading word is the tail of a compound entity is the smell — rename to the full stem, or, if it is a repo-sanctioned structural alias, say so explicitly in the diff.
 
@@ -40,7 +40,7 @@ Written for modern .NET — C# 10+, ASP.NET Core, EF Core. Repo-specifics — ta
 - Follow the [C# Coding Conventions](https://docs.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions).
 - Use C#'s expressive syntax — null-conditional operators, string interpolation.
 - Use `var` for implicit typing when the type is obvious.
-- **All analyzer conventions defined for the project must pass.** Analyzers are the enforcement surface; a suppression needs a reason attached, not a bare pragma.
+- **All analyzer conventions defined for the project must pass.** Analyzers are the enforcement surface. Suppress narrowly — `#pragma warning disable/restore <RuleId>` around the exact lines, never a project-wide downgrade — and give the reason in the PR, not in a comment (see Key conventions).
 
 ## Async and concurrency
 
@@ -85,7 +85,9 @@ Written for modern .NET — C# 10+, ASP.NET Core, EF Core. Repo-specifics — ta
 
 ## Key conventions
 
-- **Never use comments in a C# file** apart from the file heading and summaries on controller actions. This is a deliberate divergence from the Python core, where docstrings are idiomatic and tooling-consumed.
+- **Never use comments in a C# file — production or test — apart from exactly two things:** the file header the repo's analyzers enforce (if any), and a `/// <summary>` on a controller **action method**. The carve-out is scoped by placement, not length: not the controller type, not a DTO, model, handler, store or test — a multi-line summary on an action is fine, a one-line `///` on a record is not. No inline `//` narration, no `//` rationale blocks. This is a deliberate divergence from the Python core, where docstrings are idiomatic and tooling-consumed.
+  - `#pragma warning disable/restore <RuleId>` is a compiler directive, not a comment. It is the right way to satisfy an analyzer that would otherwise demand an explanatory comment — an intentionally empty `catch` or method.
+  - A non-obvious constraint (why a sort cannot run in the database, why a check runs after a cap, why a test is shaped this way) goes in the **test name** or an **assert message**, where a failing run prints it — never in a code comment.
 - Always look for similar existing code before writing new. Creating a repository? Find the existing ones and follow them. Existing code is a pattern to follow, **not** a licence for a violation — see below.
 
 ## Doctrine outranks task text
@@ -115,6 +117,9 @@ When a rule keeps losing this way, raise its salience in the repo's profile or `
 ## API documentation
 
 - Use Swagger/OpenAPI for API documentation.
-- Provide XML comments for controllers and models to enrich the generated schema.
+- **XML doc comments reach the generated spec only if both ends are wired:** `GenerateDocumentationFile` set in the API project (so a doc file is emitted at all) **and** `IncludeXmlComments` called in the Swagger setup — in the app or in any chassis that owns `AddSwaggerGen`. Verify both before claiming a `///` documents anything. Unwired, every `///` contributes nothing to the spec, and the action-method summary above exists for readability at the route, not for Swagger.
+- Wiring them is a deliberate product decision, not a default: it publishes internal prose into a consumer-facing spec. Even when wired, the comment carve-out above does not widen — no XML docs on the controller type or on models.
+
+> **Donor scar:** the donor's Swagger came from a chassis's `AddSwaggerGen`. An investigation found neither switch set — no doc file emitted by either project, no `IncludeXmlComments` in the app or the chassis — so every `///` in the codebase reached no reader. This file had meanwhile been telling agents to "provide XML comments for controllers and models", against its own no-comments rule.
 
 Follow the official Microsoft documentation and ASP.NET Core guides for anything this file does not cover.

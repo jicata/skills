@@ -21,7 +21,7 @@ If no PR number, return `{"result": "missing_pr"}` and stop.
 
 - `--single`: target branch is expected to be the default branch instead of `prd-*`. Used by `/ship-issue`.
 - `--force`: skips review-gate and unresolved-threads gates. Used by both orchestrators after concession. Requires the cleanup-issue number for the pre-merge 🚨 PR comment.
-- `--auto`: invoke GitHub auto-merge (`gh pr merge --auto --squash --delete-branch`) instead of a synchronous merge. Used by `/ship-feature --parallel <N>` so GitHub's merge queue linearizes candidates without blocking the orchestrator. The PR is enqueued; the actual merge happens when required checks pass against the latest base tip. Return `{"result": "merge_queued", "pr_number": <n>, "queued_at": "<iso>"}` immediately after queueing, without waiting for the merge to complete. The orchestrator polls `mergedAt` separately. Skip Step 6 (close linked issues) in `--auto` mode — close-on-merge runs in a follow-up tick once the orchestrator observes the merge.
+- `--auto`: invoke GitHub auto-merge (`gh pr merge --auto --squash`) instead of a synchronous merge. Used by `/ship-feature --parallel <N>` so GitHub's merge queue linearizes candidates without blocking the orchestrator. The PR is enqueued; the actual merge happens when required checks pass against the latest base tip. Return `{"result": "merge_queued", "pr_number": <n>, "queued_at": "<iso>"}` immediately after queueing, without waiting for the merge to complete. The orchestrator polls `mergedAt` separately. Skip Step 6 (close linked issues) in `--auto` mode — close-on-merge runs in a follow-up tick once the orchestrator observes the merge.
 
 Flags can combine: `--single --force <cleanup>` is valid (force-merge of a single-issue PR after round-7 concession). `--auto --force <cleanup>` is valid (force-enqueue after concession). `--auto --single` is invalid (`/ship-issue` is sequential; reject the combination).
 
@@ -157,12 +157,21 @@ On a squash the PR title becomes the commit subject the repo's release tooling p
 
 ## Step 5 — Squash-merge and delete the branch
 
+**Never pass `--delete-branch`.** It also runs local cleanup — check out the base, delete the local branch — and from inside a pipeline worktree that cleanup is not confined to the worktree: it can switch the user's **main** checkout instead. Delete the remote branch with a remote-only API call that cannot touch any checkout; local branches and worktrees are the orchestrator's DONE sweep.
+
+> **Donor scar (2026-08-05):** `gh pr merge --squash --delete-branch` run from a ship worktree switched the user's main checkout from their in-progress branch to the default branch — a checkout the session never touched. Two untracked scratch files vanished in the reaction, and untracked files have no git safety net. The merge itself had already landed over the API, so the local-cleanup error looked like a failed merge.
+
 ### Synchronous merge (default)
 
 ```bash
-gh pr merge <pr-number> --squash --delete-branch
+gh pr merge <pr-number> --squash
 gh pr view <pr-number> --json state,mergedAt,mergeCommit
+# Best-effort, remote-only. Fails harmlessly (422) when the repo's "automatically delete head branches" setting already did it.
+gh api -X DELETE "repos/<owner>/<repo>/git/refs/heads/<headRefName>" \
+  || echo "remote branch <headRefName> not deleted"   # → notes, never a failure
 ```
+
+Any `gh pr merge` error: re-read `gh pr view <pr-number> --json state` before classifying it — a merge that landed but errored afterwards is `merged`, and a blind retry reports "already merged".
 
 If merge fails:
 - Conflict with base branch:
@@ -179,10 +188,12 @@ Do not attempt to bypass branch protection. Do not retry the merge with differen
 ### Auto-merge via merge queue (`--auto` only)
 
 ```bash
-gh pr merge <pr-number> --auto --squash --delete-branch
+gh pr merge <pr-number> --auto --squash
 ```
 
 This enqueues the PR into GitHub's merge queue on the target branch. GitHub waits for required checks against the latest base tip, rebases siblings as needed, and merges in queue order. The command returns immediately on a successful enqueue.
+
+No branch delete here: the merge has not happened yet, and deleting the head branch would drop the PR from the queue. The remote branch goes when the merge lands — by the repo's "automatically delete head branches" setting if it is on, else by the orchestrator's remote-only delete once it observes `mergedAt` (ship-feature SCHEDULER_TICK).
 
 On enqueue success, skip Step 6 entirely and emit:
 ```json
@@ -273,4 +284,4 @@ Applies only if the profile's `design_pipeline` doctrine declares post-merge pro
 - **Merge conflict with base** → return `merge_conflict`; orchestrator routes back to `/afk-address-pr` for rebase
 - **PR closes multiple issues** → close all, each with its own comment
 - **Linked issue belongs to different repo** → skip, note in return
-- **Squash succeeded but `--delete-branch` failed** → emit `merged` with note
+- **Squash succeeded but the remote branch delete failed** → emit `merged` with a note naming the dangling branch

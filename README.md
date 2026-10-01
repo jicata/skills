@@ -41,11 +41,13 @@ skill-sync/  the return path: classify repo deltas as overlay-bound / upstreamab
 
 | Skill | What it does |
 | --- | --- |
+| `ask` | **Ask Mode** — implementation off. Explores a problem before any plan exists: reads code and docs, answers directly, asks one or two follow-ups that push deeper, challenges assumptions, summarizes the shared understanding, and asks for an explicit go-ahead before anything is written. Where `grill-me` stress-tests a plan you have, `ask` is for when you don't have one yet. |
 | `wayfinder` | Charts work too big for one session as a GitHub map of **decision tickets** — questions whose resolution is a decision, not build slices — and works them one at a time until the route is clear. Hands off to the spec-authoring skill; never builds. |
 | `grill-me` | Interviews you relentlessly about a plan or design, resolving each branch of the decision tree, until you share understanding. |
 | `grill-with-docs` | Grilling that also challenges the plan against the domain model, and updates the glossary/ADRs inline as decisions crystallise. Use when the session should leave a paper trail. |
 | `write-a-prd` | Interview → codebase exploration → module design → files a `PRD:` GitHub issue. Where a frontend built elsewhere consumes the API (profile `fe_contract_home`), hands it an FE contract before slicing. |
 | `prd-to-issues` | Slices a PRD into independently-grabbable child issues as tracer-bullet vertical slices, with `Blocked by` edges and a printed execution order. |
+| `software-factory` | The in-session alternative to `write-a-prd` → `prd-to-issues`: four gates — **Product** (no tech talk; announcement-first, HTML mockups), **Architecture**, **Program Design** (files, signatures, test names, least-confident decisions), **Vertical Slices** — each written to disk and explicitly approved before implementation code exists, then built one tracer-bullet slice at a time with proof after each. Use it when you and the agent build the feature together; use the PRD chain when the slices will be built from the tracker. Gate docs follow the repo's documentation policy (temporary artifacts under the lean canon). |
 | `triage` | For a report you can't yet name — "something's wrong here, not sure". Interviews you only where a human answer redirects the investigation, quarantines your theory as a claim to falsify, and comes back with a **situation report**: what is actually going on, with no fix attached. Exits to `/log-issue`, `/write-a-prd`, `/diagnosing-bugs`, or nothing-to-file. |
 | `log-issue` | Investigates a reported bug/enhancement, proposes the fix, and on approval files a fully-populated issue (root cause, TDD plan, acceptance criteria) ready for `/ship-issue`. Redirects to `/triage` on its own when the report is still a suspicion, so either command is safe to type. |
 | `prototype` | A throwaway spike answering **one** design question. The verdict lands on the issue; the code never merges. |
@@ -96,11 +98,11 @@ Agents in `agents/`: **`afk-coder`** (runs `afk-execute-issue`, then `afk-addres
 
 ### Visualization
 
-Both require the **Miro MCP server** to be connected — they are no-ops without it. They share one design doctrine (`miro-diagram` Part A: one altitude per diagram, colour = who does the work, size = hierarchy, no captions on a tight spine) and one body of Miro-DSL scar tissue; they differ in *when* the picture is drawn.
+Both require the **Miro MCP server** to be connected — they are no-ops without it. They share one design doctrine (`miro-diagram` Part A: one altitude per diagram, colour = who does the work, size = hierarchy, no captions on a tight spine) and one body of Miro-canvas scar tissue (agree the layout in text first — API edits cost 4–5× the first draw and eat the free plan's 100 calls/day); they differ in *when* the picture is drawn.
 
 | Skill | What it does |
 | --- | --- |
-| `miro-diagram` | **One-shot.** You already understand the system; this designs and hand-places the diagram in a single pass. Hand-placed (`layout_create`), never the auto-layouter — which produces lopsided branches and drops edge labels on the boxes. Carries the design doctrine both skills read from, plus the `layout_update` matching pitfalls (entity-encoded `+ = &`, frame auto-reflow, exact-line deletes). |
+| `miro-diagram` | **One-shot.** You already understand the system; this designs and hand-places the diagram in a single pass. Hand-placed as Canvas Composer SVG (one `canvas_create_from_svg` call per frame), never an auto-layouter — which produces lopsided branches and drops edge labels on the boxes. Carries the design doctrine both skills read from, plus the canvas mechanics: load the composer skill first, save each `result_svg` so later edits patch by `data-miro-id`, never delete a frame through the API. |
 | `flow-map` | **Incremental.** For a flow you're still recovering: the human reasons about a step, the skill reasons back *grounded in the real handler*, and only the agreed version lands as a block — so the board is a visual trail of the conversation, and every correction is where the mental model actually updated. Two altitudes: the stage map is a frame, a drilled-in substep is a **smaller** frame (size is the hierarchy signal) linked by a dashed `detail of ①` connector, because Miro frames can't nest. |
 
 ### Learning

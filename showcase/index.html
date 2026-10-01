@@ -248,11 +248,13 @@ const CATEGORIES = [
     color: "#5eead4",
     desc: "Turn a fuzzy idea into a sharp, sliced spec — from too-big-for-one-session charting down to a single well-formed issue.",
     items: [
+      { name: "ask", desc: "Ask Mode: implementation off. Explores a problem before any plan exists, reading code and docs, answering and asking follow-ups, until a path is agreed and you give the go-ahead." },
       { name: "wayfinder", role: "orch", desc: "Charts work too big for one session as a GitHub map of decision tickets, resolved one at a time until the route is clear. Plans, never builds — hands off to spec authoring." },
       { name: "grill-me", desc: "Interviews you relentlessly about a plan or design, resolving each branch of the decision tree until you reach shared understanding." },
       { name: "grill-with-docs", desc: "Grilling that also tests the plan against the domain model, updating the glossary and ADRs inline as decisions crystallise." },
       { name: "write-a-prd", role: "orch", desc: "Interview → codebase exploration → module design → files a PRD as a GitHub issue." },
       { name: "prd-to-issues", desc: "Slices a PRD into independently-grabbable child issues as tracer-bullet vertical slices, with Blocked-by edges and a printed execution order." },
+      { name: "software-factory", desc: "The in-session alternative to the PRD chain: Product, Architecture, Program Design and Vertical Slices gates, each written down and approved before implementation code exists, then built one tracer-bullet slice at a time." },
       { name: "triage", desc: "For a report you can't yet name. Interviews you only where a human answer redirects the investigation, quarantines your theory as a claim to falsify, and returns a situation report — what is actually going on, with no fix attached. Exits to log-issue, a PRD, diagnosis, or nothing-to-file." },
       { name: "log-issue", desc: "Investigates a reported bug/enhancement, proposes the fix, then files a fully-populated issue (root cause, TDD plan, ACs) ready to ship. Escalates to a PRD if too big, and redirects to triage on its own when the report is still a suspicion." },
       { name: "prototype", desc: "A throwaway spike answering one design question. The verdict lands on the issue; the code never merges." },

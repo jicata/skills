@@ -167,9 +167,9 @@ Build an in-memory map:
 
 Single worktree, identical to prior behavior.
 
-1. Compute the worktree path. It is a sibling of the repo root named `<repo-basename>-ship-prd-<prd-number>`:
+1. Compute the worktree path. It is a sibling of the repo root named `<repo-basename>-ship-prd-<prd-number>`. Resolve the root from the common git dir, never `--show-toplevel`: this skill is often invoked from inside another worktree, where `--show-toplevel` returns that worktree and every derived path nests (`<repo>-ship-<m>-ship-prd-<n>`):
    ```bash
-   REPO_ROOT="$(git rev-parse --show-toplevel)"
+   REPO_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"   # the MAIN checkout, even from inside a worktree
    REPO_BASE="$(basename "$REPO_ROOT")"
    WORKTREE_PATH="$(dirname "$REPO_ROOT")/${REPO_BASE}-ship-prd-<prd-number>"
    ```
@@ -199,7 +199,7 @@ N+1 worktrees total: one "base" worktree owning `<base-branch>` for orchestrator
 
 1. Compute paths:
    ```bash
-   REPO_ROOT="$(git rev-parse --show-toplevel)"
+   REPO_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"   # the MAIN checkout, even from inside a worktree
    REPO_BASE="$(basename "$REPO_ROOT")"
    BASE_WT="$(dirname "$REPO_ROOT")/${REPO_BASE}-ship-prd-<prd-number>"
    for k in $(seq 1 <N>); do
@@ -338,6 +338,7 @@ Tick procedure (runs whenever a slot completes or at startup):
    - Route the structured return through NEXT_CHILD / REVIEW / ADDRESS / MERGE_CHILD as in sequential mode, but scoped to that slot only — other slots keep running.
    - When that slot's PR reaches MERGE_CHILD and the merge queue accepts the merge:
      - Mark `dag.nodes[child].state = 'merged'`.
+     - Queue mode only: delete the child's remote branch, remote-only and best-effort — `gh api -X DELETE "repos/<owner>/<repo>/git/refs/heads/<child-branch>"`. `afk-merge-pr --auto` returned before the merge existed, so nothing else deletes it unless the repo auto-deletes head branches (then this 422s, harmlessly).
      - Release the slot: `slot_assignments[k] = null`; reset the slot worktree to detached `origin/<base-branch>` (Step 1 slot-release recipe).
      - Re-enter SCHEDULER_TICK to potentially claim newly-unblocked children.
 4. **Termination:** the scheduler exits when `slot_assignments` is all-null AND `ready_set` is empty AND every `dag.nodes[child].state` is `merged` or `unmergeable`. Proceed to FINALIZE_PRD.
@@ -522,7 +523,7 @@ When `NEXT_CHILD` reports `no_children` and there are no open child PRs left:
    - For irreducible conflicts: `git checkout --ours <file> && git add <file>` (prefers PRD-branch side — note `--ours` because we're sitting on `<base-branch>` merging `origin/master` in)
    - Document residue in cleanup issue with `[finalize-conflict]` entry per file
    - `git commit` the merge and `git push origin <base-branch>`
-   - Then merge the PR via `gh pr merge <prd-pr-num> --merge --delete-branch` (NOT squash — preserves child commits)
+   - Then merge the PR via `gh pr merge <prd-pr-num> --merge` (NOT squash — preserves child commits), and once `gh pr view` reads `MERGED`, delete the remote base branch remote-only and best-effort: `gh api -X DELETE "repos/<owner>/<repo>/git/refs/heads/<base-branch>"` (failure → a report line). **Never `--delete-branch`:** `<base-branch>` is checked out in `$WORKTREE_PATH`, and gh's local cleanup is not confined to that worktree — it can switch the user's main checkout (see `afk-merge-pr` Step 5). The local branch goes in DONE's sweep.
 
    If `git merge --no-ff --no-commit` fails to even start (divergent histories, etc.):
    - `( cd "$WORKTREE_PATH" && git merge --abort )`

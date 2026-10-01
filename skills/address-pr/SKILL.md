@@ -62,7 +62,7 @@ Threads authored by `/review-pr` start with `Claude comment 🤖` — prioritize
 `/execute-issue` left an isolated worktree for this branch at the profile's `worktree_root` — by default `.worktrees/<headRefName>` (gitignored) inside the repo, or the sibling `../<repo>-<headRefName>` when the profile says `sibling`. **Reuse it** so concurrent `/address-pr` runs never clash on the main working tree. If it's gone (e.g. a fresh clone), recreate it. **The main working tree is never switched or stashed.**
 
 ```bash
-REPO_ROOT=$(git rev-parse --show-toplevel)
+REPO_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"   # the MAIN checkout, even from inside a worktree
 # worktree_root per the profile: default .worktrees/ inside the repo; `sibling` = ../<repo-basename>-<branch>
 WT_ROOT="$REPO_ROOT/.worktrees/"; [ "<worktree_root>" = "sibling" ] && WT_ROOT="$(dirname "$REPO_ROOT")/$(basename "$REPO_ROOT")-"
 BR=<headRefName>

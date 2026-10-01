@@ -115,9 +115,9 @@ Cases:
 
 `/ship-issue` runs the entire implementation flow inside a dedicated git worktree at a sibling path so the user's main repo working copy is never touched. The user's main repo may be on any branch with any uncommitted state — this skill does not care.
 
-1. Compute the worktree path. It is a sibling of the repo root named `<repo-basename>-ship-<issue-number>`:
+1. Compute the worktree path. It is a sibling of the repo root named `<repo-basename>-ship-<issue-number>`. Resolve the root from the common git dir, never `--show-toplevel`: this skill is often invoked from inside another worktree, where `--show-toplevel` returns that worktree and every derived path nests (`<repo>-ship-<m>-ship-<n>`):
    ```bash
-   REPO_ROOT="$(git rev-parse --show-toplevel)"
+   REPO_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"   # the MAIN checkout, even from inside a worktree
    REPO_BASE="$(basename "$REPO_ROOT")"
    WORKTREE_PATH="$(dirname "$REPO_ROOT")/${REPO_BASE}-ship-<issue-number>"
    ```

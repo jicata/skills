@@ -68,7 +68,7 @@ On **no** → report "left `<base-branch>` unmerged; finalize skipped" and stop.
    ```
 2. **Pre-flight default-branch sync** — surface conflicts on the PRD side, in a transient base worktree (same pattern as Step 3's 1b):
    ```bash
-   REPO_ROOT=$(git rev-parse --show-toplevel); BASE=<base-branch>; DEFAULT=<default-branch>
+   REPO_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"; BASE=<base-branch>; DEFAULT=<default-branch>   # REPO_ROOT = the MAIN checkout, even from inside a worktree
 # worktree_root per the profile: default .worktrees/ inside the repo; `sibling` = ../<repo-basename>-<branch>
 WT_ROOT="$REPO_ROOT/.worktrees/"; [ "<worktree_root>" = "sibling" ] && WT_ROOT="$(dirname "$REPO_ROOT")/$(basename "$REPO_ROOT")-"
    BASE_WT="${WT_ROOT}$BASE"
@@ -83,9 +83,16 @@ WT_ROOT="$REPO_ROOT/.worktrees/"; [ "<worktree_root>" = "sibling" ] && WT_ROOT="
    **On conflict:** resolve in `$BASE_WT` (prefer both sides where orthogonal; `git checkout --ours <file>` for the irreducible, since HEAD is the PRD branch), commit, push, remove the worktree. If it's a genuine divergence a human should see, **leave it and report — do NOT merge a half-resolved base to the default branch.**
 3. **Merge the PR** — `--merge`, not `--squash`, to preserve child commits:
    ```bash
-   gh pr merge <prd-pr-number> --merge --delete-branch
+   gh pr merge <prd-pr-number> --merge
+   gh pr view <prd-pr-number> --json state -q '.state'   # read it even after an error — the merge may have landed
    ```
    If the merge fails (branch protection, a required check pending/failing, unresolved conflict) → **stop, leave the PR open, report.** Never force it or disable protection.
+   Once `MERGED`, delete the base branch — remote-only and best-effort (a failure is a report line, not a stop):
+   ```bash
+   gh api -X DELETE "repos/<owner>/<repo>/git/refs/heads/<base-branch>" || echo "remote <base-branch> not deleted"
+   git -C "$REPO_ROOT" branch -D <base-branch> 2>/dev/null || true
+   ```
+   **Never `--delete-branch`:** its local cleanup is not confined to the current worktree and can switch the main checkout to the default branch (see `/merge-pr` Step 4).
 4. **Close the PRD issue** (keyword auto-close may not have fired from a base-branch history):
    ```bash
    gh issue view <n> --json state -q '.state'   # if OPEN:
@@ -118,7 +125,7 @@ A previous run may have crashed, leaving a worktree behind with uncommitted work
 ```bash
 set -e # Halt immediately if any command fails
 
-REPO_ROOT=$(git rev-parse --show-toplevel)
+REPO_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"   # the MAIN checkout, even from inside a worktree
 # worktree_root per the profile: default .worktrees/ inside the repo; `sibling` = ../<repo-basename>-<branch>
 WT_ROOT="$REPO_ROOT/.worktrees/"; [ "<worktree_root>" = "sibling" ] && WT_ROOT="$(dirname "$REPO_ROOT")/$(basename "$REPO_ROOT")-"
 BASE=<base-branch>

@@ -82,8 +82,10 @@ On a squash the PR title becomes the commit subject the repo's release tooling p
 ### Step 4 — Squash-merge and delete the branch
 
 ```bash
-gh pr merge <pr-number> --squash --delete-branch
+gh pr merge <pr-number> --squash
 ```
+
+**Never pass `--delete-branch`.** Besides the remote branch it runs local cleanup — check out the base, delete the local branch — and when the PR's branch lives in a worktree that cleanup is not confined to it: it can switch your **main** checkout to the default branch. Donor scar (2026-08-05): exactly that happened mid-session, and two untracked files in the main checkout vanished — untracked files have no git safety net. Step 4.5 deletes the remote branch with a call that cannot touch any checkout.
 
 Verify the merge landed:
 
@@ -91,11 +93,18 @@ Verify the merge landed:
 gh pr view <pr-number> --json state,mergedAt,mergeCommit
 ```
 
-Expected: `state == "MERGED"`, `mergedAt` populated. If the merge failed (conflict with the base branch, protected-branch rule, required check pending or failing), **stop and report** — do not attempt to auto-resolve conflicts, do not force the merge, do not disable branch protection.
+Expected: `state == "MERGED"`, `mergedAt` populated. If the merge failed (conflict with the base branch, protected-branch rule, required check pending or failing), **stop and report** — do not attempt to auto-resolve conflicts, do not force the merge, do not disable branch protection. Read the state even when `gh pr merge` errored: the merge may have landed before the error.
 
-### Step 4.5 — Drop the local branch
+### Step 4.5 — Delete the branch
 
-`gh pr merge --delete-branch` deletes the **remote** branch. Also remove the PR's review worktree if one exists (`git worktree remove <worktree_root>/<headRefName>` — `.worktrees/<headRefName>` by default, `../<repo>-<headRefName>` under `sibling`; sibling skills rely on this happening here), then drop any stale local branch left behind:
+Delete the **remote** branch, remote-only and best-effort — a failure (a 422 usually means the repo's "automatically delete head branches" setting already did it) goes in the report, never stops the skill:
+
+```bash
+gh api -X DELETE "repos/<owner>/<repo>/git/refs/heads/<headRefName>" \
+  || echo "remote branch <headRefName> not deleted"
+```
+
+Then remove the PR's review worktree if one exists (`git worktree remove <worktree_root>/<headRefName>` — `.worktrees/<headRefName>` by default, `../<repo>-<headRefName>` under `sibling`; sibling skills rely on this happening here), then drop any stale local branch left behind:
 
 ```bash
 git branch -D <headRefName> 2>/dev/null || true
@@ -140,7 +149,7 @@ Stop. Do not chain into `/execute-issue` yourself.
 2. **Never merge with unresolved review threads.** Suggest `/address-pr` instead.
 3. **Never attempt conflict resolution on a failed merge.** Stop and report; a human decides whether to rebase, merge-in, or escalate.
 4. **Never merge a PR targeting the default branch.** PRs from `/execute-issue` target the PRD's base branch by design. A default-branch-targeted PR is a structural bug upstream — stop and report.
-5. **Always close the linked issue(s).** The whole point of this skill over a raw `gh pr merge --squash --delete-branch` is the explicit issue close. If you skip it, the child-issue tracker silently drifts.
+5. **Always close the linked issue(s).** The whole point of this skill over a raw `gh pr merge --squash` is the explicit issue close. If you skip it, the child-issue tracker silently drifts.
 6. **Never reopen a closed issue to "re-close it cleanly".** If it is already closed, acknowledge in the report and move on.
 7. **Never disable required checks or branch protection to force a merge.** That is a conversation for the user, not this skill.
 8. **Never chain into `/execute-issue`.** Stop after reporting; the user drives the next verb.
@@ -159,5 +168,5 @@ Stop. Do not chain into `/execute-issue` yourself.
 - **Linked issue was deleted (not closed)** → report the dangling reference and continue
 - **Linked issue belongs to a different repo** → do not attempt cross-repo close; report and let the user handle it
 - **PR targets the default branch instead of `prd-*`** → stop; something went wrong in `/execute-issue` that needs human attention, and merging past it would break the PRD workflow
-- **Squash-merge succeeded but `--delete-branch` failed** → report the dangling branch; the merge is still valid. Step 4.5 still drops the local branch
+- **Squash-merge succeeded but the remote branch delete failed** → report the dangling branch; the merge is still valid. Step 4.5 still drops the worktree and the local branch
 - **Multiple PRs reference the same `Fixes #N`** → close the issue on the first merge; the next merge will find it already closed and skip per Step 5
