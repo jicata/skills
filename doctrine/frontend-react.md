@@ -37,6 +37,13 @@
 - Prefer the component library's primitives and its `sx`/styled mechanism over hand-rolled markup and stylesheet files.
 - Theme tokens, never hard-coded colours, spacing, or type scales.
 
+## Typing
+
+- **Green Vitest is not a type check** — Vitest (like Vite) runs through esbuild, which strips types without checking them. `tsc -b` (or `tsc --noEmit` without project references) is a separate, mandatory gate and must be in the repo's `check_commands`.
+- **The type gate checks test files too.** `tsc -b` covers everything the tsconfig includes, `*.test.tsx` among them — a stray unused import in a test hard-fails the build while the test run stays green.
+- **Delete the unused symbol; never silence TS6133.** No disabling `noUnusedLocals` / `noUnusedParameters`, no `@ts-expect-error`, no lint-disable comment. The error is telling you what to delete.
+- `tsc -b` is not `vite build`. Where the repo builds with Vite, the build is a superset gate (`npm run build` typically runs both); passing the type gate does not prove the bundle builds.
+
 ## Anti-patterns (React-specific — the structural ones live in `arch-frontend.md`)
 
 1. **Raw `useEffect` + `fetch` for server data** instead of the cache library.
@@ -47,3 +54,5 @@
 6. **Incomplete dependency arrays** with the lint rule silenced.
 7. **Context holding fast-changing values**, re-rendering every consumer.
 8. **`useEffect` cleanup omitted** on subscriptions and timers.
+9. **Relying on green tests as the type gate.**
+10. **TS6133 silenced** — a disabled unused-locals check or a suppression comment instead of deleting the symbol.
