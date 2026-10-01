@@ -4,6 +4,7 @@ Single source of truth for the resilience mechanics shared by the autonomous shi
 
 1. **Non-interactive, time-boxed shell** — prevent the wedge at the operation that can hang (§1). This carries the load.
 2. **Heartbeat progress log** — an *optional*, passive progress trace (§2). Not a kill trigger.
+3. **Exit-status discipline** — a failed call must never read as a clean negative (§3). This is what keeps a gate trigger honest.
 
 Hang **detection** is deliberately not an orchestrator mechanism. Coder and Reviewer both run as **visible** background `Agent` dispatches; the operator watches the live agent display and judges *slow* (forward tool activity) from *stuck* (frozen on one call) directly, nudging if ever needed. There is intentionally **no** `ScheduleWakeup` / timed-re-invocation watchdog — see "Why there is no watchdog" below.
 
@@ -70,3 +71,33 @@ echo "$(date +%s) | <phase> | <detail>" >> tmp/afk/heartbeat-<token>.log
 - `<detail>` — free text (the file being read, the command about to run).
 
 Emit **inline** if you emit at all — env exports and shell functions do not persist across the Bash tool's fresh shells. The append is cheap; over-emitting is harmless and under-emitting (or not emitting) costs nothing.
+
+---
+
+## 3. Exit-status discipline (gate triggers)
+
+§1 makes a failing call fail fast. This section makes sure the failure is *seen*. Every gate that fires on "does the diff touch X?" — a migration gate, a contract-artifact check, a design-mirror hook — has three outcomes, not two: **on**, **off**, and **unverified** (the question could not be asked). A failed call is `unverified`. It is never `off` / `n/a`: we do not know what is in the diff, and `n/a` is the one status that skips the gate and costs nothing, so a network blip lands there silently.
+
+**Capture the call's status; never pipe it straight into a matcher.** A pipeline throws the left side's status away — a `gh` failure emits nothing, `grep` matches nothing, and the gate reads "not touched".
+
+```bash
+# WRONG -- a failed gh call and an untouched diff look identical
+gh pr diff <n> --name-only | grep -q '^<gated-path>/' && gate=on || gate=off
+
+# RIGHT -- the failure terminates in its own branch
+if ! CHANGED="$(gh pr diff <n> --name-only)"; then
+  gate=unverified                     # stop here -- do not fall through to the match
+else
+  grep -q '^<gated-path>/' <<<"$CHANGED" && gate=on || gate=off
+fi
+```
+
+The `if`/`else` is load-bearing, not style. Three shapes that look equivalent and are not:
+
+- **`cmd || { echo "failed"; }`** reports the failure and then carries on to the next line with an empty variable — which matches nothing and lands on `off`. Make the failure branch terminate.
+- **`export VAR="$(cmd)"` always succeeds.** `export`'s own status masks the command's, so a failed credential mint sets an empty value and the failure surfaces later, somewhere confusing. Assign, check, then export: `if ! TOKEN="$(cmd)"; then …; else export TOKEN; fi`. (`local VAR="$(cmd)"` masks the same way.)
+- **Inferring an outcome by grepping a tool's output** when the tool publishes exit codes. Branch on the exit code.
+
+The donor wrote the same bug shape three times in one gate document — a piped diff check, an exported token, a `cmd || var=…` capture — before stating the rule. It is easy to write twice; every copied block must terminate on failure.
+
+**Line endings on Windows.** In a repo checked out with `core.autocrlf=true`, `sed -i` rewrites **every file it opens** with LF endings, whether or not a pattern matched. Run over a broad `find`, that turns hundreds of untouched files dirty. Pass an explicit file list instead of a repo-wide `find`, or use an edit tool that preserves endings. To repair, `git checkout -- <file>` alone is **not** enough — git skips a file whose normalized content already matches the index — so delete it first: `rm <file> && git checkout -- <file>`. (Donor scar: one repo-wide `find | xargs sed` for a constructor-argument rename flipped ~670 files' line endings, none of which needed the rename.)
