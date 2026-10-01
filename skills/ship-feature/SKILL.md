@@ -167,9 +167,9 @@ Build an in-memory map:
 
 Single worktree, identical to prior behavior.
 
-1. Compute the worktree path. It is a sibling of the repo root named `<repo-basename>-ship-prd-<prd-number>`:
+1. Compute the worktree path. It is a sibling of the repo root named `<repo-basename>-ship-prd-<prd-number>`. Resolve the root from the common git dir, never `--show-toplevel`: this skill is often invoked from inside another worktree, where `--show-toplevel` returns that worktree and every derived path nests (`<repo>-ship-<m>-ship-prd-<n>`):
    ```bash
-   REPO_ROOT="$(git rev-parse --show-toplevel)"
+   REPO_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"   # the MAIN checkout, even from inside a worktree
    REPO_BASE="$(basename "$REPO_ROOT")"
    WORKTREE_PATH="$(dirname "$REPO_ROOT")/${REPO_BASE}-ship-prd-<prd-number>"
    ```
@@ -199,7 +199,7 @@ N+1 worktrees total: one "base" worktree owning `<base-branch>` for orchestrator
 
 1. Compute paths:
    ```bash
-   REPO_ROOT="$(git rev-parse --show-toplevel)"
+   REPO_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"   # the MAIN checkout, even from inside a worktree
    REPO_BASE="$(basename "$REPO_ROOT")"
    BASE_WT="$(dirname "$REPO_ROOT")/${REPO_BASE}-ship-prd-<prd-number>"
    for k in $(seq 1 <N>); do

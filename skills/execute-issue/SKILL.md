@@ -68,7 +68,7 @@ On **no** → report "left `<base-branch>` unmerged; finalize skipped" and stop.
    ```
 2. **Pre-flight default-branch sync** — surface conflicts on the PRD side, in a transient base worktree (same pattern as Step 3's 1b):
    ```bash
-   REPO_ROOT=$(git rev-parse --show-toplevel); BASE=<base-branch>; DEFAULT=<default-branch>
+   REPO_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"; BASE=<base-branch>; DEFAULT=<default-branch>   # REPO_ROOT = the MAIN checkout, even from inside a worktree
 # worktree_root per the profile: default .worktrees/ inside the repo; `sibling` = ../<repo-basename>-<branch>
 WT_ROOT="$REPO_ROOT/.worktrees/"; [ "<worktree_root>" = "sibling" ] && WT_ROOT="$(dirname "$REPO_ROOT")/$(basename "$REPO_ROOT")-"
    BASE_WT="${WT_ROOT}$BASE"
@@ -118,7 +118,7 @@ A previous run may have crashed, leaving a worktree behind with uncommitted work
 ```bash
 set -e # Halt immediately if any command fails
 
-REPO_ROOT=$(git rev-parse --show-toplevel)
+REPO_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"   # the MAIN checkout, even from inside a worktree
 # worktree_root per the profile: default .worktrees/ inside the repo; `sibling` = ../<repo-basename>-<branch>
 WT_ROOT="$REPO_ROOT/.worktrees/"; [ "<worktree_root>" = "sibling" ] && WT_ROOT="$(dirname "$REPO_ROOT")/$(basename "$REPO_ROOT")-"
 BASE=<base-branch>

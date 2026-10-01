@@ -46,7 +46,7 @@ Also note `headRefName` — Step 1.5 needs it.
 Review **inside the PR's worktree** (at the profile's `worktree_root`: `.worktrees/<headRefName>` by default, `../<repo>-<headRefName>` under `sibling` — the one `/execute-issue`/`/address-pr` created), never by checking the branch out in the main working tree — the branch is already held by the worktree (`gh pr checkout` into the main tree would fail "already checked out"), and reviewing in the worktree means your own main-tree state (branch, uncommitted work) is irrelevant. If the worktree is missing (you're reviewing on a machine that never ran `/execute-issue`), recreate it from `origin`.
 
 ```bash
-REPO_ROOT=$(git rev-parse --show-toplevel)
+REPO_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"   # the MAIN checkout, even from inside a worktree
 # worktree_root per the profile: default .worktrees/ inside the repo; `sibling` = ../<repo-basename>-<branch>
 WT_ROOT="$REPO_ROOT/.worktrees/"; [ "<worktree_root>" = "sibling" ] && WT_ROOT="$(dirname "$REPO_ROOT")/$(basename "$REPO_ROOT")-"
 BR=<headRefName>
