@@ -138,11 +138,12 @@ A thread is considered **skill-authored** if its first comment body starts with 
 
 Based on the changed file paths, load **the rule files the repo's doctrine index declares for each touched area** (the index and `.claude/doctrine/project-profile.md` map file classes → doctrine: architecture + backend standards for source files, database doctrine for migrations/ORM code, LLM-prompt doctrine for prompt-bearing text, chassis-foundation before asserting anything about runtime behavior the base libraries own, contract doctrine for public/ported surfaces). Read each **in full** before proceeding. They are the single source of truth for Axis B — do not reconstruct their rules from memory, do not summarize, do not skip any. Every principle in every loaded rule is a checklist item.
 
-Two rows are base doctrine and always apply:
+Three rows are base doctrine and always apply:
 
 | Always load | Role |
 |---|---|
 | `doctrine/fowler-smell-baseline.md` | Judgement-call design smells — 🟡/💭 only; its binding rules govern (never 🔴 on its own, doctrine/ADR overrides suppress). |
+| `doctrine/simplicity.md` | Complexity in the diff — a new layer, mechanism, dependency or generality — that the linked issue's plan or PRD did not declare is a 🟡: name it, suggest removing it or declaring it on the issue. |
 | The base `code-reviewer-persona` skill | Governs review format, priority markers (🔴 blocker / 🟡 suggestion / 💭 nit), comment structure, and tone. |
 
 Additionally, **if the profile declares a wire-contract collection skill**: on any wire-contract change (new/changed route or verb, added/renamed/removed request or response DTO field, new status code), check the diff also touches the collection artifact. A wire change with **no collection delta** is a 🟡 — the collection is the only *executable* doc artifact, it rots silently because code compiles and tests pass whether or not it is true, and nothing but this check catches it. Treat "the sync tool/key is unavailable" as unverified until shown — the artifact itself is repo-owned, so the *edit* is never blocked even if a push is. (Donor scar: this exact excuse was fabricated on a PR once.)

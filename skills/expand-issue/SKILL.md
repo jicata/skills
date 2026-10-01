@@ -60,6 +60,7 @@ State the base branch (or "none — default branch") **explicitly at the top of 
 
 ### 2. Draft the approach (in the coder lens's terms)
 Produce a concrete plan covering:
+- **Simplest design + declared complexity** — the plainest approach that fits the repo's existing patterns and meets the ACs, then each thing added beyond it, by name, with the AC it serves (or `none`). Per `doctrine/simplicity.md`: complexity that reaches the PR without being declared here is a review finding.
 - **Placement** — where the work lives per the repo's architecture doctrine (e.g., which feature slice / module, and its internal layout).
 - **Deep module(s)** — the small interface(s) that hide the complexity, designed for testability (accept dependencies, return results, small surface — see the `codebase-design` skill).
 - **Red-green test list** — the behaviors to test, in order (one test → one implementation), through public interfaces; what's mocked (boundaries only — HTTP, DB, time).
@@ -91,11 +92,11 @@ gh issue view <n> --repo <owner/repo> --json body -q .body > <scratch>/body.md
 cat >> <scratch>/body.md <<'EOF'
 
 ## Implementation plan (agreed via /expand-issue)
-<layout · deep-module interfaces · ordered red-green test list · parity gate (if oracle-bound) · resolved decisions with rationale>
+<simplest design · declared complexity (or none) · layout · deep-module interfaces · ordered red-green test list · parity gate (if oracle-bound) · resolved decisions with rationale>
 EOF
 gh issue edit <n> --repo <owner/repo> --body-file <scratch>/body.md
 ```
-Capture: the layout, the deep-module interface(s), the ordered red-green test list, the binding parity gate (if any), and each resolved decision **with its rationale**. Do NOT alter the Acceptance Criteria except to *sharpen* them when a decision changed them — and note the change explicitly.
+Capture: the simplest design and the declared complexity list, the layout, the deep-module interface(s), the ordered red-green test list, the binding parity gate (if any), and each resolved decision **with its rationale**. Do NOT alter the Acceptance Criteria except to *sharpen* them when a decision changed them — and note the change explicitly.
 
 ### 4.5 Post the briefing as a walkthrough comment
 The Step 2.5 briefing is the most maintainer-valuable artifact this skill produces — a plain-English, *why-first* explanation of the slice. Persist it **as a separate issue comment** (not in the body — the body holds the terse implementation plan; the comment holds the teaching narrative). The walkthrough comment is the slice's **temporary deep-dive artifact** — a point-in-time planning product, correct as of writing, with no maintenance contract. Per the lean doc canon (`doctrine/documentation-first.md`), it is never lifted into a standing doc; durable knowledge distils into ADRs / the glossary / the architecture map only.

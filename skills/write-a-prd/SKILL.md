@@ -39,6 +39,8 @@ A deep module (as opposed to a shallow module) is one which encapsulates a lot o
 
 Check with the user that these modules match their expectations. Check with the user which modules they want tests written for.
 
+**Start the sketch from the simplest design** — the plainest one that fits the repo's existing patterns and meets the stories — per `doctrine/simplicity.md`. Anything beyond it (a new layer, mechanism, dependency, or generality) is declared now, by name, with the story it serves; complexity that first appears in a child PR is a review finding. Record both in the PRD's Implementation Decisions.
+
 4.5. **Confirm FE scope.** State whether this PRD includes frontend work, per the repo's stack (profile). Write the answer in the PRD body's `## FE work` section — `**FE work:** no — <reason, e.g. backend-only service>` or a description of the FE surface involved.
 
    **If the profile declares `design_pipeline`** and the sketch includes FE work, invoke its `classify` skill here with the FE-touching modules from Step 4, and record its confirmed verdict in the `## FE work` section per its `doctrine`. Where a triage or issue-authoring skill escalated into this PRD, it deliberately deferred classification to here so the full PRD context is available — classify now.
@@ -90,6 +92,8 @@ A list of implementation decisions that were made. This can include:
 - Schema changes
 - API contracts
 - Specific interactions
+- **Simplest design** — one line: the plainest approach that fits the existing patterns
+- **Declared complexity** — each thing added beyond it, with the user story it serves; or `none`
 
 Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
 

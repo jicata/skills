@@ -170,11 +170,12 @@ Track per-thread reject-counts in the structured return so orchestrator can deci
 
 Based on the changed file paths, load **the rule files the repo's doctrine index declares for each touched area** — read each **in full**, no summarizing. Typical mappings a doctrine index declares (the donor's, as a shape example): backend source → architecture + coding-standards + persistence doctrine; migrations/DbContext → persistence doctrine; LLM-bound text → prompt-craft doctrine; controllers/DTOs/ported surfaces → consumer-contract doctrine. Where the index conditions a load on the profile (e.g. a chassis), honor that too.
 
-Two rows are pipeline-generic and always apply:
+Three rows are pipeline-generic and always apply:
 
 | Condition | Rule |
 |---|---|
 | Any source touched | Also load the judgment-call smell baseline (`.claude/doctrine/fowler-smell-baseline.md`) — 🟡/💭 only, its binding rules govern |
+| Any source touched | Also load `.claude/doctrine/simplicity.md` — complexity the issue's plan or PRD did not declare (a new layer, mechanism, dependency or generality) is a 🟡, never 🔴 on its own |
 | **Any wire-contract change** — new/changed route or verb, added/renamed/removed request or response DTO field, new status code | If the profile declares an executable wire-contract artifact (donor: a repo-owned Postman collection), check the diff also touches it. A wire change with **no artifact delta** is a 🟡. The artifact is the only *executable* doc — it rots silently, because code compiles and tests pass whether or not it is true. Apply the Step 3.5 tooling-blocker rule to any pushback here. |
 
 Always also read the repo's reviewer persona (per the profile / doctrine index; base library: `code-reviewer-persona` + `karpathy-guidelines`).
