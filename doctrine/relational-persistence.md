@@ -94,6 +94,22 @@ ON CONFLICT (slug) DO NOTHING;
 
 Target the **natural-key** column, not the primary key — a real row that already owns the key is preserved with its real Id, while a blank database still gets seeded. Verify the existing row matches what you'd insert before relying on "do nothing"; if live data legitimately differs you want an update, not a silent skip.
 
+### A11. A change that loads or migrates data is done when it has been rehearsed, not when it merges green.
+**In scope:** any command, job, or script that writes rows (an importer, a backfill, a re-key), and any migration carrying data statements — inserts, updates, deletes, or row-touching raw SQL. Pure schema migrations are out: A7's schema suite already replays those.
+
+**Rehearsed** means all three:
+1. A **same-day snapshot** of the real database, restored into a scratch database. Yesterday's dump is a different database.
+2. The change **executed against that scratch database** the way it will run for real — same entry point, same flags, pointed there by connection string.
+3. The **complete printed report pasted into the PR body under a `## Rehearsal` heading.** A report that ends in an exception is a rehearsal that failed, not one that ran. Where the full report would overflow the tracker's body limit, a detail section identical to the dry run's may be omitted — say so, and still paste the report's own summary and verdict verbatim.
+
+The repo's profile records how to take the snapshot, restore it, and point a command at the scratch database (`rehearsal`). Where it records none, the first data-loading change is the one that has to write it down.
+
+Tests do not cover this, by construction: they run against the stand-in or a fixture context, which is exactly where the combination that breaks in production never occurs (see the spine). There is no code-level gate that catches "never ran"; the reviewer's read of the pasted report is the check.
+
+> **Donor scar:** an import command shipped code-complete with every test green and never once ran against a real database. Its retry execution strategy combined with a user-initiated transaction meant it could not get past its first query against *any* database; every test exercised it through a fixture context that never had that combination, and the parity gate designed to validate the import never fired. The tables it fed stayed empty for **two weeks** after a downstream rewire started reading them. A sister command in the same project, shipped the same fortnight with a mandatory rehearsal gate, worked first time — the repo already had the answer and had applied it to one command.
+
+**Reviewer red flag:** a data-loading PR whose body has no `## Rehearsal` section, or one whose pasted report ends in an error. Not merge-ready.
+
 ---
 
 ## Part B: Query & schema practice
@@ -173,11 +189,12 @@ Without an explicit `ORDER BY`, the canonical store does not guarantee which row
 2. A migration full of stand-in type affinities (A4).
 3. A literal surrogate Id for runtime-managed reference data (A9).
 4. A non-idempotent data seed (A10).
-5. An unindexed foreign key (B1).
-6. Server data fetched in a loop / unprojected full-entity reads in a hot path (B3).
-7. A blocking index creation on a large table (B4).
-8. Concurrent queries on one scoped context (B7).
-9. `First`/`FirstOrDefault` on an entity set with a non-primary-key predicate and no `OrderBy` (B8).
+5. A data-loading change with no completed `## Rehearsal` report on its PR (A11).
+6. An unindexed foreign key (B1).
+7. Server data fetched in a loop / unprojected full-entity reads in a hot path (B3).
+8. A blocking index creation on a large table (B4).
+9. Concurrent queries on one scoped context (B7).
+10. `First`/`FirstOrDefault` on an entity set with a non-primary-key predicate and no `OrderBy` (B8).
 
 ## 🗣️ Communication style
 

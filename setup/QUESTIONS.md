@@ -46,6 +46,7 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 
 **Q7 — Persistence.** "What database; who owns schema migrations; what substitutes for it locally and in tests?"
 → installs `doctrine/relational-persistence` + overlay facts (canonical store, migration owner, emulator/stand-in, seeding rules).
+→ follow-up: **"How would you take a same-day copy of the real database and restore it somewhere disposable?"** Record the answer as the profile's `rehearsal` key (snapshot, restore, and how a command is pointed at the scratch copy). Every data-loading change is rehearsed against it before merge (relational-persistence A11). No answer yet is valid — record `none`, so the first data-loading change knows it must write the recipe down.
 → *Donor: Spanner + EF Core, Flyway owns migrations, emulator locally — and the scar: EF migrate/seed is a dead end (stale migrations + row-ownership interceptor).*
 
 **Q8 — Legacy oracle (brownfield).** "Is there a reference implementation new code must behaviorally match? How is parity proven — golden masters, truth tables, live probing?"
