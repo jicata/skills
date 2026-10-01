@@ -28,7 +28,11 @@ A **flow** is a path through the skills. Most work travels the main flow; on-ram
        build lanes (HITL: expand/execute/review/address/merge; autonomous: ship-feature) →
        finalize. Number the steps; name the lane fork explicitly.
      light → the main flow IS the on-ramp: log-issue → ship-issue (or the HITL review/merge
-       pair if installed). Say so in two lines; don't scaffold an empty PRD chain. -->
+       pair if installed). Say so in two lines; don't scaffold an empty PRD chain.
+     Either tier: if software-factory is installed, add one line naming it as the in-session
+       alternative to the PRD → issues → pipeline chain (built together, gate by gate, with
+       the decisions on disk rather than in the tracker). -->
+
 
 <FILL>
 
@@ -38,6 +42,8 @@ A **flow** is a path through the skills. Most work travels the main flow; on-ram
 3. `/prd-to-issues` — slices the PRD into child issues with `Blocked by` edges. Prints the execution order.
 4. Build — two lanes: HITL (default): `/expand-issue` → `/execute-issue` → `/review-pr` → `/address-pr` → `/merge-pr`, running ahead on expands while the coder builds. Autonomous: `/ship-feature <prd>` loops coder + reviewer subagents over every child.
 5. Finalize — `/execute-issue` (all-merged path), or `/ship-feature`: by default it opens the base→master PR and stops at that production gate with a test recipe; after testing, `/ship-feature <prd> --merge` merges it and closes the PRD. (`/ship-issue` gates the same way; `--merge` up front skips the stop.)
+
+Building the feature together in this session instead of through the tracker → `/software-factory`: four approval gates (product, architecture, program design, slice plan) before any implementation code, then one tracer-bullet slice at a time.
 </example>
 
 ## On-ramps
