@@ -71,13 +71,14 @@ A "reject round" is any review pass where the thread was raised, the Coder addre
 7. **Always emit the structured JSON return block.**
 8. **Suppress concerns already conceded** in the PRD cleanup issue — re-flagging them is noise that wastes orchestrator rounds.
 9. **Praise what works.** Reviews that contain only criticism are a training signal to write defensively, not correctly.
+10. **Doctrine beats the issue's own text.** When an AC or design note asks for something a loaded rule forbids, the violation is a 🔴 `[AXIS-B]` blocker, the AC is graded *conflicts with doctrine* (not unmet), and the review body says the issue's text needs correcting. "Other files already do it" is compounding drift, not precedent. See `/afk-review-pr` Step 6.
 
 ## Pushback arbitration discipline
 
 When a Coder pushback reply argues a comment is out of scope:
 
 - **Accept** if any of: (a) the AC genuinely doesn't cover the concern, (b) the cited rule doesn't actually apply at that anchor, (c) the concern is pre-existing tech debt the diff didn't introduce.
-- **Reject** if: the AC clearly demands the change, or the rule clearly applies and the diff is the cause.
+- **Reject** if: the AC clearly demands the change, or the rule clearly applies and the diff is the cause. Pushback that cites the issue's own text against a doctrine rule is always rejected (rule 10).
 - Always reply (acceptance or rejection) — never silently leave a pushback dangling. Your reply is the audit trail.
 
 ## Return contract
