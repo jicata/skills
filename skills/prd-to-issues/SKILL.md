@@ -27,7 +27,7 @@ Look for opportunities to **prefactor** the code to make the implementation easi
 
 If any slice will create or change a consumer-facing contract (route, verb, request/response shape, required field, resource decomposition), confirm the PRD carries a populated `## Consumer Reality Check` section.
 
-**If it is missing or empty, stop and fill it before slicing** — read the repo's consumer-contract doctrine (if the profile points at one) and probe the consumer declared in the profile's External contracts section. Slicing an unverified contract multiplies the error across every child issue — the donor stack's PRDs #343/#417 froze mid-flight exactly this way. Carry the relevant citations onto each child issue that touches the surface, so the coder inherits the evidence rather than re-deriving it — or guessing.
+**If it is missing, empty, or contradicted by what you find, stop and fix it before slicing.** Fix it **in place**: rewrite the wrong passage where it stands, never under an appended amendment section that a reader scanning for the contract will not reach — child issues inherit this section, so a superseded claim left standing propagates to every slice. To fill or re-verify it, read the repo's consumer-contract doctrine (if the profile points at one) and probe the consumer declared in the profile's External contracts section. Slicing an unverified contract multiplies the error across every child issue — the donor stack's PRDs #343/#417 froze mid-flight exactly this way. Carry the relevant citations onto each child issue that touches the surface, so the coder inherits the evidence rather than re-deriving it — or guessing.
 
 ### 3. Draft vertical slices
 

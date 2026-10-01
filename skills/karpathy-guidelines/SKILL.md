@@ -42,6 +42,9 @@ When your changes create orphans:
 
 The test: Every changed line should trace directly to the user's request.
 
+When delivering an artifact (code, a PRD, an issue, a prompt text):
+- List every addition beyond the literal request next to the artifact — "this also adds X because Y" — so each one gets a conscious yes or no. Never smuggle one in, even a good one: the reader reviews the artifact as a whole, and an unannounced extra escapes that review.
+
 ## 4. Goal-Driven Execution
 
 **Define success criteria. Loop until verified.**
