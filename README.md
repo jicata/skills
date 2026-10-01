@@ -115,11 +115,12 @@ Orthogonal to the build pipeline — not a step in any flow. Imported verbatim f
 
 ### Comprehension
 
-Both are imported from outside and kept read-only, like `teach`. They fire when an explanation *didn't* land (`wait-what`) or when a change needs one built from scratch (`explain-diff-html`). `wait-what` carries the fleet's only edit to an imported file: upstream reads the ubiquitous language from `CONTEXT.md` / `CONTEXT-MAP.md`, which this fleet doesn't use, so it was repointed at the glossary path recorded in `.claude/doctrine/project-profile.md` (default `docs/UBIQUITOUS_LANGUAGE.md`) — the same source `ubiquitous-language` writes to.
+`wait-what` and `explain-diff-html` are imported from outside and kept read-only, like `teach`. They fire when an explanation *didn't* land (`wait-what`) or when a change needs one built from scratch (`explain-diff-html`). `onboard` is native — `wait-what`'s sibling for a reader who doesn't hold the glossary yet. `wait-what` carries the fleet's only edit to an imported file: upstream reads the ubiquitous language from `CONTEXT.md` / `CONTEXT-MAP.md`, which this fleet doesn't use, so it was repointed at the glossary path recorded in `.claude/doctrine/project-profile.md` (default `docs/UBIQUITOUS_LANGUAGE.md`) — the same source `ubiquitous-language` writes to.
 
 | Skill | What it does |
 | --- | --- |
 | `wait-what` | **One line, manually invoked.** The last answer didn't land — stop and re-pitch it: a little context, [ASD-STE100 Simplified Technical English](https://en.wikipedia.org/wiki/Simplified_Technical_English), and the repo's own ubiquitous language from its glossary. Model-invocation disabled, so it only ever fires when you type it. |
+| `onboard` | **The same re-pitch, for a cold reader** — a competent engineer on day one here. Marks every token they can't hold (project nouns, acronyms, bare identifiers, workflow assumptions), re-checks the passage's claims at source, re-renders it in the `how-to-explain` briefing register, and **teaches** the glossary in a closing tail instead of spending it. Names the ground the passage stands on from profile facts — chassis, consumer repos, deploy infra, live stores. Manually invoked. |
 | `explain-diff-html` | **A diff, explained as a document.** Takes a change, branch, or PR and emits one self-contained HTML page: deep + narrow background, the intuition with toy data and HTML diagrams, a grouped code walkthrough, and five interactive multiple-choice questions that grade themselves. Written for a reader who wasn't in the room. Imported verbatim from [Geoffrey Litt's gist](https://gist.github.com/geoffreylitt/a29df1b5f9865506e8952488eac3d524). |
 
 ## Doctrine

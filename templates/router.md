@@ -70,7 +70,8 @@ Building the feature together in this session instead of through the tracker →
 
 <!-- guidance: the installed mapping/exploration skills, one line each, with the
      disambiguation between them (frontier-forward vs paving vs visual vs one-shot).
-     Include prototype/deep-research only if installed/available. -->
+     Include prototype/deep-research only if installed/available. The comprehension pair
+     (wait-what spends the glossary, onboard teaches it) goes here too. -->
 
 <FILL>
 
@@ -78,6 +79,7 @@ Building the feature together in this session instead of through the tracker →
 - `/walkthrough` — prose narration that paves the road already walked: senior-to-junior walk of a system's nodes, grounded in the real code.
 - `/flow-map` / `/miro-diagram` — visual: grow a runtime-flow diagram step-by-step / one-shot diagrams.
 - `/prototype` — a throwaway spike answering ONE design question; the verdict lands on the issue, the code never merges.
+- `/wait-what` / `/onboard` — an answer didn't land: re-pitch it in the glossary's terms / re-explain it for someone new to the project, teaching the terms in a glossary tail.
 </example>
 
 ## Codebase health
