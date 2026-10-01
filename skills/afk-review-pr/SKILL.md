@@ -170,11 +170,12 @@ Track per-thread reject-counts in the structured return so orchestrator can deci
 
 Based on the changed file paths, load **the rule files the repo's doctrine index declares for each touched area** — read each **in full**, no summarizing. Typical mappings a doctrine index declares (the donor's, as a shape example): backend source → architecture + coding-standards + persistence doctrine; migrations/DbContext → persistence doctrine; LLM-bound text → prompt-craft doctrine; controllers/DTOs/ported surfaces → consumer-contract doctrine. Where the index conditions a load on the profile (e.g. a chassis), honor that too.
 
-Two rows are pipeline-generic and always apply:
+Three rows are pipeline-generic and always apply:
 
 | Condition | Rule |
 |---|---|
 | Any source touched | Also load the judgment-call smell baseline (`.claude/doctrine/fowler-smell-baseline.md`) — 🟡/💭 only, its binding rules govern |
+| Any source touched | Also load `.claude/doctrine/simplicity.md` — complexity the issue's plan or PRD did not declare (a new layer, mechanism, dependency or generality) is a 🟡, never 🔴 on its own |
 | **Any wire-contract change** — new/changed route or verb, added/renamed/removed request or response DTO field, new status code | If the profile declares an executable wire-contract artifact (donor: a repo-owned Postman collection), check the diff also touches it. A wire change with **no artifact delta** is a 🟡. The artifact is the only *executable* doc — it rots silently, because code compiles and tests pass whether or not it is true. Apply the Step 3.5 tooling-blocker rule to any pushback here. |
 
 Always also read the repo's reviewer persona (per the profile / doctrine index; base library: `code-reviewer-persona` + `karpathy-guidelines`).
@@ -238,7 +239,7 @@ For each in-scope violation, prepare an inline comment with:
 
 ## Step 6.5 — Axis C (CI)
 
-**First read `axis_c` from the profile** (`off` / `advisory` / `enforcing`; absent ⇒ infer from `ci`) — see [`../_shared/axis-c.md`](../_shared/axis-c.md). If `off`, skip this step entirely and emit `axis_c: "off"`. If `advisory`, run every part of this step as written but raise findings as 🟡 rather than 🔴, and never let the result gate the verdict. If `enforcing`, findings are 🔴 and gate as described.
+**First read `axis_c` from the profile** (`off` / `advisory` / `enforcing`; absent ⇒ infer from `ci`) and **resolve it for this PR's `baseRefName`** against the profile's `ci_bases` — a base CI does not run on is `off` — see [`../_shared/axis-c.md`](../_shared/axis-c.md). If `off`, skip this step entirely and emit `axis_c: "off"`. If `advisory`, run every part of this step as written but raise findings as 🟡 rather than 🔴, and never let the result gate the verdict. If `enforcing`, findings are 🔴 and gate as described.
 
 The Coder runs only the fast lane of the profile's `check_commands` before pushing — the expensive lanes run in CI, **concurrently with this review**. Reading CI is therefore part of the review, not a separate step someone else does. Run this **after** Axes A and B, so review work overlaps the CI run instead of blocking on it.
 
@@ -267,13 +268,14 @@ Poll every 30s until every check run reports `status == "completed"`, capped at 
 
 | Observation | `axis_c` | Findings |
 |---|---|---|
-| All check runs `success` | `pass` | none |
+| At least one check run, all `success` | `pass` | none |
+| **No check runs at all** on the reviewed SHA | `unknown` | never `pass` — "all `success`" is vacuously true on zero runs. Check `mergeable` (a conflicting PR queues no CI) vs runs stuck `queued` (no runner), per axis-c.md *Reading the evidence* |
 | Any `failure` / `timed_out` | `fail` | one Axis-C finding per failing check |
 | All `completed`, some `cancelled`, SHA unchanged | `unknown` | note the cancelled checks |
 | Head SHA moved during review | `superseded` | none — return immediately |
 | Still pending at the 15m cap | `unknown` | note the pending checks |
 
-For each failing check, pull the failing step's log and extract the **specific** failure — the assertion message and test name, not "<check> failed":
+Before raising a red as a regression, compare the job's duration with its healthy band and re-run the failed jobs once (`gh run rerun <run-id> --failed`) — per axis-c.md, a red that reproduces is real. For each failing check, pull the failing step's log and extract the **specific** failure — the assertion message and test name, not "<check> failed":
 
 ```bash
 gh run list --commit "$REVIEWED_SHA" --json databaseId,workflowName,conclusion

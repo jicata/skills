@@ -41,12 +41,18 @@ When domain relationships are being discussed, stress-test them with specific sc
 
 When the user states how something works, verify against the code and tests (and the wire-contract docs for public-surface claims). If you find a contradiction, surface it and ask which is current.
 
-### Update inline, not in a batch
+### Route findings to the right layer — apply the rot test
 
-When a term or decision is resolved during grilling, write it to its home right then — do not collect everything for a single end-of-session dump; by then half the precision is lost.
+When a fact is resolved during grilling, ask: *"Could this sentence become wrong without the file I'm about to write to being touched?"* If yes, you're writing to the wrong layer. Route, per `doctrine/documentation-first.md`:
 
-- **A new term, renamed term, or new alias-to-avoid** → the glossary (per profile). Inline, not batched.
+- **A new term, renamed term, or new alias-to-avoid** → the glossary (per profile).
+- **A behaviour rule, state transition, edge case, or failure mode** → a **test** that pins it — or a note for the implementation plan, so the coder writes that test. Behaviour has no prose home.
+- **A public-surface (wire) change** → the contract artifacts the profile declares.
+- **A map-level change** (a unit added or removed, a cross-cutting rule, a stack change) → the architecture map, as a pointer row — never behaviour.
 - **A design decision with rationale** → an ADR (see gate below).
+- **A point-in-time planning artifact** → the work item.
+
+The glossary is **only** a glossary — no behaviour, decisions, configuration or implementation detail. A standing doc you meet outside the canon is a deletion candidate, not a place to write the finding.
 
 If the grilling reveals that two parts of the system want different definitions for the same term — a sign of an emerging bounded-context split — surface that explicitly rather than papering over it in the glossary.
 
@@ -61,5 +67,9 @@ Only offer to create an ADR when all three are true:
 If any of the three is missing, skip the ADR — the fact belongs in a test, a code comment at the point of surprise, or the issue record.
 
 When an ADR *is* warranted, check whether it **supersedes or deprecates** an existing ADR first, and mark both sides per the repo's ADR conventions (per profile).
+
+### Update inline, not in a batch
+
+When a term, behaviour rule, or decision is resolved during grilling, write it to its layer right then — do not collect everything for a single end-of-session dump; by then half the precision is lost.
 
 </supporting-info>

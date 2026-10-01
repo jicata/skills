@@ -4,6 +4,16 @@
 
 The reader is a senior engineer who is **not resident in this system**. Full command of general vocabulary — race condition, idempotent, overfitting — which you use freely and never explain. What they don't hold is *this* system: its wiring, its local names, which piece calls which. Spend every word there.
 
+## Altitude — start where the reader's map is
+
+The reader usually holds the broad map — the system's moving parts by the names the glossary and the architecture map give them — and not the territory under it. **Start at the top: why, and what**, in those names: which outcome, which visible behaviour, which moving part. **Descend one rung at a time**, and only when asked or when the point cannot be made without it: first the mechanism in plain words, then the named code. Never open at the bottom.
+
+The names follow the rungs. **Glossary terms are top-rung vocabulary** — use them from the first sentence, and never swap in a synonym. **Code identifiers belong lower down** — a class, a field, a config key, a unit-internal term. Introduce one by what it does, then name it once: *"the rule that only auto-accepts above 70% (`AdminReviewThreshold`)"*, not the reverse. From then on it keeps exactly that name. Specialist vocabulary from outside general engineering (ML, search, a domain's jargon) is glossed the same way as a local name.
+
+**Never abbreviate an entity to a letter.** Name it for what it is — *"the parent row"*, not *"P"*. A reader who has lost track of what *P* stands for has lost the whole trace.
+
+> **Donor scar:** an explanation of a scoring threshold's quirks opened on three code identifiers — a vote-share field, a threshold constant, an evaluator class — and did not land. Rewritten as *"the 5 nearest known items vote"* and *"the rule that only auto-accepts above 70%"*, it landed at once. Same content, one rung higher.
+
 ## The shape
 
 Problem → why the obvious fix fails → what they're right about → the plan → the one risk → one question.
@@ -23,12 +33,29 @@ That's an argument, not a briefing. Don't scaffold it with a "here are the piece
 7. **Land the net effect before the detail.** *"Your Rider run looks identical to today. The difference is those two tests stop being permanently dead."*
 8. **End with one question.** One, actionable, answerable with a yes.
 
+## When the reader says "I don't get it" — the ground-up walkthrough
+
+The spine above is for **persuading**, and it assumes the nouns are already shared. On a confused reader it restates the argument at the same altitude and fails the same way twice. When the reader signals confusion — *"I don't follow"*, *"what is X?"*, *"explain more thoroughly"* — switch forms. Use the same form by default whenever the job is explaining a mechanism or a root cause rather than arguing for a plan.
+
+1. **Define every noun from a real artifact.** Paste the actual rows, the actual config values, the actual prompt text — queried live, not sketched or simplified.
+2. **Say why the confusing thing legitimately exists**, so it reads as design rather than as a bug the reader failed to spot.
+3. **Separate what is true today from what the change makes true.** Never trace a hypothetical as though it were current state.
+4. **Walk the mechanism in the code's own steps**, substituting the real values at each branch and stating each outcome — what the code tries, and where its assumption holds or breaks.
+5. **Immediately re-run the identical trace on a case that comes out the other way.** The contrast is what proves the rule; without it the reader has an example, not an understanding.
+6. **One short paragraph on why it matters.** Then stop.
+
+For a fix, give the before and after on the same walked example, then the generalization — never the generalization first.
+
+> **Donor scars:** a tie-break explanation failed on two attempts using the argument spine and single-letter row names, and landed on the third when rebuilt in this form from the two live database rows involved. Separately, the same bug explained twice — once as a field/contract table, once as one real item walked through the code with its actual prices — read *"far easier"* as the walk.
+
+A written briefing's mandatory traced example (below) is this walkthrough in compressed form.
+
 ## Written briefings — the controlled register
 
 A briefing someone will review a PR or maintain a module against — a planning walkthrough, a teaching comment a coder consumes, a situation report — is written in **[ASD-STE100 Simplified Technical English](https://en.wikipedia.org/wiki/Simplified_Technical_English)**. The spine above does not change; the register tightens.
 
 - **Short sentences, one idea each. Active voice, present tense.**
-- **Keep the project's real terms in the body.** Never swap in a plainer synonym, and never vary a term once used — one thing keeps one name throughout. The reader has to work in exactly these words.
+- **Keep the project's real terms in the body.** Never swap in a plainer synonym, and never vary a term once used — one thing keeps one name throughout. The reader has to work in exactly these words. Altitude still applies: glossary terms lead, and a code identifier enters by what it does before it is named.
 - **A traced worked example is mandatory.** Follow one concrete value through the modules and name every hand-off in the system's own terms: which module it reaches, what it is sent, what it returns. This is the load-bearing part — it shows how the pieces connect, not only what one piece does.
 - **No analogies, no role casting, no handles.**
 - **State each rule once, as a rule.** A chain of hedges costs more than the certainty it buys.
@@ -42,6 +69,8 @@ Order is unchanged: plain statement first (*what it is · the problem it solves 
 
 - **Theorizing.** Abstract statements about the shape of the problem instead of the problem. If a paragraph would survive being pasted into a different project, it's not doing work.
 - **Explaining what they know.** Defining shared vocabulary is condescending and burns the budget you needed for the local wiring.
+- **Opening at the code's altitude.** Identifiers before the reader knows which moving part you are in read as noise, and force a second explanation at the right altitude.
+- **Re-running the argument at a confused reader.** Switch to the walkthrough; the same spine fails the same way twice.
 - **Hedged, clause-heavy sentences.** They read as evasion and force re-parsing.
 - **Menus.** Three options with trade-offs where a recommendation was wanted.
 - **An analogy doing the explaining.** If the reader could not reconstruct the mechanism from your sentences with the analogy deleted, you explained the analogy, not the system.

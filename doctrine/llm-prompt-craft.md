@@ -60,8 +60,26 @@ Field names, output schema, and the data table are the **contract** the parser d
 ### B6. Prompt nudges over engines
 Reach for a prompt change before a deterministic engine, config knob, or new code path. Use code only for what a prompt physically cannot do. (Donor: a deterministic fuzzy matcher was deliberately rejected precisely to keep the model as the precision judge.)
 
+**A soft nudge works for a quality ask, not for a routing ask.** "Try to cover more of the list", "prefer varied answers" — soft language raises quality without guaranteeing it, and that is the trade you are making. When the ask is *where* the model goes or *which* tool path it takes, a preference barely moves it; **name the mechanism** instead. The prompt still beats an engine — it just has to say the exact action.
+
+> **Donor scar (measured):** asking the model to "prefer these sources" moved **1** grounding call in 10. Instructing the explicit search form — the literal site-restricted query to run — moved **9** in 10.
+
 ### B7. Treat the prompt as testable text
 Prompts are best-effort and non-deterministic; a model-based safety net improves a metric, it does not guarantee it. Assert the *presence* of key rules and examples in the rendered prompt (cheap, stable), log hit-rates for behaviour you can't unit-test, and prefer fix-forward tuning with a feedback signal over assuming perfection.
+
+### B8. A prompt revision is a new version, never an edit to the live one
+When a prompt is versioned in source, a change is a **new version literal** beside the old one. The previous version stays **byte-for-byte unchanged**: it is the rollback target, and it is what any earlier measurement was taken against. The **version setting is the switch** — shipping the new version means changing that setting, and rolling back means setting it back. No feature flag, no on/off setting for "the new block": a flag is a second switch for a choice the version setting already makes, and it doubles the combinations nobody measured.
+
+Pin each kept version with a test that asserts its rendered text exactly (B7) — that is what keeps "byte-for-byte" true. Delete old versions deliberately, in their own change, once nothing rolls back to them.
+
+Where the prompt lives in a live store rather than in source, the store's own version id plays this role; changes are proposed on the work item against the pulled version stamp (Part A, rule 6).
+
+> **Donor scar:** a lab measured a rewritten rules block against the previous version's exact text — wrong-value rate **31.2% → 5.6%**. Editing that version in place would have made both the comparison and the rollback irreproducible. On a later change, a proposed on/off setting for one new prompt block was rejected for the same reason: "a new prompt version, and that is it."
+
+### B9. One render seam for any context shared across prompts
+When several prompts hand a model the same context — a hierarchy, a vocabulary, a catalogue of allowed values — **every one renders it through a single shared renderer.** Never a second, independently shaped read of the same data. Two renderers drift, and the drift is invisible: each prompt looks fine on its own, and the defect is the difference between them.
+
+> **Donor scar:** two prompts rendered the same hierarchy differently. One flattened every true leaf under its root; the other showed a root plus its **direct children only**. For one root, the second rendered 8 nodes of which 5 were leaves, while 9 real leaves were invisible — to the model that ran only on items every cheaper tier had already failed to resolve. The fix was one shared renderer for every prompt; a frozen older writer was kept as a deliberate, measurement-pinned exception and deleted once its versions were retired.
 
 ---
 
@@ -117,6 +135,10 @@ Self-contained (B1), plain (B2), positive + negative examples (B3), recall-posit
 6. **Renaming a contract token as a "prompt tweak"** — changing a field name the parser reads without the matching code and test change.
 7. **Engine where a nudge would do** — a new deterministic code path for something a prompt example could fix (B6).
 8. **Untestable prompt change** — a behaviour change with no rendered-text assertion or logged signal.
+9. **A preference where a mechanism was needed** — "prefer X" for a routing ask the model will mostly ignore (B6).
+10. **An edited live version** — a change to the text of a prompt version that is live or is a rollback target, instead of a new version (B8).
+11. **A feature flag for a prompt change** — an on/off setting beside the version setting (B8).
+12. **A second renderer** — shared model context read and shaped independently in one prompt builder instead of going through the shared seam (B9).
 
 ---
 

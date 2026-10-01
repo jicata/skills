@@ -46,6 +46,7 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 
 **Q7 — Persistence.** "What database; who owns schema migrations; what substitutes for it locally and in tests?"
 → installs `doctrine/relational-persistence` + overlay facts (canonical store, migration owner, emulator/stand-in, seeding rules).
+→ follow-up: **"How would you take a same-day copy of the real database and restore it somewhere disposable?"** Record the answer as the profile's `rehearsal` key (snapshot, restore, and how a command is pointed at the scratch copy). Every data-loading change is rehearsed against it before merge (relational-persistence A11). No answer yet is valid — record `none`, so the first data-loading change knows it must write the recipe down.
 → *Donor: Spanner + EF Core, Flyway owns migrations, emulator locally — and the scar: EF migrate/seed is a dead end (stale migrations + row-ownership interceptor).*
 
 **Q8 — Legacy oracle (brownfield).** "Is there a reference implementation new code must behaviorally match? How is parity proven — golden masters, truth tables, live probing?"
@@ -77,6 +78,7 @@ Interview discipline (from the grilling doctrine): **facts are detected** from t
 
 **Q12 — Merge gates.** "What gates a merge — CI, local checks, review policy?" If CI exists, follow up: **"is it trustworthy enough to block a merge yet, or still being stood up?"**
 → overlay facts + reviewer expectations + `axis_c` (`off` / `advisory` / `enforcing`, per `skills/_shared/axis-c.md`). A repo mid-CI-rollout wants `advisory`: the machinery runs and reports, but a flaky suite cannot stall the pipeline. Record what would promote it to `enforcing`, or it silently becomes permanent.
+→ Detected, not asked: read the workflow triggers. If `pull_request` filters by `branches:`, record that list as `ci_bases` — PRs on any other base (PRD base branches, typically) get no CI at all, and the reviewer must resolve `axis_c` to `off` for them rather than wait on runs that cannot exist. Say plainly what that means: on those PRs the local `check_commands` are the only gate.
 → *Donor: local `dotnet test` is the gate; CI doesn't gate .NET (deliberate, deferred) — an agent re-flagging this as a blocker is noise.*
 
 **Q12b — Review identity.** **Ask this whenever the pipeline is installed, and recommend `app`.** "Reviews posting from your own account can only ever be COMMENT — GitHub rejects APPROVE and REQUEST_CHANGES from a PR's own author, so the verdict never shows up as a real decision. I can set up a GitHub App so reviews post natively; it's two browser clicks via `setup/create-review-app.js`. Do that now, or stay on comment-only?"

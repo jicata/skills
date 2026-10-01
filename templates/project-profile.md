@@ -22,9 +22,11 @@ chassis: <FILL: none | paths — if not none, templates/chassis-foundation was i
 legacy_oracle: <FILL: none | pointer to the reference implementation new code must behaviorally match>
 live_state_sources: <FILL: none | list — each live store holding behaviour-shaping state this repo must never transcribe: {what: e.g. "stored prompt instructions", pull: the read-only command that fetches current state, env: the environment it reads}. Consumed by doctrine/pull-live-state-first.md (Q4b). Omit for none>
 consumer_repos: <FILL: none | list — each system that consumes this app's public surface: {name, path: local checkout, ref: the integration branch to read at (never the working tree), probe: where its client route constants / DTOs / validators / UI live}. Consumed by doctrine/port-from-consumer-contract.md (Q3). Omit for none>
+rehearsal: <FILL: none | {snapshot: the command that takes a same-day dump of the real database, restore: the command that restores it into a scratch database, target: how a loader or migration is pointed at the scratch database (e.g. a `--connection` flag)}. Consumed by doctrine/relational-persistence.md A11 — every change that loads or migrates data is executed against a same-day restored snapshot and its full report pasted under `## Rehearsal` in the PR. Omit when the repo has no persistence>
 doc_appetite: <FILL: full | lean>
 pipeline_tier: <FILL: full | light>
 axis_c: <FILL: off | advisory | enforcing — how much authority CI check-runs have over a review verdict and a merge. Omit to infer from `ci` (none ⇒ off, configured ⇒ enforcing). `advisory` is the transition state while CI is being stood up: fully exercised and reported, but never blocking. See skills/_shared/axis-c.md>
+ci_bases: <FILL: the base branches whose PRs CI actually runs on, when the workflow filters by base (`pull_request: branches: [...]`) — e.g. [master]. A PR on any other base resolves `axis_c` to `off` for that PR: no polling, and an empty check-run set is never read as a pass. Omit when CI runs on PRs to every base. See skills/_shared/axis-c.md>
 review_identity: <FILL: self | app — who authors reviews. `self` (default; omit the key entirely for it) means the PR author's own account, which GitHub restricts to COMMENT-only reviews. `app` means a GitHub App installation, which can post native APPROVE / REQUEST_CHANGES. Consumed by skills/_shared/review-protocol.md; see setup/github-app.md>
 review_app_token_cmd: <FILL: only when review_identity is app — a command printing a short-lived installation access token to stdout. Holds a key PATH, never a key. Omit entirely under `self`>
 review_app_slug: <FILL: only when review_identity is app — the App's slug; its bot login is `<slug>[bot]`. The merge gate lets a newer verdict marker at the current head supersede THIS bot's native CHANGES_REQUESTED (a stale block left behind when a later round degraded to COMMENT); a human's or any other bot's CHANGES_REQUESTED always blocks. Absent ⇒ no bot is ever superseded. Consumed by skills/_shared/review-protocol.md §4. Omit entirely under `self`>
@@ -84,7 +86,10 @@ base_version: <FILL: version/commit of the skills base library this repo was set
      - A new test category that fails loudly without its prerequisites (a rig, a credential, a gitignored
        fixture) is added to CI's filter AND this lane map in the same change. Donor scar (ADF, 2026-08): a
        new live-service category updated CI's filter only; coders kept running the old filter, hit the
-       missing-prerequisite guard, and logged a false regression that cost a cleanup cycle. -->
+       missing-prerequisite guard, and logged a false regression that cost a cleanup cycle.
+     A live-service lane (real credentials, real external calls) is a diagnostic nothing runs automatically —
+     never a gate; see skills/tdd/tests.md → Live-service tests for the opt-in, loud-failure and
+     counted-skip rules. -->
 
 
 <FILL>

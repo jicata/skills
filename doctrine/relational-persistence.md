@@ -94,6 +94,22 @@ ON CONFLICT (slug) DO NOTHING;
 
 Target the **natural-key** column, not the primary key — a real row that already owns the key is preserved with its real Id, while a blank database still gets seeded. Verify the existing row matches what you'd insert before relying on "do nothing"; if live data legitimately differs you want an update, not a silent skip.
 
+### A11. A change that loads or migrates data is done when it has been rehearsed, not when it merges green.
+**In scope:** any command, job, or script that writes rows (an importer, a backfill, a re-key), and any migration carrying data statements — inserts, updates, deletes, or row-touching raw SQL. Pure schema migrations are out: A7's schema suite already replays those.
+
+**Rehearsed** means all three:
+1. A **same-day snapshot** of the real database, restored into a scratch database. Yesterday's dump is a different database.
+2. The change **executed against that scratch database** the way it will run for real — same entry point, same flags, pointed there by connection string.
+3. The **complete printed report pasted into the PR body under a `## Rehearsal` heading.** A report that ends in an exception is a rehearsal that failed, not one that ran. Where the full report would overflow the tracker's body limit, a detail section identical to the dry run's may be omitted — say so, and still paste the report's own summary and verdict verbatim.
+
+The repo's profile records how to take the snapshot, restore it, and point a command at the scratch database (`rehearsal`). Where it records none, the first data-loading change is the one that has to write it down.
+
+Tests do not cover this, by construction: they run against the stand-in or a fixture context, which is exactly where the combination that breaks in production never occurs (see the spine). There is no code-level gate that catches "never ran"; the reviewer's read of the pasted report is the check.
+
+> **Donor scar:** an import command shipped code-complete with every test green and never once ran against a real database. Its retry execution strategy combined with a user-initiated transaction meant it could not get past its first query against *any* database; every test exercised it through a fixture context that never had that combination, and the parity gate designed to validate the import never fired. The tables it fed stayed empty for **two weeks** after a downstream rewire started reading them. A sister command in the same project, shipped the same fortnight with a mandatory rehearsal gate, worked first time — the repo already had the answer and had applied it to one command.
+
+**Reviewer red flag:** a data-loading PR whose body has no `## Rehearsal` section, or one whose pasted report ends in an error. Not merge-ready.
+
 ---
 
 ## Part B: Query & schema practice
@@ -103,6 +119,7 @@ Target the **natural-key** column, not the primary key — a real row that alrea
 - **Composite indexes follow query order.** An index on `(a, b)` serves `WHERE a = ? ORDER BY b DESC` but not `WHERE b > ?`.
 - **Partial indexes for filtered queries.** If you only ever query one slice of a skewed column, a partial index is dramatically smaller and faster.
 - **Match the index type to the operator.** B-tree is the default and fits equality/ordering. Range-overlap, containment on JSON/arrays, full-text, and fuzzy/trigram matching each need their store's specialized index type — and often an extension.
+- **On a range-sharded store, never lead a primary key with a monotonically increasing value** (a timestamp, a sequence, an auto-increment). The store splits by key range, so every new row lands in the last split and one server takes all the writes — a hotspot. Lead with a well-distributed value (a tenant id, a UUID, a hash) and put any time component after it. A single-node store does not have this problem; the profile says which kind is canonical.
 
 ### B2. Query plan literacy
 - Read the plan on any query touching >1k rows or sitting in a hot path.
@@ -167,17 +184,32 @@ Without an explicit `ORDER BY`, the canonical store does not guarantee which row
 
 **Reviewer red flag:** `First`/`FirstOrDefault(Async)?` on an entity set whose predicate is not the primary key and has no `OrderBy`.
 
+### B9. A persisted value must mean the same thing in every process and every version
+Whatever you write must decode identically in a later process, on a later build. Two encodings look stable and are not:
+
+- **An enum persisted by ordinal.** Without a name-based converter, many serializers and ORMs write an enum as its integer position. The member order is then part of the schema: deleting or reordering a member — even one no longer written — re-indexes every member after it, and old rows silently decode as a different value. **Append new members at the end; never delete or reorder.** Or persist by name, with a string converter, and the order stops mattering. Either way, decide on purpose and check what the serializer actually does.
+- **A runtime hash.** Language string hashes are randomized per process — .NET's `string.GetHashCode`, Python's `hash()` on `str` — so a hash written in one run never matches a lookup in the next. Persist a stable digest instead: SHA-256 over the UTF-8 bytes, stored as hex.
+
+The same test covers anything else you persist: if its encoding depends on the process, the runtime version, or declaration order, it is not a stored value, it is a coincidence.
+
+> **Donor scar:** a reason enum serialized into a JSON log column with no string converter. A later change stopped writing two of its members. "Tidy the dead members" was the obvious next edit — and deleting the first of them would have made every old row recorded with it read back as the success value, and every old success row as an undefined one. The rule landed as a frozen-ordinals constraint before anyone made the edit. The same donor keys a cache table by a SHA-256 of the cached text for the second reason above: the runtime hash would never have hit across restarts.
+
+**Reviewer red flag:** a deleted or reordered member of an enum that is persisted by ordinal; a runtime string hash written to storage.
+
 ## 🚫 Anti-patterns (flag in review)
 
 1. Disabling or working around the design-time migration guard (A2).
 2. A migration full of stand-in type affinities (A4).
 3. A literal surrogate Id for runtime-managed reference data (A9).
 4. A non-idempotent data seed (A10).
-5. An unindexed foreign key (B1).
-6. Server data fetched in a loop / unprojected full-entity reads in a hot path (B3).
-7. A blocking index creation on a large table (B4).
-8. Concurrent queries on one scoped context (B7).
-9. `First`/`FirstOrDefault` on an entity set with a non-primary-key predicate and no `OrderBy` (B8).
+5. A data-loading change with no completed `## Rehearsal` report on its PR (A11).
+6. An unindexed foreign key (B1).
+7. A monotonic leading primary key on a range-sharded store (B1).
+8. Server data fetched in a loop / unprojected full-entity reads in a hot path (B3).
+9. A blocking index creation on a large table (B4).
+10. Concurrent queries on one scoped context (B7).
+11. `First`/`FirstOrDefault` on an entity set with a non-primary-key predicate and no `OrderBy` (B8).
+12. A persisted value whose encoding depends on the process or on declaration order — an ordinal enum with a deleted or reordered member, a runtime string hash (B9).
 
 ## 🗣️ Communication style
 
