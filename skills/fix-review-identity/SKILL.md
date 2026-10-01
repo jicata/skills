@@ -17,7 +17,7 @@ Read [`../_shared/review-protocol.md`](../_shared/review-protocol.md) §7 first;
 
 ## What this skill may and may not touch
 
-- **May** write the token helper, correct a path in `review_app_token_cmd`, fill in an installation ID, and re-verify.
+- **May** write the token helper, correct a path in `review_app_token_cmd`, fill in an installation ID, and re-verify. Profile edits touch the `review_app_token_cmd` line only and stay in the working tree — never commit them; leave the diff for the human.
 - **May not** invent, move, or transmit key material. A private key is a credential: if it is genuinely absent, the human must place it or generate a new one. Never print it, never copy it into the repo, never echo a token.
 - **May not** flip `review_identity` to `self` to make the warning stop. That hides the fault instead of fixing it — only the human decides to stop using the App.
 
@@ -25,7 +25,7 @@ Read [`../_shared/review-protocol.md`](../_shared/review-protocol.md) §7 first;
 
 From `.claude/doctrine/project-profile.md`: `review_identity` and `review_app_token_cmd`.
 
-- **Key absent, or `self`** → nothing is broken; `self` is a valid configuration. Report that, and offer the upgrade: creating an App takes two browser clicks via `setup/create-review-app.js` in the base library (`setup/github-app.md`). Stop unless the user asks for it.
+- **Key absent, or `self`** → nothing is broken; `self` is a valid configuration. Report that, and offer the upgrade: creating an App takes two browser clicks via `setup/create-review-app.js` in the base library (`--org <org>` for an org-owned repo; walkthrough: `setup/github-app.md`). **On an org that restricts App installs to owners, say plainly that the install needs an org owner's approval:** the App is created immediately, but the token command fails `not_installed` until an owner approves, so the profile must not be flipped to `app` before `setup/github-app.md` §5 passes. Stop unless the user asks for it.
 - **`app`** → continue.
 
 ## Step 2 — Probe and classify
@@ -86,10 +86,10 @@ The key is often present under a different name or path, especially after a mach
 ls ~/.ssh/*.pem ~/.claude/*.pem ~/Downloads/*.private-key.pem 2>/dev/null
 ```
 
-For each candidate, mint a JWT with the profile's `GH_APP_ID` and call `GH_TOKEN="<jwt>" gh api app` (the JWT, never the installation token). The one that authenticates is the right key — matching by filename is a guess, matching by successful auth is proof.
+For each candidate, mint a JWT with the profile's `GH_APP_ID` and call `GH_TOKEN="<jwt>" gh api app` (the JWT, never the installation token). The one that authenticates is the right key — matching by filename is a guess, matching by successful auth is proof. A key for a **personal-account** App (one created for the operator's own repos) authenticates as *that* App, not as the one installed on `<org>` — report that as a mismatch, don't repoint at it.
 
 - **A candidate authenticates** → update the path in `review_app_token_cmd`. Do **not** copy or move the key; point at where it already lives.
-- **None do** → the key is genuinely gone. GitHub cannot re-issue it and there is no API to create one, so the human must generate a fresh key: App settings → **Private keys → Generate a private key**, save outside any repo, then re-run this skill. Print the direct URL (`https://github.com/settings/apps/<slug>/permissions` links it) and say plainly that the old key should be deleted on that page once replaced.
+- **None do** → the key is genuinely gone. GitHub cannot re-issue it and there is no API to create one, so the human must generate a fresh key: App settings → **Private keys → Generate a private key**, save outside any repo, then re-run this skill. Print the App's settings URL — `https://github.com/settings/apps/<slug>` for a personal-account App, `https://github.com/organizations/<org>/settings/apps/<slug>` for an org-owned one — and say plainly that the old key should be deleted on that page once replaced.
 
 ### `not_installed` — one click, then automatic
 
@@ -100,11 +100,11 @@ GH_TOKEN="<jwt>" gh api app/installations --jq '.[] | "\(.id) \(.account.login) 
 ```
 
 - **An installation exists** → the recorded ID is simply wrong. Correct it in `review_app_token_cmd`. No human input needed.
-- **None** → print `https://github.com/apps/<slug>/installations/new`, ask for **Only select repositories** → this repo, then re-list and fill the ID in automatically. The operator clicks; this skill does the rest.
+- **None** → print `https://github.com/apps/<slug>/installations/new`, ask for **Only select repositories** → this repo, then re-list and fill the ID in automatically. The operator clicks; this skill does the rest. On an org that restricts installs to owners, the click raises an install **request** that an org owner must approve — say so, and that the request can sit pending with no error: the probe keeps reporting `not_installed` until it is approved, and the profile stays as it is until then.
 
 ### `forbidden` — re-approval, then verify
 
-Permissions changed and the installation needs re-approval. Print the installation URL and the four required permissions (`pull_requests: write`, `contents: read`, `checks: read`, `metadata: read`). After approval, re-probe.
+Permissions changed and the installation needs re-approval (on an org, by an org owner). Print the installation URL and the four required permissions (`pull_requests: write`, `contents: read`, `checks: read`, `metadata: read`). After approval, re-probe.
 
 ### `auth_failed` — the key and the App ID disagree
 
@@ -112,7 +112,7 @@ Test the configured key against the configured `GH_APP_ID`. If `GH_TOKEN="<jwt>"
 
 ### `not_configured` — declared `app` with nothing behind it
 
-`review_identity: app` with no usable `review_app_token_cmd`. If the account already has a suitable App (`gh api app/installations` after a JWT, or ask), rebuild the command from its App ID, installation ID, and key path. Otherwise this is first-time setup, not a repair: point at `setup/create-review-app.js` in the base library.
+`review_identity: app` with no usable `review_app_token_cmd`. If the account already has a suitable App (`gh api app/installations` after a JWT, or ask), rebuild the command from its App ID, installation ID, and key path. Otherwise this is first-time setup, not a repair: point at `setup/create-review-app.js` in the base library, and at the org-owner approval it will need on an org repo.
 
 ## Step 4 — Verify end to end
 
@@ -146,9 +146,9 @@ Do **not** post a test review to verify. Use `setup/github-app.md` §5 if the us
 
 ## Step 5 — Report
 
-State what was broken, what changed, and what the operator did. Then confirm recovery in the operator's terms: **the next review runs as the App — tokens are minted per call, so no cache to clear and nothing to re-run.** If a `/ship-*` run reported the original mismatch, its next run's Execution conformance block will read `✅ Ran as configured.`
+State what was broken, what changed, and what the operator (or org owner) did. Then confirm recovery in the operator's terms: **the next review runs as the App — tokens are minted per call, so no cache to clear and nothing to re-run.** If a `/ship-*` run reported the original mismatch, its next run's Execution conformance block will read `✅ Ran as configured.`
 
-If the repair needed the human and they haven't done their part yet, say exactly what remains and that re-invoking this skill resumes from there.
+If the repair needed the human (or an org owner's approval) and that hasn't happened yet, say exactly what remains and that re-invoking this skill resumes from there.
 
 ## Critical Rules
 
@@ -158,4 +158,5 @@ If the repair needed the human and they haven't done their part yet, say exactly
 4. **Verify by use, never by filename.** A candidate key counts only if it authenticates against the configured App ID.
 5. **Never post a review to test.** Verification uses read-only endpoints.
 6. **`--check` changes nothing** — no files written, no profile edits, no directories created.
-7. **Repair what needs no human, ask for only what does.** A missing helper is a silent auto-fix; a missing key is not.
+7. **Repair what needs no human, ask for only what does.** A missing helper is a silent auto-fix; a missing key or a pending org install approval is not.
+8. **Never commit.** Profile edits stay in the working tree for the human to review.
